@@ -1,0 +1,56 @@
+{
+  "name": "opentui-markdown-render",
+  "version": "0.1.0",
+  "description": "OpenTUI Markdown renderer with optional native LaTeX math",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "native",
+    "prebuilds",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build:native": "bun run scripts/build-native.ts",
+    "generate:examples": "bun run scripts/generate-example-assets.ts",
+    "demo": "bun --preload @opentui/solid/preload examples/app.tsx",
+    "demo:plain": "bun --preload @opentui/solid/preload examples/app.tsx plain.md",
+    "demo:tables": "bun --preload @opentui/solid/preload examples/app.tsx tables.md",
+    "demo:mermaid": "bun --preload @opentui/solid/preload examples/app.tsx mermaid.md",
+    "demo:math": "bun --preload @opentui/solid/preload examples/app.tsx math.md",
+    "demo:images": "bun --preload @opentui/solid/preload examples/app.tsx images.md",
+    "demo:mixed": "bun --preload @opentui/solid/preload examples/app.tsx rendered.md",
+    "test": "bun test --timeout 30000",
+    "typecheck": "tsgo --noEmit",
+    "verify": "bun run build:native && bun run typecheck && bun test && bun run verify:native",
+    "verify:native": "cargo test --manifest-path native/Cargo.toml",
+    "prepack": "bun run build:native",
+    "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md",
+    "demo:class-diag": "bun --preload @opentui/solid/preload examples/app.tsx class-diag.md"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.12",
+    "@opentui/solid": ">=0.5.12",
+    "solid-js": ">=1.9.0"
+  },
+  "dependencies": {
+    "entities": "7.0.1",
+    "gifuct-js": "2.1.2",
+    "string-width": "7.2.0"
+  },
+  "devDependencies": {
+    "@opentui/core": "0.5.12",
+    "@opentui/solid": "0.5.12",
+    "@tsconfig/bun": "1.0.9",
+    "@types/bun": "1.4.0",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1",
+    "solid-js": "1.9.15"
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  }
+}

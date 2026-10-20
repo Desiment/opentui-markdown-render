@@ -1,0 +1,229 @@
+import { describe, expect, test } from "bun:test"
+import { MermaidSyntaxError } from "../src/merman"
+import { renderClassDiagram } from "../src/merman/class/diagram"
+import { layoutClassDiagram } from "../src/merman/class/layout"
+import { isMermaidClassDiagram, parseMermaidClassDiagram } from "../src/merman/class/parser"
+import { measureMermaidDiagram } from "../src/merman/markdown"
+
+describe("class diagram detection", () => {
+  test("matches the header with and without an inline direction", () => {
+    expect(isMermaidClassDiagram("classDiagram")).toBe(true)
+    expect(isMermaidClassDiagram("classDiagram TB")).toBe(true)
+    expect(isMermaidClassDiagram("classDiagram LR")).toBe(true)
+    expect(isMermaidClassDiagram("\n  classDiagram BT\n  A <|-- B")).toBe(true)
+    expect(isMermaidClassDiagram("classDiagramX")).toBe(false)
+    expect(isMermaidClassDiagram("flowchart LR\n  A --> B")).toBe(false)
+  })
+})
+
+describe("class diagram parser", () => {
+  test("collects classes, members, and stereotypes", () => {
+    const diagram = parseMermaidClassDiagram(
+      [
+        "classDiagram",
+        "  class Shape {",
+        "    <<interface>>",
+        "    +area() double",
+        "  }",
+        "  Shape : +String name",
+        "  <<service>> Registry",
+      ].join("\n"),
+    )
+
+    const shape = diagram.classes.find((entry) => entry.id === "Shape")!
+    expect(shape.stereotype).toBe("interface")
+    expect(shape.members).toEqual([
+      { text: "+area() double", method: true },
+      { text: "+String name", method: false },
+    ])
+
+    const registry = diagram.classes.find((entry) => entry.id === "Registry")!
+    expect(registry.stereotype).toBe("service")
+
+    expect(diagram.classes.map((entry) => entry.id)).toContain("Shape")
+  })
+
+  test("distinguishes methods from attributes", () => {
+    const diagram = parseMermaidClassDiagram(["classDiagram", "  class Point {", "    +int x", "    +move(dx): void", "  }"].join("\n"))
+    const point = diagram.classes[0]!
+    expect(point.members).toEqual([
+      { text: "+int x", method: false },
+      { text: "+move(dx): void", method: true },
+    ])
+  })
+
+  test("maps every relationship operator to its kind and head", () => {
+    const diagram = parseMermaidClassDiagram(
+      [
+        "classDiagram",
+        "  A <|-- B",
+        "  A *-- C",
+        "  A o-- D",
+        "  A --> E",
+        "  A ..> F",
+        "  A <|.. G",
+        "  A -- H",
+        "  A --|> I",
+        "  A --* J",
+        "  A --o K",
+        "  A <-- L",
+        "  A <.. M",
+        "  A ..|> N",
+      ].join("\n"),
+    )
+
+    expect(diagram.relationships.map((relation) => relation.kind)).toEqual([
+      "inheritance",
+      "composition",
+      "aggregation",
+      "association",
+      "dependency",
+      "realization",
+      "link",
+      "inheritance",
+      "composition",
+      "aggregation",
+      "association",
+      "dependency",
+      "realization",
+    ])
+    expect(diagram.relationships.map((relation) => relation.headAt)).toEqual([
+      "from",
+      "from",
+      "from",
+      "to",
+      "to",
+      "from",
+      "none",
+      "to",
+      "to",
+      "to",
+      "from",
+      "from",
+      "to",
+    ])
+    expect(diagram.relationships.filter((relation) => relation.dashed).map((relation) => relation.kind)).toEqual([
+      "dependency",
+      "realization",
+      "dependency",
+      "realization",
+    ])
+  })
+
+  test("does not confuse operator text inside quoted cardinalities", () => {
+    const diagram = parseMermaidClassDiagram(['classDiagram', '  A "0..*" --> "1..*" B : uses'].join("\n"))
+    const relation = diagram.relationships[0]!
+    expect(relation.from).toBe("A")
+    expect(relation.to).toBe("B")
+    expect(relation.kind).toBe("association")
+    expect(relation.fromCardinality).toBe("0..*")
+    expect(relation.toCardinality).toBe("1..*")
+    expect(relation.label).toBe("uses")
+  })
+
+  test("keeps labels and multiplicities", () => {
+    const diagram = parseMermaidClassDiagram(["classDiagram", '  Square "1" --> "4" Point : uses'].join("\n"))
+    const relation = diagram.relationships[0]!
+    expect(relation.from).toBe("Square")
+    expect(relation.to).toBe("Point")
+    expect(relation.label).toBe("uses")
+    expect(relation.fromCardinality).toBe("1")
+    expect(relation.toCardinality).toBe("4")
+  })
+
+  test("reads the direction from the header and from a direction line", () => {
+    expect(parseMermaidClassDiagram("classDiagram LR\n  A --> B").direction).toBe("LR")
+    expect(parseMermaidClassDiagram("classDiagram\n  direction BT\n  A --> B").direction).toBe("BT")
+    expect(parseMermaidClassDiagram("classDiagram\n  A --> B").direction).toBe("TB")
+  })
+})
+
+describe("class diagram rendering", () => {
+  const model = [
+    "classDiagram",
+    "  class Shape {",
+    "    <<interface>>",
+    "    +area() double",
+    "  }",
+    "  class Circle {",
+    "    +double radius",
+    "    +area() double",
+    "  }",
+    "  Shape <|-- Circle : extends",
+  ].join("\n")
+
+  test("draws class names, stereotypes, and members", () => {
+    const output = renderClassDiagram(model)
+    expect(output).toContain("Shape")
+    expect(output).toContain("«interface»")
+    expect(output).toContain("+area() double")
+    expect(output).toContain("Circle")
+    expect(output).toContain("extends")
+  })
+
+  test("renders a diagram for every direction", () => {
+    for (const direction of ["TB", "BT", "LR", "RL"] as const) {
+      const output = renderClassDiagram(`classDiagram\n  direction ${direction}\n  A <|-- B\n  B --> C\n`)
+      expect(output).toContain("A")
+      expect(output).toContain("B")
+      expect(output).toContain("C")
+      expect(output.split("\n").length).toBeGreaterThan(2)
+    }
+  })
+
+  test("keeps a vertical connector for the deepest parallel lane", () => {
+    const source = [
+      "classDiagram",
+      ...Array.from({ length: 8 }, (_, index) => `  A <|-- B${index}`),
+    ].join("\n")
+    const layout = layoutClassDiagram(parseMermaidClassDiagram(source), "TB")
+    expect(layout.edges).toHaveLength(8)
+    for (const edge of layout.edges) {
+      const last = edge.path[edge.path.length - 1]!
+      const previous = edge.path[edge.path.length - 2]!
+      // Each edge must reach its child through a non-empty vertical drop.
+      expect(Math.abs(last.x - previous.x)).toBe(0)
+      expect(Math.abs(last.y - previous.y)).toBeGreaterThan(0)
+    }
+  })
+
+  test("folds a wide horizontal diagram to vertical when capped", () => {
+    const source = ["classDiagram", "  direction LR", "  A --> B", "  B --> C", "  C --> D"].join("\n")
+    const wide = renderClassDiagram(source, { layoutMaxWidth: 1000 })
+    const folded = renderClassDiagram(source, { layoutMaxWidth: 24 })
+    const width = (text: string) => Math.max(...text.split("\n").map((line) => line.length))
+    expect(width(folded)).toBeLessThan(width(wide))
+  })
+})
+
+describe("class diagram fallback", () => {
+  test("throws a typed syntax error for unsupported syntax", () => {
+    const source = ["classDiagram", "  class A", "  note for A \"unsupported\""].join("\n")
+    expect(() => parseMermaidClassDiagram(source)).toThrow(MermaidSyntaxError)
+    try {
+      parseMermaidClassDiagram(source)
+    } catch (error) {
+      expect(error).toBeInstanceOf(MermaidSyntaxError)
+      expect((error as MermaidSyntaxError).kind).toBe("classDiagram")
+      expect((error as MermaidSyntaxError).lineNumber).toBe(3)
+      expect((error as MermaidSyntaxError).message).toContain("notes")
+    }
+  })
+
+  test("flags namespaces, packages, and hyperlinks as unsupported", () => {
+    expect(() => parseMermaidClassDiagram("classDiagram\n  namespace Foo\n")).toThrow(MermaidSyntaxError)
+    expect(() => parseMermaidClassDiagram("classDiagram\n  package Foo\n")).toThrow(MermaidSyntaxError)
+    expect(() => parseMermaidClassDiagram("classDiagram\n  click A href \"x\"\n")).toThrow(MermaidSyntaxError)
+  })
+
+  test("measureMermaidDiagram propagates the syntax error so the fence stays source", () => {
+    const source = ["classDiagram", "  class A", "  note for A \"unsupported\""].join("\n")
+    expect(() => measureMermaidDiagram(source)).toThrow(MermaidSyntaxError)
+  })
+
+  test("measureMermaidDiagram prepares a supported class diagram", () => {
+    const prepared = measureMermaidDiagram("classDiagram\n  A <|-- B")
+    expect(prepared?.kind).toBe("classDiagram")
+    expect(prepared?.height).toBeGreaterThan(0)
+  })
+})
