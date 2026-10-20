@@ -9,6 +9,11 @@ export const maxColumns = 80
 
 const TRANSPARENT_BACKGROUND = "#000000"
 
+export type ImageLimits = {
+  readonly maxColumns?: number
+  readonly maxRows?: number
+}
+
 type Rgb = readonly [number, number, number]
 
 function isRgba(value: unknown): value is RGBA {
@@ -59,15 +64,23 @@ export function resolveLocalImage(base: string | undefined, href: string) {
   return { path: target }
 }
 
-export function imageBox(width: number, height: number, columns: number, cellAspectRatio: number) {
+export function imageBox(
+  width: number,
+  height: number,
+  columns: number,
+  cellAspectRatio: number,
+  limits?: ImageLimits,
+) {
   const ratio = width / height
   // A 0 (or non-finite) cell aspect means the terminal never reported pixel
   // dimensions; the common 2:1 cell is the safe default.
   const aspect = Number.isFinite(cellAspectRatio) && cellAspectRatio > 0 ? cellAspectRatio : 2
-  const clamped = Math.max(1, Math.min(Math.max(1, columns), maxColumns))
+  const columnLimit = Math.max(1, limits?.maxColumns ?? maxColumns)
+  const rowLimit = Math.max(1, limits?.maxRows ?? maxRows)
+  const clamped = Math.max(1, Math.min(Math.max(1, columns), columnLimit))
   const naturalRows = Math.max(1, Math.ceil(clamped / (ratio * aspect)))
-  if (naturalRows <= maxRows) return { columns: clamped, rows: naturalRows }
-  return { columns: Math.max(1, Math.round(ratio * maxRows * aspect)), rows: maxRows }
+  if (naturalRows <= rowLimit) return { columns: clamped, rows: naturalRows }
+  return { columns: Math.max(1, Math.round(ratio * rowLimit * aspect)), rows: rowLimit }
 }
 
 export function LocalImage(props: {
@@ -77,6 +90,7 @@ export function LocalImage(props: {
   readonly columns: () => number
   readonly cell: () => { width: number; height: number } | null | undefined
   readonly background: () => ColorInput | RGBA | undefined
+  readonly limits?: ImageLimits
 }) {
   const [failure, setFailure] = createSignal<string>()
   // The cell size is part of the key so the image is reloaded and re-fitted once
@@ -89,6 +103,7 @@ export function LocalImage(props: {
         columns: props.columns(),
         cell: props.cell() ?? null,
         background: rgbToHex(resolveBackground(props.background())),
+        limits: props.limits ?? null,
       }),
     async (key): Promise<Media | { error: string }> => {
       const input = JSON.parse(key) as {
@@ -97,6 +112,7 @@ export function LocalImage(props: {
         columns: number
         cell?: { width: number; height: number } | null
         background?: string
+        limits?: ImageLimits | null
       }
       const resolved = resolveLocalImage(input.base, input.href)
       if (resolved.path === undefined) return { error: resolved.error ?? "Image path is invalid" }
@@ -105,7 +121,13 @@ export function LocalImage(props: {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer())
         const info = imageInfo(bytes)
-        const box = imageBox(info.width, info.height, Math.max(1, input.columns), input.cell ? input.cell.height / input.cell.width : 2)
+        const box = imageBox(
+          info.width,
+          info.height,
+          Math.max(1, input.columns),
+          input.cell ? input.cell.height / input.cell.width : 2,
+          input.limits ?? undefined,
+        )
         const target = { width: Math.max(1, Math.round(box.columns * (input.cell?.width ?? 8))), height: Math.max(1, Math.round(box.rows * (input.cell?.height ?? 16))) }
         const background = resolveBackground(input.background)
         if (info.format === "gif") return loadGif(bytes, box, target, background)

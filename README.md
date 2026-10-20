@@ -26,18 +26,70 @@ import { MarkdownRenderer } from "opentui-markdown-render"
 ## Theming
 
 The component resolves its theme in priority order: a host-provided `theme`
-prop, then a config file, then a bundled light/dark default. The default follows
-the terminal's reported theme (`auto`), falling back to dark.
+prop, then the config file, then a bundled light/dark default. The default
+follows the terminal's reported theme (`auto`), falling back to dark.
 
 - `theme` accepts a resolved `Theme` (or an accessor) built with `resolveTheme`,
   `mergeTheme`, `defaultTheme`, and `type Theme`.
-- `configPath` points at a JSON/JSONC override. Without it, the package walks up
-  from `cwd` looking for `opentui-markdown-render.json[c]`.
 - `themeMode` is `"light" | "dark" | "auto"` (or an accessor).
 - `mathScale` adjusts display-math size.
 
 Math PNGs bake in the foreground/background, so they rerasterize when the theme
 or terminal cell size changes.
+
+## Configuration
+
+The renderer reads a JSON/JSONC file. Without an explicit `configPath` it walks
+up from `cwd` looking for `opentui-markdown-render.jsonc` and then
+`opentui-markdown-render.json`. A `config` prop replaces the file lookup
+entirely.
+
+```jsonc
+{
+  "$schema": "./node_modules/opentui-markdown-render/schema.json", // ignored
+  "theme": {
+    "mode": "dark",
+    "accent": "#7dd3fc",
+    "markdown": { "heading": "#e2e8f0" }
+  },
+  "statusline": {
+    "enabled": true,
+    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
+    "separator": " · ",
+    "border": "top"
+  },
+  "math": { "scale": 1, "displayScale": 1.2 },
+  "images": { "maxColumns": 80, "maxRows": 32 },
+  "mermaid": { "compact": false, "layoutMaxWidth": 120 }
+}
+```
+
+Every section is optional and keeps the bundled default when it is missing.
+Unknown sections and unknown status line field names are reported on stderr
+and ignored; a file that is not valid JSON is reported with its name and the
+bundled defaults are used.
+
+## Status line
+
+`StatusLine` renders one themed row of labelled fields. The host owns the
+values, the library owns the layout and the colours.
+
+```tsx
+import { StatusLine } from "opentui-markdown-render"
+
+<StatusLine
+  theme={theme}
+  state={() => ({ title: "notes.md", protocol: "kitty", hint: "[q] quit" })}
+  fields={config.statusline?.fields}
+  separator={config.statusline?.separator}
+  border={config.statusline?.border}
+/>
+```
+
+Available fields are `title`, `mode`, `protocol`, `cell`, `mathScale`,
+`position`, `hint`, and `text` (a list of extra host strings). A field without
+a value is skipped. `formatStatusLine` and `statusLineSegments` expose the
+same formatting without rendering.
 
 ## Fallback
 

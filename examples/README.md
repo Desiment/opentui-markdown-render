@@ -18,5 +18,10 @@ Run `bun run generate:examples` before the image, mixed, or all examples. Math n
 Kitty-compatible terminal with reported pixel dimensions; source LaTeX is the
 expected fallback otherwise.
 
-The demo app toggles the theme with `t`, resizes display math with `+`/`-`, and
+The demo app shows a status line at the bottom with the file name, theme mode,
+graphics protocol, cell pixel size, math scale, scroll position, and the key
+hints. It toggles the theme with `t`, resizes display math with `+`/`-`, and
 quits with `q`.
+
+`opentui-markdown-render.jsonc` in this directory is picked up automatically by
+the config discovery and configures the status line.

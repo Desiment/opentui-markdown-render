@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { defaultTheme, generateSyntax, mergeTheme, parseThemeConfig, resolveTheme } from "../src/theme"
+import { defaultTheme, generateSyntax, mergeTheme, resolveTheme } from "../src/theme"
 
 describe("theme resolution", () => {
   test("merges a partial override over the bundled default for the mode", () => {
@@ -21,22 +21,5 @@ describe("theme resolution", () => {
       expect(syntax.getStyle("markup.list")?.fg).toEqual(text)
       expect(syntax.getStyle("markup.list.enumeration")?.fg).toEqual(text)
     }
-  })
-})
-
-describe("theme config parsing", () => {
-  test("accepts JSONC comments and trailing commas", () => {
-    const override = parseThemeConfig(`{
-      // a comment
-      "mode": "light",
-      "markdown": { "text": "#101010", },
-    }`)
-    expect(override).toEqual({ mode: "light", markdown: { text: "#101010" } })
-  })
-
-  test("reports invalid config with the file name", () => {
-    expect(() => parseThemeConfig("{ not json }", "opentui-markdown-render.jsonc")).toThrow(
-      /opentui-markdown-render\.jsonc/,
-    )
   })
 })

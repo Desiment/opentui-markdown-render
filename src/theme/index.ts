@@ -1,5 +1,4 @@
 export { defaultTheme } from "./defaults"
 export { generateSyntax } from "./syntax"
-export { loadThemeConfig, discoverThemeConfig, parseThemeConfig, themeConfigFilenames } from "./config"
 export { resolveTheme, mergeTheme } from "./resolve"
 export type { Theme, ThemeMode, ThemeOverride } from "./types"

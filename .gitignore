@@ -4,3 +4,4 @@ prebuilds/
 native/target/
 *.log
 .DS_Store
+buffer_dump/

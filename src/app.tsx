@@ -6,7 +6,8 @@ import { LocalImage } from "./media"
 import { mathImageID, renderMathImage, rgbaToHex, type CellSize, type MathImage } from "./math"
 import { createThemedMermaidRenderer } from "./merman"
 import { generateSyntax } from "./theme/syntax"
-import { loadThemeConfig } from "./theme/config"
+import { loadConfig } from "./config"
+import type { ImagesConfig, MarkdownConfig } from "./config"
 import { resolveTheme } from "./theme/resolve"
 import type { Theme, ThemeMode } from "./theme/types"
 
@@ -19,6 +20,8 @@ export type MarkdownRendererProps = {
   readonly assetBase?: () => string | undefined
   // A host that already resolved a theme wins over the config file and default.
   readonly theme?: Theme | (() => Theme)
+  // A ready-made configuration. It replaces the file lookup entirely.
+  readonly config?: MarkdownConfig | (() => MarkdownConfig)
   // An explicit JSON/JSONC config path. Without one the package walks up from
   // `cwd` looking for `opentui-markdown-render.json[c]`.
   readonly configPath?: string
@@ -34,6 +37,7 @@ export function resolveRendererTheme(
   renderer: CliRenderer,
   options: {
     theme?: Theme | (() => Theme)
+    config?: MarkdownConfig
     configPath?: string
     themeMode?: ThemeModeSetting | null | undefined
     cwd?: string
@@ -41,15 +45,21 @@ export function resolveRendererTheme(
 ): Theme {
   const host = typeof options.theme === "function" ? options.theme() : options.theme
   if (host) return host
-  let override
+  const config = options.config ?? loadRendererConfig(options.configPath, options.cwd)
+  const setting = options.themeMode
+  const mode = setting && setting !== "auto" ? setting : (config.theme?.mode ?? renderer.themeMode ?? "dark")
+  return resolveTheme({ mode, override: config.theme })
+}
+
+// A broken config file must not take the whole renderer down, so the failure
+// is reported and the bundled defaults are used instead.
+export function loadRendererConfig(configPath?: string, cwd?: string): MarkdownConfig {
   try {
-    override = loadThemeConfig(options.configPath, options.cwd)
+    return loadConfig(configPath, cwd)
   } catch (error) {
     console.warn(`[opentui-markdown-render] ${error instanceof Error ? error.message : String(error)}`)
+    return {}
   }
-  const setting = options.themeMode
-  const mode = setting && setting !== "auto" ? setting : (override?.mode ?? renderer.themeMode ?? "dark")
-  return resolveTheme({ mode, override })
 }
 
 export function MarkdownRenderer(props: MarkdownRendererProps) {
@@ -59,17 +69,27 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const columns = () => Math.max(8, props.columns?.() ?? renderer.terminalWidth)
 
   const themeModeSetting = () => (typeof props.themeMode === "function" ? props.themeMode() : props.themeMode)
+  const config = createMemo<MarkdownConfig>(() => {
+    const provided = typeof props.config === "function" ? props.config() : props.config
+    if (provided) return provided
+    return loadRendererConfig(props.configPath, props.cwd)
+  })
   const theme = createMemo<Theme>(() =>
     resolveRendererTheme(renderer, {
       theme: props.theme,
-      configPath: props.configPath,
+      config: config(),
       themeMode: themeModeSetting(),
-      cwd: props.cwd,
     }),
   )
 
   const blocks = createMemo(() => scanDocument(props.content()))
-  const renderNode = createThemedMermaidRenderer(renderer, { theme })
+  const renderNode = createThemedMermaidRenderer(renderer, {
+    theme,
+    compact: config().mermaid?.compact,
+    layoutMaxWidth: config().mermaid?.layoutMaxWidth,
+  })
+  const mathScale = () => props.mathScale?.() ?? config().math?.scale ?? 1
+  const displayScale = () => mathScale() * (config().math?.displayScale ?? 1)
 
   // OpenTUI's markdown renderable caches each chunk's resolved color and only
   // rebuilds a block when its text changes, so a theme swap leaves stale colors
@@ -88,8 +108,10 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
                 renderNode={renderNode}
                 columns={columns}
                 surface={surface}
-                mathScale={() => props.mathScale?.() ?? 1}
+                mathScale={mathScale}
+                displayScale={displayScale}
                 assetBase={() => props.assetBase?.()}
+                imageLimits={config().images}
               />
             )}
           </For>
@@ -107,7 +129,9 @@ type BlockViewProps = {
   readonly columns: () => number
   readonly surface: () => string
   readonly mathScale: () => number
+  readonly displayScale: () => number
   readonly assetBase: () => string | undefined
+  readonly imageLimits?: ImagesConfig
 }
 
 // A block owns either OpenTUI's Markdown renderer or the inline flow, never both.
@@ -134,7 +158,7 @@ function BlockView(props: BlockViewProps) {
           content={block.content}
           open={block.open}
           close={block.close}
-          size={props.mathScale}
+          size={props.displayScale}
           maxWidth={props.columns}
           surface={props.surface}
           theme={props.theme}
@@ -151,6 +175,7 @@ function BlockView(props: BlockViewProps) {
           columns={props.columns}
           cell={props.graphics.cell}
           background={props.surface}
+          limits={props.imageLimits}
         />
       )
     }
