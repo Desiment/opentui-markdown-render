@@ -1,32 +1,46 @@
-# All-in-One Demo
+# Kestrel documentation
 
-## Headings, Text & Links
+Everything the renderer covers, in one page: prose, code, tables, formulas,
+diagrams and telemetry frames.
+
+## The tool
+
+Kestrel turns a raw flight log into a readable terminal report. It parses
+CommonMark, typesets the formulas, and draws the diagrams and frames that come
+with the log.
 
 ### Formatting
-This is *italic*, **bold**, and `inline code`.
 
-[OpenTUI](https://github.com/sst/opentui)
+Reports mix *italic*, **bold** and `inline code`, and a cross-reference such as
+[the flight plan](https://github.com/sst/opentui) keeps its label.
 
-### Blockquote
-> A blockquote for emphasis.
+### A note from the flight director
 
-### Lists
-- Unordered item 1
-- Unordered item 2
-  - Nested item
-1. Ordered one
-2. Ordered two
+> Every figure in a report has to survive being read over SSH, on a terminal
+> that cannot draw a single pixel. When a frame or a formula cannot be
+> rendered, the source is printed instead of a broken image.
 
-### Thematic Break
+### The parts of a report
+
+- Flight data
+  - Altitude and velocity
+  - Propellant mass
+- Analysis
+  - Formulas
+  - Diagrams
+1. Recording
+2. Decoding
+3. Reporting
+
 ---
 
-## Code Block
+## Code
 
 ```js
-function greet(name) {
-  return `Hello, ${name}!`
+function greet(vehicle) {
+  return `Hello, ${vehicle}!`
 }
-console.log(greet("world"))
+console.log(greet("Kestrel"))
 ```
 
 ## Tables
@@ -45,11 +59,12 @@ $$
 \int_0^\infty e^{-x}\,dx = 1
 $$
 
-Truncated (should show source): $$\frac{1}{ $$
+Truncated, and therefore left as source: $$\frac{1}{ $$
 
-## Mermaid
+## Diagrams
 
-### Flowchart (multiple directions and node shapes)
+### The pipeline, in both directions
+
 ```mermaid
 flowchart LR
   A[Start] --> B{Decision}
@@ -73,7 +88,8 @@ flowchart BT
   B --> C
 ```
 
-### Sequence Diagram
+### The handoff
+
 ```mermaid
 sequenceDiagram
   participant User
@@ -84,7 +100,8 @@ sequenceDiagram
   Renderer-->>-User: Updated output
 ```
 
-### State Diagram (v2)
+### Vehicle states
+
 ```mermaid
 stateDiagram-v2
   [*] --> Loading
@@ -100,7 +117,8 @@ stateDiagram-v2
   Fork --> B
 ```
 
-### Gantt Chart
+### The launch window
+
 ```mermaid
 gantt
   dateFormat s
@@ -110,7 +128,8 @@ gantt
   Draw media :3, 7
 ```
 
-### Timeline
+### Milestones
+
 ```mermaid
 timeline
   title Renderer milestones
@@ -122,7 +141,8 @@ timeline
        : Transparency handling
 ```
 
-### Git Graph
+### Release history
+
 ```mermaid
 gitGraph
   commit id: "baseline"
@@ -133,7 +153,8 @@ gitGraph
   merge media
 ```
 
-### Class Diagram
+### The vehicle model
+
 ```mermaid
 classDiagram
   direction TB
@@ -158,24 +179,25 @@ classDiagram
   Circle *-- Point : center
 ```
 
-## Images
+## Frames
 
-Opaque PNG:
+The ascent profile, opaque:
 
-![Opaque generated gradient](./assets/opaque.png)
+![Altitude profile of the ascent phase](./assets/opaque.png)
 
-Transparent PNG:
+Two sensor footprints with partial coverage:
 
-![Transparent overlapping circles](./assets/transparent.png)
+![Overlapping sensor footprints](./assets/transparent.png)
 
-Animated GIF:
+An animated countdown loop:
 
-![Animated GIF](./assets/pulse.gif)
+![Animated countdown loop](./assets/pulse.gif)
 
-Failure cases (must not load network assets or escape the example root):
+Frames that must not load, because they point at a remote URL, escape the log
+directory, or are simply not there:
 
-![Blocked remote image](https://example.com/image.png)
+![Refused remote frame](https://example.com/frame.png)
 
-![Blocked parent path](../outside.png)
+![Refused parent path](../outside.png)
 
-![Missing image](./assets/missing.png)
+![Missing frame](./assets/missing.png)

@@ -5,10 +5,15 @@ import path from "node:path"
 const output = path.join(import.meta.dir, "..", "examples", "assets")
 await mkdir(output, { recursive: true })
 
+// The assets are rendered at the resolution a terminal actually paints them at:
+// an image that fills 80 columns of a 10 pixel wide cell needs roughly 800
+// pixels, so the sources are wider than that and stay sharp when the renderer
+// scales them down.
+
 // Opaque gradient with a bright horizon band
-await writeFile(path.join(output, "opaque.png"), png(320, 180, (x, y) => {
-  const horizon = y / 180
-  const glow = Math.max(0, 1 - Math.abs(y - 96) / 46)
+await writeFile(path.join(output, "opaque.png"), png(1280, 720, (x, y) => {
+  const horizon = y / 720
+  const glow = Math.max(0, 1 - Math.abs(y - 360) / 184)
   return [
     Math.round(30 + horizon * 60 + glow * 90),
     Math.round(70 + horizon * 80 + glow * 60),
@@ -17,11 +22,11 @@ await writeFile(path.join(output, "opaque.png"), png(320, 180, (x, y) => {
   ]
 }))
 
-// Overlapping translucent discs on a soft gradient
-await writeFile(path.join(output, "transparent.png"), png(256, 160, (x, y) => {
-  const left = Math.hypot(x - 96, y - 80) < 52
-  const right = Math.hypot(x - 166, y - 80) < 52
-  const top = Math.hypot(x - 131, y - 46) < 40
+// Overlapping translucent discs on a transparent field
+await writeFile(path.join(output, "transparent.png"), png(1024, 640, (x, y) => {
+  const left = Math.hypot(x - 384, y - 320) < 208
+  const right = Math.hypot(x - 664, y - 320) < 208
+  const top = Math.hypot(x - 524, y - 184) < 160
   if (left) return [85, 180, 255, 190]
   if (right) return [255, 105, 155, 190]
   if (top) return [130, 255, 180, 150]
@@ -29,29 +34,29 @@ await writeFile(path.join(output, "transparent.png"), png(256, 160, (x, y) => {
 }))
 
 // Color spectrum
-await writeFile(path.join(output, "spectrum.png"), png(320, 160, (x, y) => {
-  const hue = (x / 320) * 6
+await writeFile(path.join(output, "spectrum.png"), png(1280, 640, (x, y) => {
+  const hue = (x / 1280) * 6
   const [r, g, b] = hueRgb(hue)
-  const shade = 0.45 + (y / 160) * 0.55
+  const shade = 0.45 + (y / 640) * 0.55
   return [Math.round(r * shade), Math.round(g * shade), Math.round(b * shade), 255]
 }))
 
 // Hard-edged checker
-await writeFile(path.join(output, "checker.png"), png(192, 192, (x, y) => {
-  const cell = ((x >> 4) + (y >> 4)) & 1
+await writeFile(path.join(output, "checker.png"), png(1024, 1024, (x, y) => {
+  const cell = ((x >> 6) + (y >> 6)) & 1
   return cell ? [235, 238, 242, 255] : [28, 34, 46, 255]
 }))
 
 // A real animation: a ring pulsing outwards on a transparent field. Every
 // frame is a full-canvas image with its own disposal method, so the decoder's
 // per-frame compositing and the frame scheduler are both exercised.
-await writeFile(path.join(output, "pulse.gif"), gif(96, 96, 6, (x, y, frame, frames) => {
+await writeFile(path.join(output, "pulse.gif"), gif(640, 640, 6, (x, y, frame, frames) => {
   const phase = frame / frames
-  const outer = 16 + phase * 26
-  const inner = 6 + phase * 12
-  const distance = Math.hypot(x - 48, y - 48)
-  if (Math.abs(distance - outer) <= 3) return [1, 2, 3][frame % 3]!
-  if (Math.abs(distance - inner) <= 2) return 3
+  const outer = 104 + phase * 176
+  const inner = 40 + phase * 80
+  const distance = Math.hypot(x - 320, y - 320)
+  if (Math.abs(distance - outer) <= 16) return [1, 2, 3][frame % 3]!
+  if (Math.abs(distance - inner) <= 12) return 3
   return 0
 }, [0, 0, 0], [[120, 200, 255], [160, 230, 255], [255, 255, 255]]))
 
@@ -71,11 +76,45 @@ function hueRgb(hue: number): [number, number, number] {
   return [Math.round(rgb[0] * 255), Math.round(rgb[1] * 255), Math.round(rgb[2] * 255)]
 }
 
+// A PNG writer with adaptive row filtering. Every row is written with the
+// filter that produces the smallest sum of absolute differences, which is what
+// the reference encoders do. Without it a smooth gradient is stored as raw
+// samples and the file grows with every pixel.
 function png(width: number, height: number, pixel: (x: number, y: number) => readonly [number, number, number, number]) {
-  const raw = new Uint8Array(height * (1 + width * 4))
+  const bytesPerPixel = 4
+  const stride = width * bytesPerPixel
+  const raw = new Uint8Array(height * (1 + stride))
+  const current = new Uint8Array(stride)
+  const previous = new Uint8Array(stride)
+  const candidate = new Uint8Array(stride)
+  const best = new Uint8Array(stride)
   for (let y = 0; y < height; y++) {
-    const row = y * (1 + width * 4)
-    for (let x = 0; x < width; x++) raw.set(pixel(x, y), row + 1 + x * 4)
+    for (let x = 0; x < width; x++) {
+      const [r, g, b, a] = pixel(x, y)
+      current[x * 4] = r
+      current[x * 4 + 1] = g
+      current[x * 4 + 2] = b
+      current[x * 4 + 3] = a
+    }
+    let bestType = 0
+    let bestScore = Infinity
+    for (let type = 0; type <= 4; type++) {
+      let score = 0
+      for (let index = 0; index < stride; index++) {
+        const value = filterPixel(type, index, current, previous, bytesPerPixel)
+        candidate[index] = value
+        score += value < 128 ? value : 256 - value
+      }
+      if (score < bestScore) {
+        bestScore = score
+        bestType = type
+        best.set(candidate)
+      }
+    }
+    const row = y * (1 + stride)
+    raw[row] = bestType
+    raw.set(best, row + 1)
+    previous.set(current)
   }
   const chunk = (type: string, data: Uint8Array) => {
     const value = new Uint8Array(12 + data.length)
@@ -88,9 +127,37 @@ function png(width: number, height: number, pixel: (x: number, y: number) => rea
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     chunk("IHDR", new Uint8Array([width >>> 24, width >>> 16, width >>> 8, width, height >>> 24, height >>> 16, height >>> 8, height, 8, 6, 0, 0, 0])),
-    chunk("IDAT", deflateSync(raw)),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
     chunk("IEND", new Uint8Array()),
   ])
+}
+
+function filterPixel(type: number, index: number, current: Uint8Array, previous: Uint8Array, bytesPerPixel: number) {
+  const raw = current[index]!
+  const left = index >= bytesPerPixel ? current[index - bytesPerPixel]! : 0
+  const up = previous[index]!
+  const upLeft = index >= bytesPerPixel ? previous[index - bytesPerPixel]! : 0
+  switch (type) {
+    case 0:
+      return raw
+    case 1:
+      return raw - left
+    case 2:
+      return raw - up
+    case 3:
+      return raw - ((left + up) >> 1)
+    default:
+      return raw - paeth(left, up, upLeft)
+  }
+}
+
+function paeth(left: number, up: number, upLeft: number) {
+  const estimate = left + up - upLeft
+  const distanceLeft = Math.abs(estimate - left)
+  const distanceUp = Math.abs(estimate - up)
+  const distanceUpLeft = Math.abs(estimate - upLeft)
+  if (distanceLeft <= distanceUp && distanceLeft <= distanceUpLeft) return left
+  return distanceUp <= distanceUpLeft ? up : upLeft
 }
 
 function crc(bytes: Uint8Array) {
@@ -133,9 +200,9 @@ function gif(
   }
 
   for (let frame = 0; frame < frameCount; frame++) {
-    const indices: number[] = []
+    const indices = new Uint8Array(width * height)
     for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) indices.push(pixel(x, y, frame, frameCount))
+      for (let x = 0; x < width; x++) indices[y * width + x] = pixel(x, y, frame, frameCount)
     }
     // Graphic control extension: transparent color given, restore to
     // background, 120ms delay.
@@ -165,13 +232,14 @@ function gifBlocks(data: readonly number[]): number[] {
 // *next* code to be assigned would pass a power of two, not when it reaches
 // one. Getting this off by one desynchronizes the stream and the decoder
 // renders a single flat frame.
-function gifLzw(indices: readonly number[], bits: number): number[] {
+function gifLzw(indices: Uint8Array, bits: number): number[] {
   const clearCode = 1 << bits
   const endCode = clearCode + 1
   let codeSize = bits + 1
   let nextCode = clearCode + 2
-  const dictionary = new Map<string, number>()
-  for (let index = 0; index < clearCode; index++) dictionary.set(String.fromCharCode(index), index)
+  // The dictionary is keyed by the pair "current code, next pixel" packed into
+  // one number, which keeps the encoder linear on large frames.
+  const dictionary = new Map<number, number>()
 
   const out: number[] = []
   let buffer = 0
@@ -187,20 +255,21 @@ function gifLzw(indices: readonly number[], bits: number): number[] {
   }
 
   emit(clearCode)
-  let current = String.fromCharCode(indices[0] ?? 0)
+  let prefix = indices[0] ?? 0
   for (let index = 1; index < indices.length; index++) {
-    const character = String.fromCharCode(indices[index]!)
-    const key = current + character
-    if (dictionary.has(key)) {
-      current = key
+    const character = indices[index]!
+    const key = prefix * 256 + character
+    const existing = dictionary.get(key)
+    if (existing !== undefined) {
+      prefix = existing
       continue
     }
-    emit(dictionary.get(current)!)
+    emit(prefix)
     dictionary.set(key, nextCode++)
     if (nextCode - 1 === 1 << codeSize && codeSize < 12) codeSize++
-    current = character
+    prefix = character
   }
-  emit(dictionary.get(current)!)
+  emit(prefix)
   emit(endCode)
   if (bitCount > 0) out.push(buffer & 0xff)
   return out

@@ -29,8 +29,7 @@
     "verify": "bun run build:native && bun run typecheck && bun test && bun run verify:native",
     "verify:native": "cargo test --manifest-path native/Cargo.toml",
     "prepack": "bun run build:native",
-    "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md",
-    "demo:class-diag": "bun --preload @opentui/solid/preload examples/app.tsx class-diag.md"
+    "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md"
   },
   "peerDependencies": {
     "@opentui/core": ">=0.5.12",

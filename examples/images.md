@@ -1,29 +1,48 @@
-# Local Images
+# Telemetry frames
 
-Opaque PNG:
+The frames that come with a flight log are drawn straight from disk. The
+sources are rendered at 1024 pixels and wider, so they stay sharp when the
+terminal scales them into a cell grid.
 
-![Opaque generated gradient](./assets/opaque.png)
+## Ascent profile
 
-Transparent PNG composited against the theme background:
+The ascent phase, opaque and ready for a dark background:
 
-![Transparent overlapping circles](./assets/transparent.png)
+![Altitude profile of the ascent phase](./assets/opaque.png)
 
-Color spectrum:
+## Sensor overlap
 
-![Color spectrum gradient](./assets/spectrum.png)
+Two sensor footprints with partial coverage, composited against the terminal
+background:
 
-Checker pattern:
+![Overlapping sensor footprints](./assets/transparent.png)
 
-![Hard-edged checker pattern](./assets/checker.png)
+## Plume spectrum
 
-Animated GIF:
+The plume spectrum across the visible band:
 
-![Animated GIF](./assets/pulse.gif)
+![Plume spectrum across the visible band](./assets/spectrum.png)
 
-These failure cases must not load network assets or escape the example root:
+## Calibration grid
 
-![Blocked remote image](https://example.com/image.png)
+A checker grid for measuring how sharp a cell looks:
 
-![Blocked parent path](../outside.png)
+![Calibration checker grid](./assets/checker.png)
 
-![Missing image](./assets/missing.png)
+## Countdown
+
+An animated countdown loop:
+
+![Animated countdown loop](./assets/pulse.gif)
+
+## Refused sources
+
+A flight log may point at assets that must not be loaded. Kestrel refuses
+remote URLs, paths that escape the log directory, and files that are not there.
+It never touches the network.
+
+![Refused remote frame](https://example.com/frame.png)
+
+![Refused parent path](../outside.png)
+
+![Missing frame](./assets/missing.png)

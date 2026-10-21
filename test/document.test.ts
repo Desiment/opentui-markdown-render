@@ -76,11 +76,13 @@ describe("local media boundaries", () => {
     const checker = new Uint8Array(await Bun.file(path.join(assets, "checker.png")).arrayBuffer())
     const gif = new Uint8Array(await Bun.file(path.join(assets, "pulse.gif")).arrayBuffer())
 
-    expect(imageInfo(opaque)).toMatchObject({ format: "png", hasAlpha: false, width: 320 })
-    expect(imageInfo(transparent)).toMatchObject({ format: "png", hasAlpha: true, width: 256 })
-    expect(imageInfo(spectrum)).toMatchObject({ format: "png", hasAlpha: false, width: 320 })
-    expect(imageInfo(checker)).toMatchObject({ format: "png", hasAlpha: false, width: 192 })
-    expect(imageInfo(gif)).toMatchObject({ format: "gif" })
+    // The assets are rendered wider than the terminal cell grid they are
+    // painted into, so they stay sharp when the renderer scales them down.
+    expect(imageInfo(opaque)).toMatchObject({ format: "png", hasAlpha: false, width: 1280, height: 720 })
+    expect(imageInfo(transparent)).toMatchObject({ format: "png", hasAlpha: true, width: 1024, height: 640 })
+    expect(imageInfo(spectrum)).toMatchObject({ format: "png", hasAlpha: false, width: 1280, height: 640 })
+    expect(imageInfo(checker)).toMatchObject({ format: "png", hasAlpha: false, width: 1024, height: 1024 })
+    expect(imageInfo(gif)).toMatchObject({ format: "gif", width: 640, height: 640 })
     expect(decompressFrames(parseGIF(gif.slice().buffer as ArrayBuffer), true).length).toBeGreaterThan(1)
   })
 })

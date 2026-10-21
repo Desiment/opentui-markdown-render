@@ -151,7 +151,6 @@ bun run demo:math
 bun run demo:images
 bun run demo:mixed
 bun run demo:all
-bun run demo:class-diag
 ```
 
 See [`examples/README.md`](examples/README.md) for the coverage expected from

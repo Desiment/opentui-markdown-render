@@ -1,25 +1,37 @@
-# Typeset Math
+# Orbital mechanics
 
-Inline dollar math: $P(A \mid B) = \frac{P(B \mid A) P(A)}{P(B)}$.
+The formulas a flight plan is built on. Inline math uses dollar signs: the
+launch azimuth is $\theta = 28.4°$, and the specific orbital energy of the
+transfer stage is $\varepsilon = -\frac{GM}{2a}$.
 
-Parenthesized inline math: \(a^2 + b^2 = c^2\).
+Parenthesised inline math works as well: $v^2 = v_0^2 + 2a\,\Delta x$.
 
-Escaped dollars stay text: a ticket costs \$5.
+A currency amount inside a log line stays text: the launch cost is \$5 per
+kilogram.
 
 Math inside code stays source: `$x^2$`.
 
+The vis-viva equation, in full:
+
 $$
-\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}
+v = \sqrt{GM\left(\frac{2}{r} - \frac{1}{a}\right)}
 $$
 
-On terminals without Kitty-compatible graphics, this example intentionally
-shows its original LaTeX source.
+The orbital period of the payload orbit follows from the same model:
+
+$$
+T = 2\pi\sqrt{\frac{a^3}{GM}}
+$$
+
+On a terminal without graphics support this page intentionally shows the
+original LaTeX source:
 
 ```tex
 \[ \frac{a}{b} \]
 ```
 
-Broken math also remains source instead of becoming Unicode approximation:
+A formula the typesetter cannot parse also stays source instead of turning
+into a broken glyph:
 
 $$
 \frac{1}{

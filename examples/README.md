@@ -1,18 +1,19 @@
 # Renderer Examples
 
-Each fixture is intentionally independent so a rendering regression has a
-small, obvious reproduction case.
+The examples are the documentation pages of a fictional terminal tool, so the
+renderer is exercised with content that reads like a real report. Each fixture
+still isolates one area, so a rendering regression has a small, obvious
+reproduction case.
 
-| Fixture | Command | Coverage |
+| Fixture | Command | Content |
 | --- | --- | --- |
-| `plain.md` | `bun run demo:plain` | headings, formatting, lists, quotes, rules, code |
-| `tables.md` | `bun run demo:tables` | table alignment and inline formatting |
-| `mermaid.md` | `bun run demo:mermaid` | flowchart, sequence, state, Gantt, timeline, Git graph, class, invalid fallback |
-| `class-diag.md` | `bun run demo:class-diag` | 30 large class diagrams: hierarchy, fan-out, every relationship kind, directions, multiplicities, corridors, cycles, quoted names |
-| `math.md` | `bun run demo:math` | all math delimiters and source-preserving fallbacks |
-| `images.md` | `bun run demo:images` | opaque, transparent, animated, missing, remote, and traversal media |
-| `rendered.md` | `bun run demo:mixed` | all rendering paths in one document |
-| `all.md` | `bun run demo:all` | headings, code, tables, math, Mermaid, and image/GIF media |
+| `plain.md` | `bun run demo:plain` | the project README: headings, formatting, lists, a quote, a rule, TypeScript and JSON blocks |
+| `tables.md` | `bun run demo:tables` | the telemetry reference: channel, recorder and decoding tables with left, center and right alignment |
+| `math.md` | `bun run demo:math` | orbital mechanics: inline, parenthesised and display formulas, plus the source fallbacks |
+| `images.md` | `bun run demo:images` | telemetry frames: five high resolution assets and the three sources that must be refused |
+| `rendered.md` | `bun run demo:mixed` | one flight summary that mixes prose, a table, a formula, a diagram and a frame |
+| `mermaid.md` | `bun run demo:mermaid` | the architecture reference: every diagram kind, plus the class diagram stress cases |
+| `all.md` | `bun run demo:all` | the documentation index: every rendering path in one document |
 
 Run `bun run generate:examples` before the image, mixed, or all examples. Math needs a
 Kitty-compatible terminal with reported pixel dimensions; source LaTeX is the
