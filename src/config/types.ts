@@ -18,11 +18,24 @@ export type StatusLineConfig = {
   readonly fields?: readonly StatusLineField[]
   readonly separator?: string
   readonly border?: StatusLineBorder
+  // "plain" keeps the line in the page colours, "bar" gives it its own
+  // background and an accent border.
+  readonly style?: StatusLineStyle
+  // The field that gets the accent treatment.
+  readonly highlight?: StatusLineField
 }
 
 export type StatusLineField = "title" | "mode" | "protocol" | "cell" | "mathScale" | "position" | "hint" | "text"
 
 export type StatusLineBorder = "none" | "top" | "bottom"
+
+export type StatusLineStyle = "plain" | "bar"
+
+export const statusLineStyles: readonly StatusLineStyle[] = ["plain", "bar"]
+
+export function isStatusLineStyle(value: unknown): value is StatusLineStyle {
+  return typeof value === "string" && statusLineStyles.includes(value as StatusLineStyle)
+}
 
 export type MathConfig = {
   // Multiplier for every rendered formula.

@@ -25,6 +25,9 @@ export type Theme = {
   readonly border: {
     readonly base: RGBA
   }
+  // Colours of the status line bar. Optional so a host that builds a theme by
+  // hand keeps working; the bar falls back to colours derived from the theme.
+  readonly statusline?: StatusLineTheme
   readonly markdown: {
     readonly text: RGBA
     readonly heading: RGBA
@@ -58,6 +61,24 @@ export type Theme = {
   }
 }
 
+// The status line bar has its own background so it reads as a separate strip
+// instead of another line of the page.
+export type StatusLineTheme = {
+  readonly background: RGBA
+  readonly foreground: RGBA
+  readonly title: RGBA
+  readonly muted: RGBA
+  readonly border: RGBA
+}
+
+export type StatusLineThemeOverride = {
+  readonly background?: ColorInput
+  readonly foreground?: ColorInput
+  readonly title?: ColorInput
+  readonly muted?: ColorInput
+  readonly border?: ColorInput
+}
+
 // Host themes and the config file provide a partial, color-input override that
 // is merged over the bundled default for the selected mode.
 export type ThemeOverride = {
@@ -77,6 +98,7 @@ export type ThemeOverride = {
   }
   readonly background?: { readonly base?: ColorInput }
   readonly border?: { readonly base?: ColorInput }
+  readonly statusline?: StatusLineThemeOverride
   readonly markdown?: { readonly [K in keyof Theme["markdown"]]?: ColorInput }
   readonly syntax?: { readonly [K in keyof Theme["syntax"]]?: ColorInput }
   readonly diff?: {

@@ -1,4 +1,5 @@
 export { defaultTheme } from "./defaults"
 export { generateSyntax } from "./syntax"
-export { resolveTheme, mergeTheme } from "./resolve"
-export type { Theme, ThemeMode, ThemeOverride } from "./types"
+export { resolveTheme, mergeTheme, deriveStatusLineTheme } from "./resolve"
+export { mixColors } from "./colors"
+export type { Theme, ThemeMode, ThemeOverride, StatusLineTheme, StatusLineThemeOverride } from "./types"

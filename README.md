@@ -50,10 +50,14 @@ entirely.
   "theme": {
     "mode": "dark",
     "accent": "#7dd3fc",
-    "markdown": { "heading": "#e2e8f0" }
+    "markdown": { "heading": "#e2e8f0" },
+    // Colours of the status line bar.
+    "statusline": { "background": "#162333", "title": "#7dd3fc", "border": "#7dd3fc" }
   },
   "statusline": {
     "enabled": true,
+    "style": "bar",
+    "highlight": "title",
     "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
     "separator": " · ",
     "border": "top"
@@ -83,6 +87,8 @@ import { StatusLine } from "opentui-markdown-render"
   fields={config.statusline?.fields}
   separator={config.statusline?.separator}
   border={config.statusline?.border}
+  style={config.statusline?.style}
+  highlight={config.statusline?.highlight}
 />
 ```
 
@@ -90,6 +96,20 @@ Available fields are `title`, `mode`, `protocol`, `cell`, `mathScale`,
 `position`, `hint`, and `text` (a list of extra host strings). A field without
 a value is skipped. `formatStatusLine` and `statusLineSegments` expose the
 same formatting without rendering.
+
+`style` picks how strongly the row is highlighted:
+
+- `bar` (default) gives the row its own background, an accent border, and
+  draws the highlighted field in the accent colour. The background is the
+  accent colour toned down over the page background.
+- `plain` keeps the row in the page colours, like a normal line of text.
+
+`highlight` names the field that gets the accent treatment and defaults to
+`title`. The separator right after it is drawn in the accent colour as well.
+
+The bar colours live in the theme section `statusline` and can be overridden
+per colour: `background`, `foreground`, `title`, `muted`, and `border`. They
+follow the theme accent, so overriding `theme.accent` moves the bar with it.
 
 ## Fallback
 

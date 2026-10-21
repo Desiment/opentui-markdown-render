@@ -44,6 +44,18 @@ describe("config parsing", () => {
     expect(config.statusline?.fields).toEqual(["title"])
   })
 
+  test("keeps the status line style and highlight", () => {
+    const config = parseConfig(`{ "statusline": { "style": "bar", "highlight": "mode" } }`)
+    expect(config.statusline?.style).toBe("bar")
+    expect(config.statusline?.highlight).toBe("mode")
+  })
+
+  test("drops an unknown status line style", () => {
+    const config = parseConfig(`{ "statusline": { "style": "neon", "highlight": "nonsense" } }`)
+    expect(config.statusline?.style).toBeUndefined()
+    expect(config.statusline?.highlight).toBeUndefined()
+  })
+
   test("drops invalid numbers", () => {
     const config = parseConfig(`{ "images": { "maxColumns": 0, "maxRows": "wide" }, "math": { "scale": -1 } }`)
     expect(config.images).toEqual({})

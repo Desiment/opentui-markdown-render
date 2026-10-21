@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
-import { isStatusLineField, type MarkdownConfig, type StatusLineField } from "./types"
+import { isStatusLineField, isStatusLineStyle, type MarkdownConfig, type StatusLineField } from "./types"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
 
@@ -69,11 +69,19 @@ function validateStatusLine(value: Record<string, unknown>, file: string): Markd
       else console.warn(`[opentui-markdown-render] Unknown status line field "${String(entry)}" in ${file}`)
     }
   }
+  if (value.style !== undefined && !isStatusLineStyle(value.style)) {
+    console.warn(`[opentui-markdown-render] Unknown status line style "${String(value.style)}" in ${file}`)
+  }
+  if (value.highlight !== undefined && !isStatusLineField(value.highlight)) {
+    console.warn(`[opentui-markdown-render] Unknown status line field "${String(value.highlight)}" in ${file}`)
+  }
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : undefined,
     fields: fields.length ? fields : undefined,
     separator: typeof value.separator === "string" ? value.separator : undefined,
     border: value.border === "none" || value.border === "top" || value.border === "bottom" ? value.border : undefined,
+    style: isStatusLineStyle(value.style) ? value.style : undefined,
+    highlight: isStatusLineField(value.highlight) ? value.highlight : undefined,
   }
 }
 

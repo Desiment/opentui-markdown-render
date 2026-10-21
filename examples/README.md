@@ -24,4 +24,5 @@ hints. It toggles the theme with `t`, resizes display math with `+`/`-`, and
 quits with `q`.
 
 `opentui-markdown-render.jsonc` in this directory is picked up automatically by
-the config discovery and configures the status line.
+the config discovery and configures the status line: the `bar` style paints it
+as its own strip with an accent border and highlights the file name.

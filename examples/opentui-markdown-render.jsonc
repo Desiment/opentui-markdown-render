@@ -2,6 +2,8 @@
   // The demo discovers this file by walking up from the examples directory.
   // Every section is optional; what is missing keeps the bundled default.
   "statusline": {
+    "style": "bar",
+    "highlight": "title",
     "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
     "separator": " · ",
     "border": "top"

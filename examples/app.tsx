@@ -88,6 +88,8 @@ function Demo() {
           fields={config.statusline?.fields}
           separator={config.statusline?.separator}
           border={config.statusline?.border}
+          style={config.statusline?.style}
+          highlight={config.statusline?.highlight}
         />
       </Show>
     </box>
