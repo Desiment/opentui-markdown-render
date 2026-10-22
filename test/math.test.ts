@@ -57,4 +57,56 @@ describe("math image scale", () => {
     expect(withNewlines?.columns).toBe(clean?.columns)
     expect(withNewlines?.rows).toBe(clean?.rows)
   })
+
+  test("typesets display math in the display style", async () => {
+    if (!existsSync(addon)) return
+    // In display style a large operator carries its limits above and below, so
+    // the formula needs more rows than the same formula in text style.
+    const formula = String.raw`\sum_{i=1}^{n} i^2`
+    const inline = await renderMathImage(formula, false, "e6edf3", "0d1117", { width: 8, height: 16 })
+    const display = await renderMathImage(formula, true, "e6edf3", "0d1117", { width: 8, height: 16 })
+    expect(inline).toBeDefined()
+    expect(display).toBeDefined()
+    expect(display!.rows).toBeGreaterThan(inline!.rows)
+  })
+
+  test("keeps the standard text size for a formula that stands alone", async () => {
+    if (!existsSync(addon)) return
+    // A formula that shares its row with prose is scaled down to fit that row.
+    // One that stands alone keeps the text size, so it covers two rows.
+    const shared = await renderMathImage("x^2", false, "e6edf3", "0d1117", { width: 8, height: 16 })
+    const standard = await renderMathImage("x^2", false, "e6edf3", "0d1117", { width: 8, height: 16 }, 1, false, true)
+    expect(shared?.clamped).toBe(true)
+    expect(standard?.clamped).toBe(false)
+    expect(standard?.rows).toBeGreaterThan(shared?.rows ?? 0)
+  })
+
+  test("renders the LaTeX commands the converter emits", async () => {
+    if (!existsSync(addon)) return
+    // Every command MiTeX converts has to reach Typst as a formula. A command
+    // without a handler in the scope fails to compile and falls back to source.
+    const commands = [
+      String.raw`\sqrt[3]{x}`,
+      String.raw`\dfrac{a}{b}`,
+      String.raw`\tfrac{a}{b}`,
+      String.raw`\text{hello}`,
+      String.raw`\operatorname{sgn}(x)`,
+      String.raw`\begin{pmatrix} a & b \end{pmatrix}`,
+      String.raw`\begin{bmatrix} a \end{bmatrix}`,
+      String.raw`\begin{matrix} a \end{matrix}`,
+      String.raw`\begin{cases} a \end{cases}`,
+      String.raw`\begin{aligned} a &= b \end{aligned}`,
+      String.raw`\begin{array}{cc} a & b \end{array}`,
+      String.raw`\boxed{a}`,
+      String.raw`\xrightarrow{A}`,
+      String.raw`\middle|`,
+      String.raw`\big|`,
+      String.raw`\substack{a \\ b}`,
+      String.raw`\displaystyle\frac{1}{2}`,
+    ]
+    for (const command of commands) {
+      const image = await renderMathImage(command, false, "e6edf3", "0d1117", { width: 8, height: 16 })
+      expect(image, command).toBeDefined()
+    }
+  })
 })

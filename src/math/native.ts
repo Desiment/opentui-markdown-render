@@ -11,11 +11,13 @@ type NativeModule = {
     cellWidth?: number
     cellHeight?: number
     compact?: boolean
+    standard?: boolean
   }): Promise<{
     png: Uint8Array
     pixelWidth: number
     pixelHeight: number
     baseline: number
+    clamped: boolean
   }>
 }
 

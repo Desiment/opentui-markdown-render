@@ -2,21 +2,27 @@
 name = "opentui-markdown-render-native"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.92"
 license = "MIT"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-comemo = "=0.4.0"
+comemo = "=0.5.1"
 mitex = "=0.2.4"
 napi = { version = "=3.14.2", default-features = false, features = ["napi8", "async", "tokio_rt"] }
 napi-derive = "=3.6.12"
-tiny-skia = "=0.11.4"
-typst = "=0.11.1"
-typst-assets = { version = "=0.11.1", features = ["fonts"] }
-typst-render = "=0.11.1"
+tiny-skia = "=0.12"
+typst = "=0.15.1"
+typst-assets = { version = "=0.15.1", features = ["fonts"] }
+typst-layout = "=0.15.1"
+typst-render = "=0.15.1"
 
 [build-dependencies]
 napi-build = "=2.6.0"
+
+# The dependency tree of Typst is huge, and its debug symbols dwarf the addon
+# itself. The test suite only needs the backtrace, not the line information.
+[profile.dev]
+debug = 0

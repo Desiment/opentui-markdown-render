@@ -17,10 +17,31 @@ $$
 v = \sqrt{GM\left(\frac{2}{r} - \frac{1}{a}\right)}
 $$
 
+Display formulas are typeset in the display style, so a summation carries its
+limits above and below the operator:
+
+$$
+\sum_{k=0}^{n} \frac{1}{2^k} = 2 - \frac{1}{2^n}
+$$
+
 The orbital period of the payload orbit follows from the same model:
 
 $$
 T = 2\pi\sqrt{\frac{a^3}{GM}}
+$$
+
+The commands MiTeX converts but Typst has no direct equivalent for are handled
+by the MiTeX scope: a cube root, a display fraction, upright text and an
+operator name:
+
+$$
+\sqrt[3]{\frac{a}{b}} = \dfrac{1}{\sqrt[3]{b}}
+$$
+
+The orbital elements, written out and named:
+
+$$
+\text{semi-major axis} = a, \qquad \operatorname{eccentricity} = e
 $$
 
 On a terminal without graphics support this page intentionally shows the

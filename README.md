@@ -118,6 +118,24 @@ protocol and terminal pixel dimensions. Unsupported terminals, missing native
 prebuilds, failed MiTeX/Typst conversion, and image errors leave the original
 LaTeX source in the document. There is no Unicode-math fallback.
 
+## Math
+
+The LaTeX source is converted by MiTeX into Typst code and typeset by Typst, in
+process, without a system LaTeX installation.
+
+- Inline math (`$...$`, `\(...\)`) is typeset in text style and shares the
+  baseline of the text around it.
+- Display math (`$$...$$`, `\[...\]`) is typeset in display style: large
+  operators carry their limits above and below instead of beside them.
+- The commands MiTeX emits but Typst has no equivalent for are handled by the
+  official MiTeX scope (Apache-2.0, `mitex-rs/mitex`, see [`NOTICE`](NOTICE)):
+  `\sqrt[n]{x}`, `\dfrac`, `\tfrac`, `\text`, `\operatorname`, `\boxed`,
+  `\phantom`, `\begin{pmatrix}`, `\begin{bmatrix}`, `\begin{matrix}`,
+  `\begin{cases}`, `\begin{aligned}`, `\begin{array}`, `\xrightarrow`,
+  `\middle`, `\big`, `\substack`, `\displaystyle`.
+- A formula that neither MiTeX nor Typst can parse is left in the document as
+  its LaTeX source.
+
 ## Source Preservation
 
 The scanner extracts `$...$`, `$$...$$`, `\\(...\\)`, and `\\[...\\]` from raw
@@ -165,3 +183,6 @@ bun run verify
 
 `verify` builds the native addon, runs TypeScript tests and type checks, then
 runs the Rust test suite. The release target is currently Linux x64 glibc.
+
+The addon embeds Typst 0.15 and MiTeX 0.2. The Rust toolchain has to satisfy
+the `rust-version` in `native/Cargo.toml`.

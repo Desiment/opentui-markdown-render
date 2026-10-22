@@ -11,6 +11,9 @@ export type MathImage = {
   readonly columns: number
   readonly rows: number
   readonly baseline: number
+  // Whether the raster was scaled below the standard text size to fit a single
+  // text row. A formula that was not scaled can keep that size.
+  readonly clamped: boolean
 }
 
 export function rgbaToHex(color: RGBA) {
@@ -28,9 +31,10 @@ export function mathImageID(
   cell: CellSize | null,
   scale = 1,
   compact = false,
+  standard = false,
 ) {
   return createHash("sha256")
-    .update(JSON.stringify({ content, display, color, cell, scale, compact, renderer: "mitex-typst-png-v2" }))
+    .update(JSON.stringify({ content, display, color, cell, scale, compact, standard, renderer: "mitex-typst-png-v2" }))
     .digest("hex")
 }
 
@@ -50,6 +54,7 @@ export async function renderMathImage(
   cell: CellSize | null,
   scale = 1,
   compact = false,
+  standard = false,
 ): Promise<MathImage | undefined> {
   // A formula that Typst would happily accept as a truncated expression (a
   // trailing `\frac{1}{`, say) is not a formula an author meant to typeset, so
@@ -71,10 +76,11 @@ export async function renderMathImage(
     cellWidth,
     cellHeight,
     compact,
+    standard,
   })
   if (!rendered) return undefined
   const columns = Math.max(1, Math.round(rendered.pixelWidth / cellWidth))
   const rows = Math.max(1, Math.round(rendered.pixelHeight / cellHeight))
   const baseline = rendered.baseline / cellHeight
-  return { png: rendered.png, columns, rows, baseline }
+  return { png: rendered.png, columns, rows, baseline, clamped: rendered.clamped }
 }

@@ -5,6 +5,9 @@ export type RenderedMath = {
   readonly pixelWidth: number
   readonly pixelHeight: number
   readonly baseline: number
+  // Whether the raster was scaled below the standard text size to fit a single
+  // text row. A formula that was not scaled can keep that size.
+  readonly clamped: boolean
 }
 
 export type MathRenderRequest = {
@@ -17,6 +20,9 @@ export type MathRenderRequest = {
   readonly cellWidth?: number
   readonly cellHeight?: number
   readonly compact?: boolean
+  // Keep the standard text size instead of scaling the formula down to the
+  // single text row it shares with the prose around it.
+  readonly standard?: boolean
 }
 
 const limit = 128
@@ -31,6 +37,7 @@ export function renderMath(request: MathRenderRequest) {
   const cellWidth = request.cellWidth ?? 8
   const cellHeight = request.cellHeight ?? 16
   const compact = request.compact ?? false
+  const standard = request.standard ?? false
   const key = JSON.stringify({
     latex: request.latex,
     scale,
@@ -40,6 +47,7 @@ export function renderMath(request: MathRenderRequest) {
     cellWidth,
     cellHeight,
     compact,
+    standard,
   })
   const cached = cache.get(key)
   if (cached) return cached
@@ -55,8 +63,15 @@ export function renderMath(request: MathRenderRequest) {
         cellWidth,
         cellHeight,
         compact,
+        standard,
       })
-      return { png: image.png, pixelWidth: image.pixelWidth, pixelHeight: image.pixelHeight, baseline: image.baseline }
+      return {
+        png: image.png,
+        pixelWidth: image.pixelWidth,
+        pixelHeight: image.pixelHeight,
+        baseline: image.baseline,
+        clamped: image.clamped,
+      }
     })
     .catch(() => undefined)
   cache.set(key, result)

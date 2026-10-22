@@ -59,6 +59,12 @@ $$
 \int_0^\infty e^{-x}\,dx = 1
 $$
 
+Display style moves the limits of a large operator above and below it, and the
+scope handles the commands Typst has no direct equivalent for:
+$$
+\sum_{k=0}^{n} \frac{1}{2^k} = 2 - \frac{1}{2^n}, \qquad \sqrt[3]{\frac{a}{b}}
+$$
+
 Truncated, and therefore left as source: $$\frac{1}{ $$
 
 ## Diagrams

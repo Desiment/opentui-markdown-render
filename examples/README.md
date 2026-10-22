@@ -9,7 +9,7 @@ reproduction case.
 | --- | --- | --- |
 | `plain.md` | `bun run demo:plain` | the project README: headings, formatting, lists, a quote, a rule, TypeScript and JSON blocks |
 | `tables.md` | `bun run demo:tables` | the telemetry reference: channel, recorder and decoding tables with left, center and right alignment |
-| `math.md` | `bun run demo:math` | orbital mechanics: inline, parenthesised and display formulas, plus the source fallbacks |
+| `math.md` | `bun run demo:math` | orbital mechanics: inline, parenthesised and display formulas, the display style, the MiTeX scope commands, plus the source fallbacks |
 | `images.md` | `bun run demo:images` | telemetry frames: five high resolution assets and the three sources that must be refused |
 | `rendered.md` | `bun run demo:mixed` | one flight summary that mixes prose, a table, a formula, a diagram and a frame |
 | `mermaid.md` | `bun run demo:mermaid` | the architecture reference: every diagram kind, plus the class diagram stress cases |
