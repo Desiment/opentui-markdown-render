@@ -12,7 +12,8 @@
     "native",
     "prebuilds",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build:native": "bun run scripts/build-native.ts",
@@ -24,9 +25,9 @@
     "demo:math": "bun --preload @opentui/solid/preload examples/app.tsx math.md",
     "demo:images": "bun --preload @opentui/solid/preload examples/app.tsx images.md",
     "demo:mixed": "bun --preload @opentui/solid/preload examples/app.tsx rendered.md",
-    "test": "bun test --timeout 30000",
+    "test": "bun test --preload @opentui/solid/preload --timeout 30000",
     "typecheck": "tsgo --noEmit",
-    "verify": "bun run build:native && bun run typecheck && bun test && bun run verify:native",
+    "verify": "bun run build:native && bun run typecheck && bun run test && bun run verify:native",
     "verify:native": "cargo test --manifest-path native/Cargo.toml",
     "prepack": "bun run build:native",
     "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md"

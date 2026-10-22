@@ -476,7 +476,12 @@ export function scanDocument(content: string): CanvasBlock[] {
 }
 
 type MathMeasure = { columns: number; rows: number; baseline: number }
-type LayoutRun = { run: InlineRun; columns: number; rows: number; compact?: boolean }
+// A formula is drawn in one of three rasters: the shared one, scaled into the
+// text row it sits in; the compact one, squeezed into a single row where a
+// mosaic would cover the text next to it; and the standard one, which keeps the
+// text size for a formula that stands alone.
+type MathVariant = "normal" | "compact" | "standard"
+type LayoutRun = { run: InlineRun; columns: number; rows: number; variant?: MathVariant }
 type LayoutLine = { runs: LayoutRun[]; columns: number; height: number; textRow: number }
 
 function hardChunks(content: string, columns: number) {
@@ -497,7 +502,7 @@ function hardChunks(content: string, columns: number) {
 function layout(
   runs: InlineRun[],
   columns: number,
-  measureOf: (content: string) => { normal: MathMeasure; compact: MathMeasure } | undefined,
+  measureOf: (content: string) => { normal: MathMeasure; compact: MathMeasure; standard: MathMeasure } | undefined,
   compactOverflow: boolean,
 ): LayoutLine[] {
   const lines: LayoutLine[] = []
@@ -568,41 +573,57 @@ function layout(
     }
   }
   flush()
-  if (!compactOverflow) return lines
-  let changed = true
-  while (changed) {
-    changed = false
-    const occupied = lines.flatMap((line, row) => {
-      let column = 0
-      return line.runs.map((entry) => {
-        const area = {
-          entry,
-          column,
-          row: row + (entry.run.type === "text" ? line.textRow : 0),
-          rows: entry.run.type === "math" ? entry.rows : 1,
-        }
-        column += entry.columns
-        return area
+  if (compactOverflow) {
+    let changed = true
+    while (changed) {
+      changed = false
+      const occupied = lines.flatMap((line, row) => {
+        let column = 0
+        return line.runs.map((entry) => {
+          const area = {
+            entry,
+            column,
+            row: row + (entry.run.type === "text" ? line.textRow : 0),
+            rows: entry.run.type === "math" ? entry.rows : 1,
+          }
+          column += entry.columns
+          return area
+        })
       })
-    })
-    for (const area of occupied) {
-      if (area.entry.run.type !== "math" || area.entry.compact === true || area.rows <= 1) continue
-      const collision = occupied.some(
-        (other) =>
-          other.entry !== area.entry &&
-          other.column < area.column + area.entry.columns &&
-          area.column < other.column + other.entry.columns &&
-          other.row < area.row + area.rows &&
-          area.row + 1 < other.row + other.rows,
-      )
-      if (!collision) continue
-      const compact = measureOf(area.entry.run.content)?.compact
-      if (!compact) continue
-      area.entry.compact = true
-      area.entry.columns = compact.columns
-      area.entry.rows = compact.rows
-      changed = true
+      for (const area of occupied) {
+        if (area.entry.run.type !== "math" || area.entry.variant === "compact" || area.rows <= 1) continue
+        const collision = occupied.some(
+          (other) =>
+            other.entry !== area.entry &&
+            other.column < area.column + area.entry.columns &&
+            area.column < other.column + other.entry.columns &&
+            other.row < area.row + area.rows &&
+            area.row + 1 < other.row + other.rows,
+        )
+        if (!collision) continue
+        const compact = measureOf(area.entry.run.content)?.compact
+        if (!compact) continue
+        area.entry.variant = "compact"
+        area.entry.columns = compact.columns
+        area.entry.rows = compact.rows
+        changed = true
+      }
     }
+  }
+  // A formula that stands alone in its line, with no text in the lines around
+  // it, shares its row with nothing: it keeps the text size instead of being
+  // scaled down into the row it would otherwise have to fit into.
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]!
+    const entry = line.runs[0]
+    if (!entry || line.runs.length !== 1 || entry.run.type !== "math") continue
+    if (entry.variant === "compact") continue
+    if (hasText(lines[index - 1]) || hasText(lines[index + 1])) continue
+    const standard = measureOf(entry.run.content)?.standard
+    if (!standard || standard.columns > columns) continue
+    entry.variant = "standard"
+    entry.columns = standard.columns
+    entry.rows = standard.rows
   }
   for (const line of lines) {
     line.columns = line.runs.reduce((total, entry) => total + entry.columns, 0)
@@ -612,12 +633,17 @@ function layout(
         if (entry.run.type !== "math") return []
         const measured = measureOf(entry.run.content)
         if (!measured) return []
-        return [Math.max(0, Math.ceil((entry.compact ? measured.compact : measured.normal).baseline) - 1)]
+        return [Math.max(0, Math.ceil(measured[entry.variant ?? "normal"].baseline) - 1)]
       }),
     )
-    line.height = 1
+    line.height = Math.max(1, line.textRow + 1, ...line.runs.map((entry) => entry.rows))
   }
   return lines
+}
+
+// A line carries text when it holds more than whitespace.
+function hasText(line: LayoutLine | undefined) {
+  return !!line?.runs.some((entry) => entry.run.type === "text" && entry.run.content.trim().length > 0)
 }
 
 function styleOf(theme: Theme, style: InlineStyle) {
@@ -640,8 +666,8 @@ function styleOf(theme: Theme, style: InlineStyle) {
 // Terminal cells are about twice as tall as they are wide, which is also
 // OpenTUI's own assumption when the terminal reports no pixel resolution.
 type FlowLayout = {
-  measureOf: (content: string) => { normal: MathMeasure; compact: MathMeasure } | undefined
-  imageOf: (content: string, compact: boolean) => MathImage | undefined
+  measureOf: (content: string) => { normal: MathMeasure; compact: MathMeasure; standard: MathMeasure } | undefined
+  imageOf: (content: string, variant: MathVariant) => MathImage | undefined
   compactOverflow: boolean
   color: () => string
   surface: () => string
@@ -668,9 +694,10 @@ function FlowLine(props: { line: LayoutLine; prefix: string; prefixColor: RGBA; 
         {(entry, index) => {
           const run = entry.run
           if (run.type === "math") {
+            const variant = entry.variant ?? "normal"
             return (
               <Show
-                when={props.layout.imageOf(run.content, entry.compact === true)}
+                when={props.layout.imageOf(run.content, variant)}
                 fallback={
                   <text fg={theme.text.muted} wrapMode="none" width={entry.columns} flexShrink={0}>
                     {`${run.open}${run.content}${run.close}`}
@@ -679,7 +706,7 @@ function FlowLine(props: { line: LayoutLine; prefix: string; prefixColor: RGBA; 
               >
                 {(image) => (
                   <image
-                    id={`opentui-markdown-math-${mathImageID(run.content, false, props.layout.color(), props.layout.cell(), 1, entry.compact === true)}`}
+                    id={`opentui-markdown-math-${mathImageID(run.content, false, props.layout.color(), props.layout.cell(), 1, variant === "compact", variant === "standard")}`}
                     source={image().png}
                     fit="fit"
                     protocol="auto"
@@ -774,7 +801,12 @@ export function CanvasFlow(props: {
               normal.rows > 1
                 ? await renderMathImage(content, false, input.color, input.surface, input.cell, 1, true)
                 : normal
-            return { normal, compact: compact ?? normal }
+            // A formula that was scaled down into the text row can keep the text
+            // size when it stands alone in its line.
+            const standard = normal.clamped
+              ? await renderMathImage(content, false, input.color, input.surface, input.cell, 1, false, true)
+              : normal
+            return { normal, compact: compact ?? normal, standard: standard ?? normal }
           } catch {
             return undefined
           }
@@ -784,7 +816,7 @@ export function CanvasFlow(props: {
   )
   const images = createMemo(() => {
     const list = rendered()
-    if (!list) return new Map<string, { normal: MathImage; compact: MathImage }>()
+    if (!list) return new Map<string, { normal: MathImage; compact: MathImage; standard: MathImage }>()
     return new Map(
       contents().flatMap((content, index) => {
         const image = list[index]
@@ -811,11 +843,16 @@ export function CanvasFlow(props: {
           rows: image.compact.rows === 1 ? 1 : Math.max(1, Math.round(image.compact.rows * scale())),
           baseline: image.compact.baseline * scale(),
         },
+        standard: {
+          columns: Math.max(1, Math.round(image.standard.columns * scale())),
+          rows: Math.max(1, Math.round(image.standard.rows * scale())),
+          baseline: image.standard.baseline * scale(),
+        },
       }
     },
-    imageOf: (content: string, compact: boolean) => {
+    imageOf: (content: string, variant: MathVariant) => {
       const image = images().get(content)
-      return image?.[compact ? "compact" : "normal"]
+      return image?.[variant]
     },
     compactOverflow: props.graphics.protocol() !== "blocks",
     color,

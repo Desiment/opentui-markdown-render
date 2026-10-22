@@ -66,7 +66,18 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const renderer = props.renderer
   const graphics = useCanvasGraphics(renderer)
   const surface = () => rgbaToHex(theme().background.base)
-  const columns = () => Math.max(8, props.columns?.() ?? renderer.terminalWidth)
+  // The document is laid out for the width of the area it is rendered in, not
+  // for the width of the terminal: a host that insets the document (a scroll
+  // box with padding, a sidebar, a border) leaves less room, and a line that
+  // reaches past it is cut off by the terminal. The root box measures itself,
+  // so the layout follows the host. An explicit `columns` wins over it.
+  const [measured, setMeasured] = createSignal(0)
+  const columns = () => {
+    const explicit = props.columns?.()
+    if (explicit !== undefined && explicit > 0) return Math.max(8, explicit)
+    const width = measured()
+    return Math.max(8, width > 0 ? width : renderer.terminalWidth)
+  }
 
   const themeModeSetting = () => (typeof props.themeMode === "function" ? props.themeMode() : props.themeMode)
   const config = createMemo<MarkdownConfig>(() => {
@@ -98,7 +109,15 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   return (
     <Show when={theme()} keyed>
       {(activeTheme) => (
-        <box width="100%" flexDirection="column" flexShrink={0} backgroundColor={activeTheme.background.base}>
+        <box
+          width="100%"
+          flexDirection="column"
+          flexShrink={0}
+          backgroundColor={activeTheme.background.base}
+          onSizeChange={function () {
+            setMeasured(this.width)
+          }}
+        >
           <For each={blocks()}>
             {(block) => (
               <BlockView

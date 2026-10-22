@@ -135,6 +135,19 @@ process, without a system LaTeX installation.
   `\middle`, `\big`, `\substack`, `\displaystyle`.
 - A formula that neither MiTeX nor Typst can parse is left in the document as
   its LaTeX source.
+- An inline formula that shares its row with prose is scaled down to fit that
+  row. A formula that stands alone in its line, with no text in the lines around
+  it, keeps the standard text size instead.
+
+## Layout Width
+
+The document is laid out for the width of the area it is rendered in, not for the
+width of the terminal: the component measures its own box, so a host that insets
+the document (a scroll box with padding, a sidebar, a border) leaves the text and
+the formulas inside it. A line that reached past that area would be cut off by
+the terminal.
+
+The `columns` prop overrides the measurement with a width the host knows.
 
 ## Source Preservation
 
