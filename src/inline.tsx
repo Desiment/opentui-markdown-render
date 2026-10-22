@@ -610,17 +610,17 @@ function layout(
       }
     }
   }
-  // A formula that stands alone in its line, with no text in the lines around
-  // it, shares its row with nothing: it keeps the text size instead of being
-  // scaled down into the row it would otherwise have to fit into.
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index]!
-    const entry = line.runs[0]
-    if (!entry || line.runs.length !== 1 || entry.run.type !== "math") continue
+  // A formula that ends its line has nothing after it on that line: it keeps
+  // the text size instead of being scaled down into the row it would otherwise
+  // have to fit into.
+  for (const line of lines) {
+    const entry = line.runs[line.runs.length - 1]
+    if (!entry || entry.run.type !== "math") continue
     if (entry.variant === "compact") continue
-    if (hasText(lines[index - 1]) || hasText(lines[index + 1])) continue
     const standard = measureOf(entry.run.content)?.standard
-    if (!standard || standard.columns > columns) continue
+    if (!standard) continue
+    // The line has to keep fitting the area it is laid out in.
+    if (line.columns - entry.columns + standard.columns > columns) continue
     entry.variant = "standard"
     entry.columns = standard.columns
     entry.rows = standard.rows
@@ -639,11 +639,6 @@ function layout(
     line.height = Math.max(1, line.textRow + 1, ...line.runs.map((entry) => entry.rows))
   }
   return lines
-}
-
-// A line carries text when it holds more than whitespace.
-function hasText(line: LayoutLine | undefined) {
-  return !!line?.runs.some((entry) => entry.run.type === "text" && entry.run.content.trim().length > 0)
 }
 
 function styleOf(theme: Theme, style: InlineStyle) {

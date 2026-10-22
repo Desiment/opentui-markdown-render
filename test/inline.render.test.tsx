@@ -44,6 +44,16 @@ describe("inline formula layout", () => {
     expect(mosaicRows(lines)).toBe(2)
   })
 
+  test("a formula that ends its line keeps the standard text size", async () => {
+    // Nothing follows the formula on its line, so it does not have to share
+    // the row with text that comes after it.
+    const lines = await renderRuns([
+      { type: "text", content: "text ", style: "text" },
+      { type: "math", content: "x^2", open: "$", close: "$" },
+    ])
+    expect(mosaicRows(lines)).toBe(2)
+  })
+
   test("a formula that shares its line with text is squeezed into the text row", async () => {
     const lines = await renderRuns([
       { type: "text", content: "text ", style: "text" },

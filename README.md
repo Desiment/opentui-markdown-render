@@ -135,9 +135,9 @@ process, without a system LaTeX installation.
   `\middle`, `\big`, `\substack`, `\displaystyle`.
 - A formula that neither MiTeX nor Typst can parse is left in the document as
   its LaTeX source.
-- An inline formula that shares its row with prose is scaled down to fit that
-  row. A formula that stands alone in its line, with no text in the lines around
-  it, keeps the standard text size instead.
+- An inline formula that has text after it on the same line is scaled down to
+  fit that row. A formula that ends its line keeps the standard text size
+  instead: nothing follows it there, so it does not have to share the row.
 
 ## Layout Width
 
