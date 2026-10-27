@@ -44,16 +44,10 @@ export function rgbToHex(color: Rgb) {
   return `#${channel(color[0])}${channel(color[1])}${channel(color[2])}`
 }
 
-export type MarkdownImage = { readonly alt: string; readonly href: string }
-
 type AnimatedFrame = { readonly image: NativeImage; readonly delay: number }
 type Media = { readonly box: { columns: number; rows: number }; readonly image?: NativeImage; readonly frames?: readonly AnimatedFrame[] }
 
-export function standaloneImage(source: string): MarkdownImage | undefined {
-  const match = /^!\[([^\]]*)\]\((?:<([^>]+)>|([^\s)]+))\)\s*$/.exec(source.trim())
-  if (!match) return undefined
-  return { alt: match[1] ?? "", href: match[2] ?? match[3] ?? "" }
-}
+export { standaloneImage, type MarkdownImage } from "./core/blocks"
 
 export function resolveLocalImage(base: string | undefined, href: string) {
   if (!base) return { error: "No asset base is configured" }

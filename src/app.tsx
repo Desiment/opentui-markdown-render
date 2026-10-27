@@ -1,6 +1,7 @@
 import type { CliRenderer, MarkdownOptions } from "@opentui/core"
 import { createMemo, createResource, createSignal, For, Match, Show, Switch } from "solid-js"
 import { useCanvasGraphics, mosaicScale, type CanvasGraphics } from "./graphics"
+import { resolveHeadingStyles, type HeadingStyles } from "./headings"
 import { CanvasFlow, scanDocument, type CanvasBlock, type FlowBlock } from "./inline"
 import { LocalImage } from "./media"
 import { mathImageID, renderMathImage, rgbaToHex, type CellSize, type MathImage } from "./math"
@@ -8,10 +9,20 @@ import { createThemedMermaidRenderer } from "./merman"
 import { generateSyntax } from "./theme/syntax"
 import { loadConfig } from "./config"
 import type { ImagesConfig, MarkdownConfig } from "./config"
+import { createDocumentLayout, type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
+import { MarkdownFrame } from "./view/frame"
+import { createTableRenderer } from "./view/table"
 import { resolveTheme } from "./theme/resolve"
 import type { Theme, ThemeMode } from "./theme/types"
 
 export type ThemeModeSetting = ThemeMode | "auto"
+
+// A diagnostic is a warning or a failure the host may want to show in its own
+// UI instead of the terminal's stderr.
+export type MarkdownDiagnostic = {
+  readonly level: "warning" | "error"
+  readonly message: string
+}
 
 export type MarkdownRendererProps = {
   readonly content: () => string
@@ -28,6 +39,17 @@ export type MarkdownRendererProps = {
   readonly themeMode?: ThemeModeSetting | (() => ThemeModeSetting | null | undefined)
   readonly mathScale?: () => number
   readonly cwd?: string
+  // The viewer window. `enabled: false` keeps the document in the whole area.
+  readonly frame?: FrameConfig | (() => FrameConfig)
+  // Table sizing and overflow. Defaults to content-sized, horizontally
+  // scrollable tables.
+  readonly tables?: TablesConfig | (() => TablesConfig)
+  // An embedded host passes `false` so the renderer never walks the file system
+  // for a config that belongs to a standalone viewer.
+  readonly discoverConfig?: boolean
+  // Warnings and errors are reported here instead of stderr, which lets a host
+  // put them in its own UI.
+  readonly onDiagnostic?: (diagnostic: MarkdownDiagnostic) => void
 }
 
 // Theme priority: a host-provided theme, then the config file, then the bundled
@@ -53,11 +75,20 @@ export function resolveRendererTheme(
 
 // A broken config file must not take the whole renderer down, so the failure
 // is reported and the bundled defaults are used instead.
-export function loadRendererConfig(configPath?: string, cwd?: string): MarkdownConfig {
+export function loadRendererConfig(
+  configPath?: string,
+  cwd?: string,
+  options: { readonly discover?: boolean; readonly report?: (message: string) => void } = {},
+): MarkdownConfig {
+  // An embedded host that does not pass a path must not inherit a config file
+  // that happens to sit above its working directory.
+  if (options.discover === false && !configPath) return {}
   try {
-    return loadConfig(configPath, cwd)
+    return loadConfig(configPath, cwd, options.report)
   } catch (error) {
-    console.warn(`[opentui-markdown-render] ${error instanceof Error ? error.message : String(error)}`)
+    const message = error instanceof Error ? error.message : String(error)
+    if (options.report) options.report(message)
+    else console.warn(`[opentui-markdown-render] ${message}`)
     return {}
   }
 }
@@ -72,7 +103,9 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   // reaches past it is cut off by the terminal. The root box measures itself,
   // so the layout follows the host. An explicit `columns` wins over it.
   const [measured, setMeasured] = createSignal(0)
-  const columns = () => {
+  // The area the host gives the viewer: the terminal is only the fallback for
+  // the first frame, before the root box has been measured.
+  const viewportWidth = () => {
     const explicit = props.columns?.()
     if (explicit !== undefined && explicit > 0) return Math.max(8, explicit)
     const width = measured()
@@ -83,7 +116,17 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const config = createMemo<MarkdownConfig>(() => {
     const provided = typeof props.config === "function" ? props.config() : props.config
     if (provided) return provided
-    return loadRendererConfig(props.configPath, props.cwd)
+    return loadRendererConfig(props.configPath, props.cwd, {
+      discover: props.discoverConfig,
+      report: (message) => {
+        const handler = props.onDiagnostic
+        if (handler) {
+          handler({ level: "warning", message })
+          return
+        }
+        console.warn(`[opentui-markdown-render] ${message}`)
+      },
+    })
   })
   const theme = createMemo<Theme>(() =>
     resolveRendererTheme(renderer, {
@@ -93,12 +136,38 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
     }),
   )
 
+  // The frame decides how much of the measured area the document gets. Every
+  // block engine reads the same `contentWidth`, so text, tables and formulas
+  // cannot disagree about where the right edge is.
+  const frameSetting = createMemo<FrameConfig | undefined>(() => {
+    const explicit = typeof props.frame === "function" ? props.frame() : props.frame
+    return explicit ?? config().frame
+  })
+  const tableSetting = createMemo<TablesConfig | undefined>(() => {
+    const explicit = typeof props.tables === "function" ? props.tables() : props.tables
+    return explicit ?? config().tables
+  })
+  const layout = createMemo(() =>
+    createDocumentLayout({ viewport: viewportWidth(), frame: frameSetting(), tables: tableSetting() }),
+  )
+  const frame = () => layout().frame
+  const contentWidth = () => layout().contentWidth
+  const tableOptions = () => layout().tables
+
   const blocks = createMemo(() => scanDocument(props.content()))
-  const renderNode = createThemedMermaidRenderer(renderer, {
+  // The look of the heading levels is a configuration of its own: the colours
+  // come from the theme, the attributes and the spacing from the config file.
+  const headings = createMemo(() => resolveHeadingStyles(config().headings))
+  const mermaidNode = createThemedMermaidRenderer(renderer, {
     theme,
     compact: config().mermaid?.compact,
     layoutMaxWidth: config().mermaid?.layoutMaxWidth,
   })
+  const tableNode = createTableRenderer(renderer, () => tableOptions())
+  // A block is offered to the table renderer first and to the Mermaid renderer
+  // second: both answer only for the tokens they own.
+  const renderNode: NonNullable<MarkdownOptions["renderNode"]> = (token, context) =>
+    tableNode(token, context) ?? mermaidNode(token, context)
   const mathScale = () => props.mathScale?.() ?? config().math?.scale ?? 1
   const displayScale = () => mathScale() * (config().math?.displayScale ?? 1)
 
@@ -118,22 +187,26 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
             setMeasured(this.width)
           }}
         >
-          <For each={blocks()}>
-            {(block) => (
-              <BlockView
-                block={block}
-                theme={theme}
-                graphics={graphics}
-                renderNode={renderNode}
-                columns={columns}
-                surface={surface}
-                mathScale={mathScale}
-                displayScale={displayScale}
-                assetBase={() => props.assetBase?.()}
-                imageLimits={config().images}
-              />
-            )}
-          </For>
+          <MarkdownFrame frame={frame()} theme={activeTheme}>
+            <For each={blocks()}>
+              {(block) => (
+                <BlockView
+                  block={block}
+                  theme={theme}
+                  graphics={graphics}
+                  renderNode={renderNode}
+                  tableOptions={tableOptions}
+                  columns={contentWidth}
+                  surface={surface}
+                  mathScale={mathScale}
+                  displayScale={displayScale}
+                  assetBase={() => props.assetBase?.()}
+                  imageLimits={config().images}
+                  headings={headings()}
+                />
+              )}
+            </For>
+          </MarkdownFrame>
         </box>
       )}
     </Show>
@@ -145,12 +218,14 @@ type BlockViewProps = {
   readonly theme: () => Theme
   readonly graphics: CanvasGraphics
   readonly renderNode: NonNullable<MarkdownOptions["renderNode"]>
+  readonly tableOptions: () => ResolvedTableOptions
   readonly columns: () => number
   readonly surface: () => string
   readonly mathScale: () => number
   readonly displayScale: () => number
   readonly assetBase: () => string | undefined
   readonly imageLimits?: ImagesConfig
+  readonly headings?: HeadingStyles
 }
 
 // A block owns either OpenTUI's Markdown renderer or the inline flow, never both.
@@ -160,11 +235,17 @@ function BlockView(props: BlockViewProps) {
     if (block.type === "markdown") {
       return (
         <markdown
-          syntaxStyle={generateSyntax(props.theme())}
+          syntaxStyle={generateSyntax(props.theme(), props.headings)}
           renderNode={props.renderNode}
           content={block.content}
           internalBlockMode="top-level"
-          tableOptions={{ style: "grid", cellPaddingX: 1 }}
+          tableOptions={{
+            style: "grid",
+            widthMode: props.tableOptions().widthMode,
+            columnFitter: props.tableOptions().columnFitter,
+            wrapMode: props.tableOptions().wrapMode,
+            cellPaddingX: props.tableOptions().cellPaddingX,
+          }}
           conceal
           fg={props.theme().markdown.text}
           bg={props.theme().background.base}
@@ -206,6 +287,7 @@ function BlockView(props: BlockViewProps) {
         background={() => props.theme().background.base}
         theme={props.theme()}
         graphics={props.graphics}
+        headings={props.headings}
       />
     )
   })

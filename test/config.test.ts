@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { discoverConfig, parseConfig } from "../src/config"
+import { discoverConfig, loadConfig, parseConfig } from "../src/config"
+import { loadRendererConfig } from "../src/app"
 
 describe("config parsing", () => {
   test("accepts JSONC comments and trailing commas", () => {
@@ -63,6 +64,96 @@ describe("config parsing", () => {
   })
 })
 
+describe("heading configuration", () => {
+  test("keeps the style of every level", () => {
+    const config = parseConfig(`{
+      "headings": { "levels": { "1": { "bold": true, "underline": true, "marginTop": 2 }, "3": { "dim": true } } }
+    }`)
+    expect(config.headings).toEqual({
+      levels: { "1": { bold: true, underline: true, marginTop: 2 }, "3": { dim: true } },
+    })
+  })
+
+  test("drops an unknown level", () => {
+    const config = parseConfig(`{ "headings": { "levels": { "7": { "bold": true } } } }`)
+    expect(config.headings).toBeUndefined()
+  })
+
+  test("drops an unknown option", () => {
+    const config = parseConfig(`{ "headings": { "levels": { "1": { "blinking": true, "bold": true } } } }`)
+    expect(config.headings).toEqual({ levels: { "1": { bold: true } } })
+  })
+
+  test("drops invalid option values", () => {
+    const config = parseConfig(`{ "headings": { "levels": { "1": { "bold": "yes", "marginTop": -1 } } } }`)
+    expect(config.headings).toEqual({ levels: { "1": {} } })
+  })
+})
+
+describe("frame and table configuration", () => {
+  test("keeps the frame window", () => {
+    const config = parseConfig(`{
+      "frame": {
+        "enabled": true,
+        "width": 80,
+        "align": "center",
+        "style": "rounded",
+        "paddingX": 2,
+        "paddingY": 1,
+        "title": "notes.md",
+        "titleAlign": "right"
+      }
+    }`)
+    expect(config.frame).toEqual({
+      enabled: true,
+      width: 80,
+      align: "center",
+      style: "rounded",
+      paddingX: 2,
+      paddingY: 1,
+      title: "notes.md",
+      titleAlign: "right",
+    })
+  })
+
+  test("keeps the table policy", () => {
+    const config = parseConfig(`{ "tables": { "widthMode": "content", "overflow": "scroll", "columnFitter": "balanced", "cellPaddingX": 2 } }`)
+    expect(config.tables).toEqual({
+      widthMode: "content",
+      overflow: "scroll",
+      columnFitter: "balanced",
+      cellPaddingX: 2,
+    })
+  })
+
+  test("reports and drops invalid frame options", () => {
+    const messages: string[] = []
+    const config = parseConfig(
+      `{ "frame": { "enabled": "yes", "width": 0, "align": "middle", "style": "neon", "paddingX": -1, "title": 4 } }`,
+      "config.jsonc",
+      (message) => messages.push(message),
+    )
+    expect(config.frame?.enabled).toBeUndefined()
+    expect(config.frame?.width).toBeUndefined()
+    expect(config.frame?.align).toBeUndefined()
+    expect(config.frame?.style).toBeUndefined()
+    expect(config.frame?.paddingX).toBeUndefined()
+    expect(config.frame?.title).toBeUndefined()
+    expect(messages).toHaveLength(6)
+  })
+
+  test("reports and drops invalid table options", () => {
+    const messages: string[] = []
+    const config = parseConfig(
+      `{ "tables": { "widthMode": "stretch", "overflow": "clip", "columnFitter": "even", "cellPaddingX": -1 } }`,
+      "config.jsonc",
+      (message) => messages.push(message),
+    )
+    expect(config.tables).toEqual({})
+    expect(messages).toHaveLength(4)
+  })
+})
+
 describe("config discovery", () => {
   test("walks up from the starting directory", () => {
     const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
@@ -82,5 +173,21 @@ describe("config discovery", () => {
   test("returns nothing when no config exists", () => {
     const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
     expect(discoverConfig(root)).toBeUndefined()
+  })
+
+  test("reports config warnings through the reporter", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    writeFileSync(path.join(root, "opentui-markdown-render.jsonc"), `{ "frame": { "style": "neon" } }`)
+    const messages: string[] = []
+    loadConfig(undefined, root, (message) => messages.push(message))
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toContain("frame option \"style\"")
+  })
+
+  test("an embedded host can switch discovery off", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    writeFileSync(path.join(root, "opentui-markdown-render.jsonc"), `{ "frame": { "enabled": true } }`)
+    expect(loadRendererConfig(undefined, root, { discover: false })).toEqual({})
+    expect(loadRendererConfig(undefined, root).frame?.enabled).toBe(true)
   })
 })

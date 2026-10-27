@@ -1,0 +1,408 @@
+# Конфигурация opentui-markdown-render
+
+Полная схема текущего конфига + карта будущих правок для максимально конфигурируемого конфига.
+
+## 1. Путь конфигурации (pipeline)
+
+```
+opentui-markdown-render.jsonc | .json
+  -> discoverConfig() (вверх по дереву)
+    -> loadConfig()
+      -> parseConfig()  (strip comments + trailing commas, JSON.parse)
+        -> validateConfig() (мягкая валидация + варнинги)
+          -> MarkdownConfig
+            -> resolveRendererTheme()  (props.theme > config.theme > defaultTheme)
+              -> mergeTheme()         (ThemeOverride -> Theme)
+                -> defaultTheme(mode)
+            -> resolveHeadingStyles(config.headings) -> HeadingStyles
+            -> resolveFrame/resolveTableOptions
+```
+
+Код:
+- `src/config/load.ts` - поиск/парсинг/валидация
+- `src/config/types.ts` - типы конфига
+- `src/theme/*` - тема и мердж
+- `src/headings.ts` - стили заголовков
+- `src/app.tsx` - связка
+
+## 2. Полная схема конфига (текущая)
+
+### Корень
+```ts
+type MarkdownConfig = {
+  theme?: ThemeOverride        // почти не валидируется
+  statusline?: StatusLineConfig
+  math?: MathConfig
+  images?: ImagesConfig
+  mermaid?: MermaidConfig
+  headings?: HeadingsConfig
+  frame?: FrameConfig
+  tables?: TablesConfig
+}
+```
+
+### theme (ThemeOverride)
+См. `src/theme/types.ts:120-145`. Фактически прокидывается как есть.
+
+```ts
+type ThemeOverride = {
+  mode?: "light" | "dark"
+  accent?: ColorInput
+  categorical?: readonly ColorInput[]
+  text?: {
+    base?: ColorInput
+    muted?: ColorInput
+    feedback?: { error?: ColorInput; warning?: ColorInput; success?: ColorInput; info?: ColorInput }
+    action?: { primary?: { focused?: ColorInput } }
+  }
+  background?: { base?: ColorInput }
+  border?: { base?: ColorInput }
+  frame?: FrameThemeOverride      // { border?, title? }
+  statusline?: StatusLineThemeOverride // { background?, foreground?, title?, muted?, border? }
+  markdown?: MarkdownThemeOverride
+  syntax?: { [K in keyof Theme["syntax"]]?: ColorInput }
+  diff?: {
+    text?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
+    background?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
+  }
+}
+```
+
+```ts
+type MarkdownThemeOverride = {
+  [K in Exclude<keyof Theme["markdown"], "headingLevels">]?: ColorInput
+} & {
+  heading1?: ColorInput
+  heading2?: ColorInput
+  heading3?: ColorInput
+  heading4?: ColorInput
+  heading5?: ColorInput
+  heading6?: ColorInput
+}
+// + отсутствует в типе: headingLevels?: readonly ColorInput[] (длина 6)
+```
+
+Ключи `Theme["markdown"]`: `text`, `heading`, `headingLevels`, `link`, `linkText`, `code`, `blockQuote`, `emphasis`, `strong`, `horizontalRule`, `listItem`, `listEnumeration`, `image`, `imageText`, `codeBlock`
+
+### statusline
+```ts
+type StatusLineConfig = {
+  enabled?: boolean
+  fields?: StatusLineField[]  // валидируются по allowlist
+  separator?: string
+  border?: "none" | "top" | "bottom"
+  style?: StatusLineStyle     // валидируется isStatusLineStyle
+  highlight?: StatusLineField // валидируется isStatusLineField
+}
+statusLineFields = ["title","mode","protocol","cell","mathScale","position","hint","text"]
+statusLineStyles  = ["bar","plain"]
+```
+
+### math
+```ts
+type MathConfig = {
+  scale?: number        // > 0
+  displayScale?: number // > 0
+}
+```
+
+### images
+```ts
+type ImagesConfig = {
+  maxColumns?: number // положительный integer
+  maxRows?: number    // положительный integer
+}
+```
+
+### mermaid
+```ts
+type MermaidConfig = {
+  compact?: boolean
+  layoutMaxWidth?: number // положительный integer
+}
+```
+
+### headings
+```ts
+type HeadingsConfig = {
+  levels?: Partial<Record<HeadingLevelKey, HeadingLevelConfig>>
+}
+type HeadingLevelKey = "1"|"2"|"3"|"4"|"5"|"6"
+type HeadingLevelConfig = {
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  dim?: boolean
+  uppercase?: boolean
+  marginTop?: number      // неотрицательный integer
+  marginBottom?: number   // неотрицательный integer
+  // НЕТ color
+}
+```
+
+Дефолты стилей: `src/headings.ts:25-32`
+```ts
+1: { bold: true,  italic:false, underline:true,  dim:false, uppercase:false, marginTop:2, marginBottom:1 }
+2: { bold: true,  italic:false, underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
+3: { bold: true,  italic:false, underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
+4: { bold: false, italic:true,  underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
+5: { bold: false, italic:true,  underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
+6: { bold: false, italic:false, underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
+```
+
+Цвет заголовка берётся из темы: `headingColor(theme, level) = theme.markdown.headingLevels[level-1] ?? theme.markdown.heading`
+
+Дефолты `headingLevels`:
+- light: `[h("#0969da"), h("#8250df"), h("#8250df"), h("#59636e"), h("#59636e"), h("#59636e")]`
+- dark:  `[h("#58a6ff"), h("#d2a8ff"), h("#d2a8ff"), h("#8b949e"), h("#8b949e"), h("#8b949e")]`
+
+### frame
+```ts
+type FrameConfig = {
+  enabled?: boolean
+  width?: number        // > 0 integer
+  align?: FrameAlign    // "left"|"center"|"right"
+  style?: FrameStyle    // "box"|"ascii"|"rounded"|"heavy"|"double"
+  paddingX?: number     // >= 0 integer
+  paddingY?: number     // >= 0 integer
+  title?: string
+  titleAlign?: FrameAlign
+}
+```
+Резолв: `src/core/frame.ts:99-144`. Дефолт: `enabled:false`, `align:left`, `style:box`, `titleAlign:left`, `paddingX:1`, `paddingY:0` (когда enabled)
+
+### tables
+```ts
+type TablesConfig = {
+  widthMode?: TableWidthMode   // "content"|"full"
+  overflow?: TableOverflow     // "scroll"|"wrap"
+  columnFitter?: TableColumnFitter // "proportional"|"balanced"
+  cellPaddingX?: number       // >= 0 integer
+}
+```
+Резолв: `src/core/tables.ts:48-58`. Дефолт: `widthMode:content`, `overflow:scroll`, `columnFitter:balanced`, `cellPaddingX:1`, `wrapMode: none|word` зависит от пары
+
+## 3. Полная схема темы (фактическая)
+
+`src/theme/types.ts` + `src/theme/defaults.ts`
+
+```ts
+type Theme = {
+  mode: ThemeMode // "light"|"dark"
+  accent: RGBA
+  categorical: readonly RGBA[]
+  text: {
+    base: RGBA
+    muted: RGBA
+    feedback: { error: RGBA; warning: RGBA; success: RGBA; info: RGBA }
+    action: { primary: { focused: RGBA } }
+  }
+  background: { base: RGBA }
+  border: { base: RGBA }
+  frame?: FrameTheme  // { border: RGBA; title: RGBA }
+  statusline?: StatusLineTheme // { background: RGBA; foreground: RGBA; title: RGBA; muted: RGBA; border: RGBA }
+  markdown: {
+    text: RGBA
+    heading: RGBA
+    headingLevels: readonly [RGBA,RGBA,RGBA,RGBA,RGBA,RGBA] // H1..H6
+    link: RGBA
+    linkText: RGBA
+    code: RGBA
+    blockQuote: RGBA
+    emphasis: RGBA
+        } 
+    strong: RGBA
+    horizontalRule: RGBA
+    listItem: RGBA
+    listEnumeration: RGBA
+    image: RGBA
+    imageText: RGBA
+    codeBlock: RGBA
+  }
+  syntax: {
+    comment: RGBA
+    keyword: RGBA
+    function: RGBA
+    variable: RGBA
+    string: RGBA
+    number: RGBA
+    type: RGBA
+    operator: RGBA
+    punctuation: RGBA
+  }
+  diff: {
+    text: { added: RGBA; removed: RGBA; context: RGBA }
+    background: { added: RGBA; removed: RGBA; context: RGBA }
+  }
+}
+```
+
+## 4. Карта валидации (текущая)
+| Секция | Валидируется | Варнинги | Примечание
+|---|---|---|---|
+| root | allowlist + `$schema` игнор | `Unknown config section` | |
+| theme | только `isRecord` | нет | **минимум** |
+| statusline | поля, стили, highlight, border | много | неплохо |
+| math/images/mermaid | типы + положительные числа | нет явных варнингов (просто дроп) | |
+| headings | уровни 1-6, опции, типы | много | хорошо |
+| frame | все опции + типы | много (6 в тесте) | хорошо |
+| tables | все опции + типы | много (4 в тесте) | хорошо |
+
+## 5. План до максимально конфигурируемого
+
+### Шаг 1. Глубокая валидация theme
+Файл: `src/config/load.ts`
+
+Добавить `validateTheme(value: Record<string,unknown>, file: string, report?: ConfigReporter)`:
+- allowlist верхнего уровня темы
+- валидация `mode`
+- валидация цветов: принимать строку, при желании можно проверять через `parseColor` из `@opentui/core` (но парсинг `parseColor` может кинуть) — лучше просто тип `string` + варнинг при не строке
+- `categorical` массив строк
+- `markdown.heading1..heading6`, все markdown-ключи
+- `markdown.headingLevels` массив из 6 строк (если хотим явно)
+- `syntax.*`, `diff.*`, `text.feedback.*`, `text.action.primary.focused`
+- неизвестные ключи -> варнинг
+
+Заменить в `validateConfig`:
+```ts
+theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
+```
+
+### Шаг 2. Расширить ThemeOverride
+Файл: `src/theme/types.ts`
+```ts
+export type MarkdownThemeOverride = {
+  readonly [K in Exclude<keyof Theme["markdown"], "headingLevels">]?: ColorInput
+} & {
+  readonly heading1?: ColorInput
+  readonly heading2?: ColorInput
+  readonly heading3?: ColorInput
+  readonly heading4?: ColorInput
+  readonly heading5?: ColorInput
+  readonly heading6?: ColorInput
+  readonly headingLevels?: readonly ColorInput[]  // добавить
+}
+```
+
+Файл: `src/theme/resolve.ts` `mergeMarkdownTheme()` - добавить поддержку массива (приоритет выше `heading1..heading6` или наоборот? Лучше зафиксировать: `headingLevels` массив целиком перезаписывает, либо `headingN` приоритетнее массива. Нужно продумать, но явно добавить обработку)
+
+### Шаг 3. Цвет в headings.levels
+Файлы: `src/config/types.ts`, `src/config/load.ts`, `src/headings.ts`, `src/theme/resolve.ts` или `src/app.tsx`
+
+1. `src/config/types.ts`
+```ts
+export type HeadingLevelConfig = {
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  dim?: boolean
+  uppercase?: boolean
+  marginTop?: number
+  marginBottom?: number
+  color?: string  // новый
+}
+```
+
+2. `src/config/load.ts` `validateHeadingLevel()` добавить case `color`: только `typeof entry === "string"`
+
+3. Склейка: нужно применить `config.headings.levels[N].color` к теме. Самый чистый вариант - в `resolveTheme` или отдельная функция `applyHeadingColors(theme, headings)` вызываемая в `app.tsx` после `resolveRendererTheme()`. Альтернатива - расширить `mergeTheme` чтобы принимать `headings`.
+
+Приоритет (предлагаемый):
+`headings.levels[N].color` > `theme.markdown.headingN` > `theme.markdown.heading` > `theme.markdown.headingLevels` дефолт
+
+### Шаг 4. Единые хелперы валидации
+`src/config/load.ts` добавить:
+```ts
+function warn(report: ConfigReporter | undefined, message: string) { ... }
+function isRecord(v: unknown): v is Record<string,unknown> { ... }
+function isString(v:unknown): v is string { return typeof v === 'string' }
+function isBoolean(v:unknown): v is boolean { return typeof v === 'boolean' }
+function isNonNegativeInteger(v:unknown): v is number { ... }
+function positiveInteger(v:unknown): number|undefined { ... }
+function positiveNumber(v:unknown): number|undefined { ... }
+function validateUnknownKeys(obj: Record<string,unknown>, allowed: readonly string[], file: string, report?: ConfigReporter, prefix = '') { ... }
+function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]): v is T { ... }
+```
+
+Использовать во всех `validate*` функциях.
+
+### Шаг 5. Вынос хардкода
+Найти и вынести:
+- `src/app.tsx` - отступы display-math (`marginTop:1, marginBottom:1`), прочий хардкод
+- `src/view/frame.tsx` - бордеры
+- `src/view/table.ts` - скролл поведение
+- `src/inline.tsx` / `src/media.tsx` - отступы списков/блоков/картинок
+- `src/core/*` - дефолты
+
+Варианты: расширить `theme` (новые секции) или добавить `spacing/lists/blocks` в корень конфига.
+
+## 6. Референс полного будущего конфига
+```jsonc
+{
+  "$schema": "./node_modules/opentui-markdown-render/schema.json",
+  "theme": {
+    "mode": "dark",
+    "accent": "#7dd3fc",
+    "categorical": ["#7dd3fc", "#a78bfa", "#34d399"],
+    "text": { "base": "#e2e8f0", "muted": "#94a3b8", "feedback": { "error": "#f87171", "warning": "#fbbf24", "success": "#34d399", "info": "#7dd3fc" } },
+    "background": { "base": "#0f172a" },
+    "border": { "base": "#334155" },
+    "frame": { "border": "#475569", "title": "#94a3b8" },
+    "statusline": { "background": "#162333", "foreground": "#e2e8f0", "title": "#7dd3fc", "muted": "#94a3b8", "border": "#7dd3fc" },
+    "markdown": {
+      "text": "#e2e8f0",
+      "heading": "#e2e8f0",
+      "heading1": "#7dd3fc",
+      "heading2": "#a78bfa",
+      "heading3": "#94a3b8",
+      "headingLevels": ["#7dd3fc", "#a78bfa", "#94a3b8", "#64748b", "#64748b", "#64748b"],
+      "link": "#7dd3fc",
+      "linkText": "#7dd3fc",
+      "code": "#f59e0b",
+      "blockQuote": "#94a3b8",
+      "emphasis": "#e2e8f0",
+      "strong": "#e2e8f0",
+      "horizontalRule": "#334155",
+      "listItem": "#e2e8f0",
+      "listEnumeration": "#e2e8f0",
+      "image": "#7dd3fc",
+      "imageText": "#7dd3fc",
+      "codeBlock": "#e2e8f0"
+    },
+    "syntax": {
+      "comment": "#64748b",
+      "keyword": "#f87171",
+      "function": "#a78bfa",
+      "variable": "#f59e0b",
+      "string": "#34d399",
+      "number": "#7dd3fc",
+      "type": "#fbbf24",
+      "operator": "#f87171",
+      "punctuation": "#cbd5e1"
+    },
+    "diff": {
+      "text": { "added": "#34d399", "removed": "#f87171", "context": "#94a3b8" },
+      "background": { "added": "#064e3b", "removed": "#7f1d1d", "context": "#1e293b" }
+    }
+  },
+  "statusline": {
+    "enabled": true,
+    "style": "bar",
+    "highlight": "title",
+    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
+    "separator": " · ",
+    "border": "top"
+  },
+  "math": { "scale": 1, "displayScale": 1.2 },
+  "images": { "maxColumns": 80, "maxRows": 32 },
+  "mermaid": { "compact": false, "layoutMaxWidth": 120 },
+  "headings": {
+    "levels": {
+      "1": { "bold": true, "underline": true, "color": "#7dd3fc", "marginTop": 2, "marginBottom": 1 },
+      "2": { "bold": true, "color": "#a78bfa", "marginTop": 1 },
+      "3": { "bold": true, "dim": true, "color": "#94a3b8" }
+    }
+  },
+  "frame": { "enabled": true, "width": 100, "align": "center", "style": "rounded", "paddingX": 2, "paddingY": 1, "title": "notes.md", "titleAlign": "right" },
+  "tables": { "widthMode": "content", "overflow": "scroll", "columnFitter": "balanced", "cellPaddingX": 1 }
+}

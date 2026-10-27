@@ -1,7 +1,7 @@
 import { parseColor, type ColorInput, type RGBA } from "@opentui/core"
 import { defaultTheme } from "./defaults"
 import { mixColors } from "./colors"
-import type { StatusLineTheme, StatusLineThemeOverride, Theme, ThemeMode, ThemeOverride } from "./types"
+import type { StatusLineTheme, StatusLineThemeOverride, Theme, ThemeMode, ThemeOverride, MarkdownThemeOverride } from "./types"
 
 export function resolveTheme(options: {
   mode: ThemeMode | null | undefined
@@ -41,6 +41,19 @@ export function mergeTheme(base: Theme, override: ThemeOverride | undefined): Th
     base: color(override.text?.base, base.text.base),
     muted: color(override.text?.muted, base.text.muted),
   }
+  const border = { base: color(override.border?.base, base.border.base) }
+  // An explicit border or muted-text override moves the frame with it, unless
+  // the frame names its own colour. A hand-built theme keeps its frame colours.
+  const frame = {
+    border: color(
+      override.frame?.border,
+      override.border?.base !== undefined ? border.base : (base.frame?.border ?? border.base),
+    ),
+    title: color(
+      override.frame?.title,
+      override.text?.muted !== undefined ? text.muted : (base.frame?.title ?? text.muted),
+    ),
+  }
   const derived = deriveStatusLineTheme({ mode: override.mode ?? base.mode, accent, background, text })
   return {
     mode: override.mode ?? base.mode,
@@ -60,12 +73,13 @@ export function mergeTheme(base: Theme, override: ThemeOverride | undefined): Th
       },
     },
     background,
-    border: { base: color(override.border?.base, base.border.base) },
+    border,
+    frame,
     // The bar colours follow the merged accent, so overriding the accent in
     // the config file moves the bar with it. A theme that already carries
     // explicit bar colours keeps them.
     statusline: mergeStatusLineTheme(derived, base.statusline, override.statusline),
-    markdown: mergeColors(base.markdown, override.markdown),
+    markdown: mergeMarkdownTheme(base.markdown, override.markdown),
     syntax: mergeColors(base.syntax, override.syntax),
     diff: {
       text: {
@@ -109,4 +123,41 @@ function mergeColors<T extends Record<string, RGBA>>(
     if (value !== undefined) merged[key as string] = parseColor(value)
   }
   return merged as T
+}
+
+// The heading colours are resolved on their own: a colour for a single level
+// only replaces that level, while a base heading colour replaces the whole
+// ramp, which is how the theme behaved before the levels existed.
+function mergeMarkdownTheme(
+  base: Theme["markdown"],
+  override: MarkdownThemeOverride | undefined,
+): Theme["markdown"] {
+  const levels = (override ?? {}) as Record<string, ColorInput | undefined>
+  const pick = (level: number, fallback: RGBA) => {
+    const color = levels[`heading${level}`]
+    if (color !== undefined) return parseColor(color)
+    if (levels.heading !== undefined) return parseColor(levels.heading)
+    return fallback
+  }
+  // A theme that was built by hand may not carry the ramp; every level then
+  // takes the base heading colour.
+  const [one, two, three, four, five, six] = base.headingLevels ?? [
+    base.heading,
+    base.heading,
+    base.heading,
+    base.heading,
+    base.heading,
+    base.heading,
+  ]
+  const headingLevels: Theme["markdown"]["headingLevels"] = [
+    pick(1, one),
+    pick(2, two),
+    pick(3, three),
+    pick(4, four),
+    pick(5, five),
+    pick(6, six),
+  ]
+  const { headingLevels: _levels, ...colors } = base
+  const merged = mergeColors(colors, override)
+  return { ...merged, headingLevels }
 }

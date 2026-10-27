@@ -27,6 +27,23 @@ code`. A cross-reference such as [the flight plan](https://github.com/anomalyco/
 keeps its label. Escapes stay literal: \*not emphasis\* — and the pad costs
 \$5 per kilogram, which is not a formula.
 
+### Heading levels
+
+A terminal has one text size, so the levels of a heading are told apart by
+colour, weight and the room around them.
+
+# Level one
+
+## Level two
+
+### Level three
+
+#### Level four
+
+##### Level five
+
+###### Level six
+
 ### What a report contains
 
 - The launch profile, as a frame and as a table

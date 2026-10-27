@@ -1,20 +1,31 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
-import { isStatusLineField, isStatusLineStyle, type MarkdownConfig, type StatusLineField } from "./types"
+import { isFrameAlign, isFrameStyle } from "../core/frame"
+import { isTableColumnFitter, isTableOverflow, isTableWidthMode } from "../core/tables"
+import { isHeadingLevelKey, isStatusLineField, isStatusLineStyle, type HeadingLevelConfig, type HeadingsConfig, type MarkdownConfig, type StatusLineField } from "./types"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
+
+// Config warnings normally go to stderr. A host that embeds the renderer can
+// collect them instead and show them in its own UI.
+export type ConfigReporter = (message: string) => void
+
+function warn(report: ConfigReporter | undefined, message: string) {
+  if (report) report(message)
+  else console.warn(`[opentui-markdown-render] ${message}`)
+}
 
 // The config is an ordinary JSON/JSONC object. Parsing is intentionally
 // forgiving: comments and trailing commas are stripped, everything else has to
 // be valid JSON.
-export function loadConfig(explicitPath?: string, cwd?: string): MarkdownConfig {
+export function loadConfig(explicitPath?: string, cwd?: string, report?: ConfigReporter): MarkdownConfig {
   const file = explicitPath ?? discoverConfig(cwd ?? process.cwd())
   if (!file) return {}
   if (!existsSync(file)) {
     if (explicitPath) throw new Error(`Config not found: ${file}`)
     return {}
   }
-  return parseConfig(readFileSync(file, "utf8"), file)
+  return parseConfig(readFileSync(file, "utf8"), file, report)
 }
 
 export function discoverConfig(start: string): string | undefined {
@@ -30,7 +41,7 @@ export function discoverConfig(start: string): string | undefined {
   }
 }
 
-export function parseConfig(source: string, file = "config"): MarkdownConfig {
+export function parseConfig(source: string, file = "config", report?: ConfigReporter): MarkdownConfig {
   let parsed: unknown
   try {
     parsed = JSON.parse(stripJsonComments(source))
@@ -40,40 +51,43 @@ export function parseConfig(source: string, file = "config"): MarkdownConfig {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`Invalid config ${file}: expected a JSON object`)
   }
-  return validateConfig(parsed as Record<string, unknown>, file)
+  return validateConfig(parsed as Record<string, unknown>, file, report)
 }
 
-const sections = ["theme", "statusline", "math", "images", "mermaid"] as const
+const sections = ["theme", "statusline", "math", "images", "mermaid", "headings", "frame", "tables"] as const
 
-function validateConfig(value: Record<string, unknown>, file: string): MarkdownConfig {
+function validateConfig(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig {
   for (const key of Object.keys(value)) {
     if (key === "$schema") continue
     if (!sections.includes(key as (typeof sections)[number])) {
-      console.warn(`[opentui-markdown-render] Unknown config section "${key}" in ${file}`)
+      warn(report, `Unknown config section "${key}" in ${file}`)
     }
   }
   return {
     theme: isRecord(value.theme) ? (value.theme as MarkdownConfig["theme"]) : undefined,
-    statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file) : undefined,
+    statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
     math: isRecord(value.math) ? validateMath(value.math) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,
     mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid) : undefined,
+    headings: isRecord(value.headings) ? validateHeadings(value.headings, file, report) : undefined,
+    frame: isRecord(value.frame) ? validateFrame(value.frame, file, report) : undefined,
+    tables: isRecord(value.tables) ? validateTables(value.tables, file, report) : undefined,
   }
 }
 
-function validateStatusLine(value: Record<string, unknown>, file: string): MarkdownConfig["statusline"] {
+function validateStatusLine(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig["statusline"] {
   const fields: StatusLineField[] = []
   if (Array.isArray(value.fields)) {
     for (const entry of value.fields) {
       if (isStatusLineField(entry)) fields.push(entry)
-      else console.warn(`[opentui-markdown-render] Unknown status line field "${String(entry)}" in ${file}`)
+      else warn(report, `Unknown status line field "${String(entry)}" in ${file}`)
     }
   }
   if (value.style !== undefined && !isStatusLineStyle(value.style)) {
-    console.warn(`[opentui-markdown-render] Unknown status line style "${String(value.style)}" in ${file}`)
+    warn(report, `Unknown status line style "${String(value.style)}" in ${file}`)
   }
   if (value.highlight !== undefined && !isStatusLineField(value.highlight)) {
-    console.warn(`[opentui-markdown-render] Unknown status line field "${String(value.highlight)}" in ${file}`)
+    warn(report, `Unknown status line field "${String(value.highlight)}" in ${file}`)
   }
   return {
     enabled: typeof value.enabled === "boolean" ? value.enabled : undefined,
@@ -104,6 +118,130 @@ function validateMermaid(value: Record<string, unknown>): MarkdownConfig["mermai
     compact: typeof value.compact === "boolean" ? value.compact : undefined,
     layoutMaxWidth: positiveInteger(value.layoutMaxWidth),
   }
+}
+
+// The frame is the viewer window. An option the renderer does not know is
+// reported and ignored, so a typo in the file never takes the document down.
+function validateFrame(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig["frame"] {
+  const option = <T>(name: string, check: (input: unknown) => input is T): T | undefined => {
+    const entry = value[name]
+    if (entry === undefined) return undefined
+    if (check(entry)) return entry
+    warn(report, `Invalid frame option "${name}" in ${file}`)
+    return undefined
+  }
+  const padding = (name: string) => {
+    const entry = value[name]
+    if (entry === undefined) return undefined
+    if (isNonNegativeInteger(entry)) return entry
+    warn(report, `Invalid frame option "${name}" in ${file}`)
+    return undefined
+  }
+  const boolean = (name: string) => {
+    const entry = value[name]
+    if (entry === undefined) return undefined
+    if (typeof entry === "boolean") return entry
+    warn(report, `Invalid frame option "${name}" in ${file}`)
+    return undefined
+  }
+  const width = (() => {
+    const entry = value.width
+    if (entry === undefined) return undefined
+    if (typeof entry === "number" && Number.isInteger(entry) && entry > 0) return entry
+    warn(report, `Invalid frame option "width" in ${file}`)
+    return undefined
+  })()
+  const title = value.title
+  if (title !== undefined && typeof title !== "string") {
+    warn(report, `Invalid frame option "title" in ${file}`)
+  }
+  return {
+    enabled: boolean("enabled"),
+    width,
+    align: option("align", isFrameAlign),
+    style: option("style", isFrameStyle),
+    paddingX: padding("paddingX"),
+    paddingY: padding("paddingY"),
+    title: typeof title === "string" ? title : undefined,
+    titleAlign: option("titleAlign", isFrameAlign),
+  }
+}
+
+function validateTables(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig["tables"] {
+  const option = <T>(name: string, check: (input: unknown) => input is T): T | undefined => {
+    const entry = value[name]
+    if (entry === undefined) return undefined
+    if (check(entry)) return entry
+    warn(report, `Invalid tables option "${name}" in ${file}`)
+    return undefined
+  }
+  const padding = value.cellPaddingX
+  if (padding !== undefined && !isNonNegativeInteger(padding)) {
+    warn(report, `Invalid tables option "cellPaddingX" in ${file}`)
+  }
+  return {
+    widthMode: option("widthMode", isTableWidthMode),
+    overflow: option("overflow", isTableOverflow),
+    columnFitter: option("columnFitter", isTableColumnFitter),
+    cellPaddingX: isNonNegativeInteger(padding) ? padding : undefined,
+  }
+}
+
+// The heading styles are addressed by level. A level or an option that the
+// renderer does not know is reported and ignored, so a typo in the file never
+// takes the document down.
+function validateHeadings(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig["headings"] {
+  if (value.levels !== undefined && !isRecord(value.levels)) {
+    warn(report, `Invalid heading levels in ${file}`)
+    return undefined
+  }
+  const levels: Record<string, HeadingLevelConfig> = {}
+  for (const [key, entry] of Object.entries(value.levels ?? {})) {
+    if (!isHeadingLevelKey(key)) {
+      warn(report, `Unknown heading level "${key}" in ${file}`)
+      continue
+    }
+    if (!isRecord(entry)) {
+      warn(report, `Invalid heading level "${key}" in ${file}`)
+      continue
+    }
+    levels[key] = validateHeadingLevel(key, entry, file, report)
+  }
+  return Object.keys(levels).length ? { levels: levels as HeadingsConfig["levels"] } : undefined
+}
+
+function validateHeadingLevel(key: string, value: Record<string, unknown>, file: string, report?: ConfigReporter): HeadingLevelConfig {
+  const style: Record<string, unknown> = {}
+  for (const [name, entry] of Object.entries(value)) {
+    switch (name) {
+      case "bold":
+      case "italic":
+      case "underline":
+      case "dim":
+      case "uppercase":
+        if (typeof entry !== "boolean") {
+          warn(report, `Invalid heading option "${name}" for level ${key} in ${file}`)
+          continue
+        }
+        style[name] = entry
+        break
+      case "marginTop":
+      case "marginBottom":
+        if (!isNonNegativeInteger(entry)) {
+          warn(report, `Invalid heading option "${name}" for level ${key} in ${file}`)
+          continue
+        }
+        style[name] = entry
+        break
+      default:
+        warn(report, `Unknown heading option "${name}" for level ${key} in ${file}`)
+    }
+  }
+  return style as HeadingLevelConfig
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
 }
 
 function positiveNumber(value: unknown): number | undefined {

@@ -50,7 +50,7 @@ entirely.
   "theme": {
     "mode": "dark",
     "accent": "#7dd3fc",
-    "markdown": { "heading": "#e2e8f0" },
+    "markdown": { "heading": "#e2e8f0", "heading3": "#94a3b8" },
     // Colours of the status line bar.
     "statusline": { "background": "#162333", "title": "#7dd3fc", "border": "#7dd3fc" }
   },
@@ -64,14 +64,54 @@ entirely.
   },
   "math": { "scale": 1, "displayScale": 1.2 },
   "images": { "maxColumns": 80, "maxRows": 32 },
-  "mermaid": { "compact": false, "layoutMaxWidth": 120 }
+  "mermaid": { "compact": false, "layoutMaxWidth": 120 },
+  "headings": { "levels": { "1": { "underline": false } } },
+  "frame": { "enabled": true, "width": 100, "align": "center", "style": "rounded" },
+  "tables": { "widthMode": "content", "overflow": "scroll" }
 }
 ```
 
 Every section is optional and keeps the bundled default when it is missing.
 Unknown sections and unknown status line field names are reported on stderr
 and ignored; a file that is not valid JSON is reported with its name and the
-bundled defaults are used.
+bundled defaults are used. A host can collect those reports with `onDiagnostic`
+instead (see [Embedding](#embedding)).
+
+## Headings
+
+A terminal has one text size, so the level of a heading is expressed through
+colour, attributes and spacing instead of a larger font. Every level has its
+own colour (`theme.markdown.headingLevels`) and its own style
+(`headings.levels` in the config file).
+
+The marker stays in the output and is drawn in the muted text colour, so the
+level of a heading is visible at a glance.
+
+```jsonc
+{
+  "theme": {
+    "markdown": {
+      // The colour of every level that has no colour of its own.
+      "heading": "#e2e8f0",
+      // The colour of a single level.
+      "heading3": "#94a3b8"
+    }
+  },
+  "headings": {
+    "levels": {
+      "1": { "bold": true, "underline": true, "uppercase": false, "marginTop": 2, "marginBottom": 1 },
+      "2": { "bold": true, "marginTop": 1 },
+      "3": { "bold": true, "dim": true }
+    }
+  }
+}
+```
+
+The options of a level are `bold`, `italic`, `underline`, `dim`, `uppercase`,
+`marginTop` and `marginBottom`. An option that is not mentioned keeps the
+bundled style of that level, and a level that is not mentioned at all keeps
+the bundled style. An unknown level or an unknown option is reported on
+stderr and ignored.
 
 ## Status line
 
@@ -149,6 +189,123 @@ the terminal.
 
 The `columns` prop overrides the measurement with a width the host knows.
 
+## Frame
+
+The viewer can draw a window around the whole document. The frame has a fixed
+width and is aligned inside the area around it; the text stays on the left edge
+of the window, so moving the window does not move the prose.
+
+```jsonc
+{
+  "frame": {
+    "enabled": true,
+    "width": 100,           // outer width, border and padding included
+    "align": "center",      // left | center | right
+    "style": "rounded",     // box | ascii | rounded | heavy | double
+    "paddingX": 1,          // empty columns between border and text
+    "paddingY": 0,
+    "title": "notes.md",    // carved into the top border
+    "titleAlign": "center"  // left | center | right
+  }
+}
+```
+
+Every option is also accepted by the `frame` prop (an object or an accessor); a
+prop wins over the file. `width` is clamped to the measured area, so a frame
+configured for 100 columns still fits an 80-column terminal. A title longer than
+the top border is cut. `style: "ascii"` draws `+ - |` for terminals whose font
+does not align the Unicode box characters.
+
+The frame is off by default; without it the document uses the whole measured
+area. The frame's content width — the outer width minus border and padding — is
+the single number every block uses, so text, tables, formulas and images share
+one right edge.
+
+## Tables
+
+Tables are content-sized and never stretch over the window: a two-column table
+stays two columns wide. A table wider than the document scrolls sideways instead
+of being wrapped or clipped, the same way a Mermaid diagram pans.
+
+```jsonc
+{
+  "tables": {
+    "widthMode": "content", // content | full
+    "overflow": "scroll",   // scroll | wrap
+    "columnFitter": "balanced", // balanced | proportional
+    "cellPaddingX": 1
+  }
+}
+```
+
+`tables` also accepts a prop. `overflow: "wrap"` wraps cell text instead of
+scrolling (a table with more columns than the width can hold at one character
+each is still clipped); `widthMode: "full"` restores OpenTUI's full-width grid.
+Vertical wheel events are left to the host's scroll box; a horizontal wheel or a
+drag pans the table. A table that is wide enough to scroll is panned rather than
+selected, so a drag belongs to the scroller; a table that fits keeps its cells
+selectable.
+
+## Embedding
+
+The package is split into a pure core and an OpenTUI/Solid view. A host that
+embeds the renderer (a message log, a side panel) can decide the layout before
+mounting anything:
+
+```ts
+import { createDocumentLayout } from "opentui-markdown-render/core"
+
+const layout = createDocumentLayout({
+  viewport: 120,
+  frame: { enabled: true, width: 96, align: "center" },
+  tables: { widthMode: "content", overflow: "scroll" },
+})
+
+layout.contentWidth // the one width every block uses
+layout.frame        // width, offsetX, insets, title
+layout.tables       // resolved table policy
+```
+
+Recompute the layout when the area changes; it is cheap and pure.
+
+`createDocumentLayout` imports neither OpenTUI nor Solid, and neither do
+`scanDocument`, `parseInlineRuns`, `resolveFrame`, `resolveTableOptions`, or the
+block types. The `opentui-markdown-render/core` entry point exposes exactly that
+renderer-free half, so a host can scan a document and size it without a
+renderer.
+
+The integration points the host controls:
+
+- `config` replaces the file lookup; `discoverConfig={false}` keeps an embedded
+  renderer from picking up a standalone viewer's config file.
+- `onDiagnostic` receives config warnings and errors instead of stderr.
+- `columns` tells the renderer the width the host measured.
+- `theme` wins over the config file; `resolveRendererTheme` builds a theme from
+  the same inputs as the component.
+
+To keep the frame fixed while the document scrolls, render `MarkdownFrame`
+outside the host's scroll box and give the renderer `frame={{ enabled: false }}`
+with `columns={() => layout.contentWidth}`:
+
+```tsx
+<MarkdownFrame frame={layout.frame} theme={theme}>
+  <scrollbox width="100%" flexGrow={1}>
+    <MarkdownRenderer
+      content={content}
+      renderer={renderer}
+      theme={theme}
+      frame={{ enabled: false }}
+      columns={() => layout.contentWidth}
+      discoverConfig={false}
+      onDiagnostic={(diagnostic) => log(diagnostic.message)}
+    />
+  </scrollbox>
+</MarkdownFrame>
+```
+
+Passing the frame to the renderer instead makes the frame scroll with the
+document, which is what the standalone viewer does.
+
 ## Source Preservation
 
 The scanner extracts `$...$`, `$$...$$`, `\\(...\\)`, and `\\[...\\]` from raw
@@ -158,9 +315,13 @@ boundary for streaming hosts. The component never changes canonical Markdown.
 
 ## Markdown Features
 
-- Plain Markdown, headings, quotes, lists, and tables use OpenTUI's native
-  renderer; paragraphs and list items that contain math flow through the inline
-  layout so text and formulas share one baseline.
+- Plain Markdown, quotes, lists, and tables use OpenTUI's native renderer;
+  paragraphs and list items that contain math flow through the inline layout so
+  text and formulas share one baseline.
+- Tables size their columns to the content and pan sideways when they are wider
+  than the document; `tables.overflow: "wrap"` wraps them instead.
+- Headings flow through the inline layout as well, so every level can have its
+  own colour, attributes and spacing.
 - The vendored Mermaid engine renders flowcharts, sequence, state, gantt,
   timeline, git graphs, and class diagrams as terminal diagrams; unsupported
   Mermaid syntax remains a normal source fence.
@@ -181,6 +342,7 @@ bun run demo:mermaid
 bun run demo:math
 bun run demo:images
 bun run demo:mixed
+bun run demo:frame
 bun run demo:all
 ```
 

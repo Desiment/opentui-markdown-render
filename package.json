@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./core": "./src/core/index.ts"
   },
   "files": [
     "src",
@@ -25,6 +26,7 @@
     "demo:math": "bun --preload @opentui/solid/preload examples/app.tsx math.md",
     "demo:images": "bun --preload @opentui/solid/preload examples/app.tsx images.md",
     "demo:mixed": "bun --preload @opentui/solid/preload examples/app.tsx rendered.md",
+    "demo:frame": "bun --preload @opentui/solid/preload examples/app.tsx frame.md",
     "test": "bun test --preload @opentui/solid/preload --timeout 30000",
     "typecheck": "tsgo --noEmit",
     "verify": "bun run build:native && bun run typecheck && bun run test && bun run verify:native",

@@ -1,9 +1,26 @@
 import { SyntaxStyle, type RGBA, type ThemeTokenStyle } from "@opentui/core"
-import type { Theme } from "./types"
+import { defaultHeadingStyles, headingColor, headingLevels, type HeadingStyles } from "../headings"
+import type { HeadingLevel, Theme } from "./types"
 
-export function generateSyntax(theme: Theme) {
+export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHeadingStyles) {
   const { markdown, syntax, text } = theme
   const feedback = text.feedback
+
+  // A heading level is one colour and one set of attributes, so the levels
+  // read as a hierarchy. The scope names are the ones the Markdown parser
+  // reports for a heading.
+  const headingStyle = (level: HeadingLevel) => {
+    const style = headings[level]
+    return {
+      bold: style.bold,
+      italic: style.italic,
+      underline: style.underline,
+      dim: style.dim,
+    }
+  }
+  const headingRules = headingLevels.map((level) =>
+    rule([`markup.heading.${level}`], headingColor(theme, level), headingStyle(level)),
+  )
 
   return SyntaxStyle.fromTheme([
     rule(["default"], text.base),
@@ -33,19 +50,11 @@ export function generateSyntax(theme: Theme) {
     ),
     rule(["keyword.directive", "keyword.modifier", "keyword.exception"], syntax.keyword, { italic: true }),
     rule(["punctuation.special", "tag.delimiter"], syntax.operator),
-    rule(
-      [
-        "markup.heading",
-        "markup.heading.2",
-        "markup.heading.3",
-        "markup.heading.4",
-        "markup.heading.5",
-        "markup.heading.6",
-      ],
-      markdown.heading,
-      { bold: true },
-    ),
-    rule(["markup.heading.1"], markdown.heading, { bold: true, underline: true }),
+    // Every level has its own rule, so the scope the parser reports for a
+    // heading decides how it looks. The generic scope is the fallback for a
+    // heading whose level the parser did not report.
+    rule(["markup.heading"], headingColor(theme, 1), headingStyle(1)),
+    ...headingRules,
     rule(["markup.bold", "markup.strong"], markdown.strong, { bold: true }),
     rule(["markup.italic"], markdown.emphasis, { italic: true }),
     // List markers read as body text: a bullet or number should not compete with

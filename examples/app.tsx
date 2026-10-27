@@ -8,6 +8,7 @@ import {
   loadRendererConfig,
   resolveRendererTheme,
   useCanvasGraphics,
+  type FrameConfig,
   type StatusLineState,
   type ThemeModeSetting,
 } from "../src"
@@ -21,6 +22,21 @@ const content = await Bun.file(file).text()
 
 const modes: ThemeModeSetting[] = ["auto", "dark", "light"]
 const config = loadRendererConfig(undefined, import.meta.dir)
+
+// The frame fixture shows the props API winning over the config file: it asks
+// for a window of its own style, aligned to the right.
+const frame: FrameConfig | undefined =
+  requested === "frame.md"
+    ? {
+        enabled: true,
+        width: 88,
+        align: "right",
+        style: "double",
+        paddingX: 2,
+        title: "frame.md",
+        titleAlign: "center",
+      }
+    : config.frame
 
 function Demo() {
   const [mode, setMode] = createSignal<ThemeModeSetting>("auto")
@@ -78,6 +94,7 @@ function Demo() {
           themeMode={mode}
           mathScale={scale}
           config={config}
+          frame={frame}
           cwd={import.meta.dir}
         />
       </scrollbox>

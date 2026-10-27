@@ -20,9 +20,13 @@ const light: Theme = {
   },
   background: { base: h("#ffffff") },
   border: { base: h("#d1d9e0") },
+  frame: { border: h("#d1d9e0"), title: h("#59636e") },
   markdown: {
     text: h("#1f2328"),
     heading: h("#8250df"),
+    // The ramp of the heading levels: the top level takes the accent, the
+    // middle levels the heading colour, the lowest ones the muted text colour.
+    headingLevels: [h("#0969da"), h("#8250df"), h("#8250df"), h("#59636e"), h("#59636e"), h("#59636e")],
     link: h("#0969da"),
     linkText: h("#0969da"),
     code: h("#953800"),
@@ -70,9 +74,11 @@ const dark: Theme = {
   },
   background: { base: h("#0d1117") },
   border: { base: h("#30363d") },
+  frame: { border: h("#30363d"), title: h("#8b949e") },
   markdown: {
     text: h("#e6edf3"),
     heading: h("#d2a8ff"),
+    headingLevels: [h("#58a6ff"), h("#d2a8ff"), h("#d2a8ff"), h("#8b949e"), h("#8b949e"), h("#8b949e")],
     link: h("#58a6ff"),
     linkText: h("#58a6ff"),
     code: h("#ffa657"),
