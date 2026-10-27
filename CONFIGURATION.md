@@ -14,7 +14,6 @@ opentui-markdown-render.jsonc | .json
             -> resolveConfiguredTheme(config, runtime) -> Theme
                (готовая тема хоста > runtime-режим > режим файла > терминал > dark)
             -> resolveConfiguredLayout(config, runtime) -> DocumentLayout
-            -> resolveConfiguredMath(config, runtime) -> масштабы формул
             -> resolveHeadingStyles(config.headings) -> HeadingStyles
 ```
 
@@ -32,9 +31,8 @@ opentui-markdown-render.jsonc | .json
 ### Корень
 ```ts
 type MarkdownConfig = {
-    theme?: ThemeOverride        // проверяется рекурсивно при загрузке файла
+  theme?: ThemeOverride        // проверяется рекурсивно при загрузке файла
   statusline?: StatusLineConfig
-  math?: MathConfig
   images?: ImagesConfig
   mermaid?: MermaidConfig
   headings?: HeadingsConfig
@@ -86,6 +84,8 @@ type MarkdownThemeOverride = {
 
 Ключи `Theme["markdown"]`: `text`, `heading`, `headingLevels`, `link`, `linkText`, `code`, `blockQuote`, `emphasis`, `strong`, `horizontalRule`, `listItem`, `listEnumeration`, `image`, `imageText`, `codeBlock`
 
+`listItem` и `listEnumeration` окрашивают маркеры списков; `code` — inline-код, `codeBlock` — базовый цвет текста блочного кода, `horizontalRule` — границу разделителя. У отдельного локального изображения `image` окрашивает подпись состояния загрузки/ошибки, `imageText` — alt-текст и сообщение об ошибке. Цвет `image` не меняет пиксели картинки; inline-картинки OpenTUI используют стиль ссылок.
+
 ### statusline
 ```ts
 type StatusLineConfig = {
@@ -100,13 +100,7 @@ statusLineFields = ["title","mode","protocol","cell","mathScale","position","hin
 statusLineStyles  = ["bar","plain"]
 ```
 
-### math
-```ts
-type MathConfig = {
-  scale?: number        // > 0
-  displayScale?: number // > 0
-}
-```
+Масштаб математических формул не настраивается из файла: пиксельный размер вычисляется из размера ячейки терминала. Секция `math` теперь считается неизвестной и выдаёт предупреждение. Внутренние коэффициенты растеризации в `src/math/` — не пользовательские настройки.
 
 ### images
 ```ts
@@ -244,7 +238,7 @@ type Theme = {
 | root | allowlist + `$schema` игнор | `Unknown config section` | |
 | theme | вложенные ключи, mode, hex/имена цветов, categorical | неизвестные и неверные поля | `src/config/theme.ts`; некорректный цвет не попадает в рендер |
 | statusline | поля, стили, highlight, border | много | неплохо |
-| math/images/mermaid | типы + положительные числа | нет явных варнингов (просто дроп) | |
+| images/mermaid | типы + положительные числа | нет явных варнингов (просто дроп) | |
 | headings | уровни 1-6, опции, типы | много | хорошо |
 | frame | все опции + типы | много (6 в тесте) | хорошо |
 | tables | все опции + типы | много (4 в тесте) | хорошо |
@@ -253,9 +247,9 @@ type Theme = {
 
 ### Реализовано: валидация темы и разделение источников
 
-`src/config/theme.ts` проверяет вложенные поля темы и отбрасывает некорректные цвета с предупреждениями. `src/config/resolve.ts` отдельно принимает конфиг и runtime-параметры хоста; разрешение темы, layout и масштаба математики можно использовать без `CliRenderer` и без файловой системы.
+`src/config/theme.ts` проверяет вложенные поля темы и отбрасывает некорректные цвета с предупреждениями. `src/config/resolve.ts` отдельно принимает конфиг и runtime-параметры хоста; разрешение темы и layout можно использовать без `CliRenderer` и без файловой системы.
 
-Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > режим терминала > dark. Для `frame`, `tables` и `mathScale` явно заданные runtime-значения перекрывают настройки файла. `auto` разрешает выбор режиму файла или терминала, а не запрашивает отдельную цветовую схему.
+Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > режим терминала > dark. Для `frame` и `tables` явно заданные runtime-значения перекрывают настройки файла. `auto` разрешает выбор режиму файла или терминала, а не запрашивает отдельную цветовую схему.
 
 Оставшаяся задача — последовательно отделить загрузку/проверку статического файла от реактивных входов хоста во всех ветках рендера. В частности, нужно проверить изменение Mermaid-настроек при обновлении конфига.
 
@@ -386,7 +380,6 @@ function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]):
     "separator": " · ",
     "border": "top"
   },
-  "math": { "scale": 1, "displayScale": 1.2 },
   "images": { "maxColumns": 80, "maxRows": 32 },
   "mermaid": { "compact": false, "layoutMaxWidth": 120 },
   "headings": {

@@ -29,6 +29,23 @@ export function loadConfig(explicitPath?: string, cwd?: string, report?: ConfigR
   return parseConfig(readFileSync(file, "utf8"), file, report)
 }
 
+// Component-facing adapter: malformed or missing explicit files should report
+// diagnostics, not abort the Solid tree. Embedders can disable discovery.
+export function loadRendererConfig(
+  configPath?: string,
+  cwd?: string,
+  options: { readonly discover?: boolean; readonly report?: ConfigReporter } = {},
+): MarkdownConfig {
+  if (options.discover === false && !configPath) return {}
+  try {
+    return loadConfig(configPath, cwd, options.report)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    warn(options.report, message)
+    return {}
+  }
+}
+
 export function discoverConfig(start: string): string | undefined {
   let directory = path.resolve(start)
   while (true) {
@@ -55,7 +72,7 @@ export function parseConfig(source: string, file = "config", report?: ConfigRepo
   return validateConfig(parsed as Record<string, unknown>, file, report)
 }
 
-const sections = ["theme", "statusline", "math", "images", "mermaid", "headings", "frame", "tables"] as const
+const sections = ["theme", "statusline", "images", "mermaid", "headings", "frame", "tables"] as const
 
 function validateConfig(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig {
   for (const key of Object.keys(value)) {
@@ -67,7 +84,6 @@ function validateConfig(value: Record<string, unknown>, file: string, report?: C
   return {
     theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
     statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
-    math: isRecord(value.math) ? validateMath(value.math) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,
     mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid) : undefined,
     headings: isRecord(value.headings) ? validateHeadings(value.headings, file, report) : undefined,
@@ -97,13 +113,6 @@ function validateStatusLine(value: Record<string, unknown>, file: string, report
     border: value.border === "none" || value.border === "top" || value.border === "bottom" ? value.border : undefined,
     style: isStatusLineStyle(value.style) ? value.style : undefined,
     highlight: isStatusLineField(value.highlight) ? value.highlight : undefined,
-  }
-}
-
-function validateMath(value: Record<string, unknown>): MarkdownConfig["math"] {
-  return {
-    scale: positiveNumber(value.scale),
-    displayScale: positiveNumber(value.displayScale),
   }
 }
 
@@ -243,10 +252,6 @@ function validateHeadingLevel(key: string, value: Record<string, unknown>, file:
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0
-}
-
-function positiveNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined
 }
 
 function positiveInteger(value: unknown): number | undefined {

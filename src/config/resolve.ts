@@ -36,10 +36,3 @@ export function resolveConfiguredLayout(config: MarkdownConfig, runtime: LayoutR
     tables: runtime.tables ?? config.tables,
   })
 }
-
-export type ResolvedMathSettings = { readonly scale: number; readonly displayScale: number }
-
-export function resolveConfiguredMath(config: MarkdownConfig, runtime: { readonly mathScale?: number } = {}): ResolvedMathSettings {
-  const scale = runtime.mathScale ?? config.math?.scale ?? 1
-  return { scale, displayScale: scale * (config.math?.displayScale ?? 1) }
-}

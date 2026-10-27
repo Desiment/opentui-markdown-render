@@ -32,7 +32,6 @@ follows the terminal's reported theme (`auto`), falling back to dark.
 - `theme` accepts a resolved `Theme` (or an accessor) built with `resolveTheme`,
   `mergeTheme`, `defaultTheme`, and `type Theme`.
 - `themeMode` is `"light" | "dark" | "auto"` (or an accessor).
-- `mathScale` adjusts display-math size.
 
 Math PNGs bake in the foreground/background, so they rerasterize when the theme
 or terminal cell size changes.
@@ -58,11 +57,10 @@ entirely.
     "enabled": true,
     "style": "bar",
     "highlight": "title",
-    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
+    "fields": ["title", "mode", "protocol", "cell", "position", "hint"],
     "separator": " · ",
     "border": "top"
   },
-  "math": { "scale": 1, "displayScale": 1.2 },
   "images": { "maxColumns": 80, "maxRows": 32 },
   "mermaid": { "compact": false, "layoutMaxWidth": 120 },
   "headings": { "levels": { "1": { "underline": false } } },
@@ -74,6 +72,12 @@ entirely.
 Every section is optional and keeps the bundled default when it is missing.
 The file's theme keys and colors are checked before rendering; invalid colors
 and unknown nested theme keys are reported and ignored.
+The renderer uses `theme.markdown.listItem` for bullet markers and
+`listEnumeration` for numbered markers (including lists containing inline math).
+`codeBlock` sets the base colour of unhighlighted fenced code, while `code`
+colours inline code. `horizontalRule` colours the rule's border. For standalone
+images, `image` colours loading/error labels and `imageText` colours their alt
+text and diagnostics; the pixels of a loaded image are not recoloured.
 Unknown sections and unknown status line field names are reported on stderr
 and ignored; a file that is not valid JSON is reported with its name and the
 bundled defaults are used. A host can collect those reports with `onDiagnostic`
@@ -169,6 +173,8 @@ process, without a system LaTeX installation.
   baseline of the text around it.
 - Display math (`$$...$$`, `\[...\]`) is typeset in display style: large
   operators carry their limits above and below instead of beside them.
+- Formula raster size follows the terminal cell size; there is no user-facing
+  math scale setting.
 - The commands MiTeX emits but Typst has no equivalent for are handled by the
   official MiTeX scope (Apache-2.0, `mitex-rs/mitex`, see [`NOTICE`](NOTICE)):
   `\sqrt[n]{x}`, `\dfrac`, `\tfrac`, `\text`, `\operatorname`, `\boxed`,

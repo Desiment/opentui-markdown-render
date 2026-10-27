@@ -1,12 +1,10 @@
-export { loadConfig, discoverConfig, parseConfig, configFilenames, type ConfigReporter } from "./load"
+export { loadConfig, loadRendererConfig, discoverConfig, parseConfig, configFilenames, type ConfigReporter } from "./load"
 export {
   resolveConfiguredTheme,
   resolveConfiguredLayout,
-  resolveConfiguredMath,
   type ThemeModeSetting,
   type ThemeRuntime,
   type LayoutRuntime,
-  type ResolvedMathSettings,
 } from "./resolve"
 export {
   statusLineFields,
@@ -31,7 +29,6 @@ export type {
   StatusLineField,
   StatusLineBorder,
   StatusLineStyle,
-  MathConfig,
   ImagesConfig,
   MermaidConfig,
   HeadingsConfig,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { resolveConfiguredLayout, resolveConfiguredMath, resolveConfiguredTheme } from "../src/config"
+import { resolveConfiguredLayout, resolveConfiguredTheme } from "../src/config"
 import { defaultTheme } from "../src/theme"
 import { resolveRendererTheme } from "../src/app"
 import type { CliRenderer } from "@opentui/core"
@@ -57,11 +57,4 @@ describe("static config and runtime settings", () => {
     expect(resolveConfiguredLayout(config, { viewport: 100 }).frame.width).toBe(60)
   })
 
-  test("runtime math scale overrides only the base scale", () => {
-    const config = { math: { scale: 1.5, displayScale: 1.2 } }
-    expect(resolveConfiguredMath(config).scale).toBe(1.5)
-    expect(resolveConfiguredMath(config).displayScale).toBeCloseTo(1.8)
-    expect(resolveConfiguredMath(config, { mathScale: 2 }).scale).toBe(2)
-    expect(resolveConfiguredMath(config, { mathScale: 2 }).displayScale).toBeCloseTo(2.4)
-  })
 })

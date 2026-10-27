@@ -1,20 +1,23 @@
 import type { CliRenderer, MarkdownOptions } from "@opentui/core"
-import { createMemo, createResource, createSignal, For, Match, Show, Switch } from "solid-js"
-import { useCanvasGraphics, mosaicScale, type CanvasGraphics } from "./graphics"
+import { createMemo, createSignal, For, Show } from "solid-js"
+import { useCanvasGraphics, type CanvasGraphics } from "./graphics"
 import { resolveHeadingStyles, type HeadingStyles } from "./headings"
-import { CanvasFlow, scanDocument, type CanvasBlock, type FlowBlock } from "./inline"
+import { CanvasFlow } from "./inline"
 import { LocalImage } from "./media"
-import { mathImageID, renderMathImage, rgbaToHex, type CellSize, type MathImage } from "./math"
+import { rgbaToHex } from "./math"
 import { createThemedMermaidRenderer } from "./merman"
 import { generateSyntax } from "./theme/syntax"
-import { loadConfig, resolveConfiguredTheme, resolveConfiguredLayout, resolveConfiguredMath } from "./config"
+import { loadRendererConfig, resolveConfiguredTheme, resolveConfiguredLayout } from "./config"
 import type { ImagesConfig, MarkdownConfig, ThemeModeSetting } from "./config"
-import { type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
+import { scanDocument, type CanvasBlock, type FlowBlock, type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
 import { MarkdownFrame } from "./view/frame"
+import { DisplayMath } from "./view/math"
 import { createTableRenderer } from "./view/table"
+import { createMarkdownStyleRenderer } from "./view/markdown-style"
 import type { Theme } from "./theme/types"
 
 export type { ThemeModeSetting } from "./config"
+export { loadRendererConfig } from "./config"
 
 // A diagnostic is a warning or a failure the host may want to show in its own
 // UI instead of the terminal's stderr.
@@ -36,7 +39,6 @@ export type MarkdownRendererProps = {
   // `cwd` looking for `opentui-markdown-render.json[c]`.
   readonly configPath?: string
   readonly themeMode?: ThemeModeSetting | (() => ThemeModeSetting | null | undefined)
-  readonly mathScale?: () => number
   readonly cwd?: string
   // The viewer window. `enabled: false` keeps the document in the whole area.
   readonly frame?: FrameConfig | (() => FrameConfig)
@@ -70,26 +72,6 @@ export function resolveRendererTheme(
     themeMode: options.themeMode,
     terminalThemeMode: renderer.themeMode,
   })
-}
-
-// A broken config file must not take the whole renderer down, so the failure
-// is reported and the bundled defaults are used instead.
-export function loadRendererConfig(
-  configPath?: string,
-  cwd?: string,
-  options: { readonly discover?: boolean; readonly report?: (message: string) => void } = {},
-): MarkdownConfig {
-  // An embedded host that does not pass a path must not inherit a config file
-  // that happens to sit above its working directory.
-  if (options.discover === false && !configPath) return {}
-  try {
-    return loadConfig(configPath, cwd, options.report)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (options.report) options.report(message)
-    else console.warn(`[opentui-markdown-render] ${message}`)
-    return {}
-  }
 }
 
 export function MarkdownRenderer(props: MarkdownRendererProps) {
@@ -163,13 +145,11 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
     layoutMaxWidth: () => config().mermaid?.layoutMaxWidth,
   })
   const tableNode = createTableRenderer(renderer, () => tableOptions())
+  const styleNode = createMarkdownStyleRenderer(renderer, theme)
   // A block is offered to the table renderer first and to the Mermaid renderer
   // second: both answer only for the tokens they own.
   const renderNode: NonNullable<MarkdownOptions["renderNode"]> = (token, context) =>
-    tableNode(token, context) ?? mermaidNode(token, context)
-  const mathSettings = createMemo(() => resolveConfiguredMath(config(), { mathScale: props.mathScale?.() }))
-  const mathScale = () => mathSettings().scale
-  const displayScale = () => mathSettings().displayScale
+    tableNode(token, context) ?? mermaidNode(token, context) ?? styleNode(token, context)
 
   // OpenTUI's markdown renderable caches each chunk's resolved color and only
   // rebuilds a block when its text changes, so a theme swap leaves stale colors
@@ -198,8 +178,6 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
                   tableOptions={tableOptions}
                   columns={contentWidth}
                   surface={surface}
-                  mathScale={mathScale}
-                  displayScale={displayScale}
                   assetBase={() => props.assetBase?.()}
                   imageLimits={config().images}
                   headings={headings()}
@@ -221,8 +199,6 @@ type BlockViewProps = {
   readonly tableOptions: () => ResolvedTableOptions
   readonly columns: () => number
   readonly surface: () => string
-  readonly mathScale: () => number
-  readonly displayScale: () => number
   readonly assetBase: () => string | undefined
   readonly imageLimits?: ImagesConfig
   readonly headings?: HeadingStyles
@@ -258,7 +234,6 @@ function BlockView(props: BlockViewProps) {
           content={block.content}
           open={block.open}
           close={block.close}
-          size={props.displayScale}
           maxWidth={props.columns}
           surface={props.surface}
           theme={props.theme}
@@ -275,6 +250,8 @@ function BlockView(props: BlockViewProps) {
           columns={props.columns}
           cell={props.graphics.cell}
           background={props.surface}
+          labelColor={() => props.theme().markdown.image}
+          textColor={() => props.theme().markdown.imageText}
           limits={props.imageLimits}
         />
       )
@@ -294,92 +271,6 @@ function BlockView(props: BlockViewProps) {
   return (
     <box width="100%" flexDirection="column" flexShrink={0}>
       {view()}
-    </box>
-  )
-}
-
-// Display math owns its own block. Inline math flows with the text around it and
-// is laid out by the inline renderer instead.
-function DisplayMath(props: {
-  content: string
-  open: string
-  close: string
-  size: () => number
-  maxWidth: () => number
-  surface: () => string
-  theme: () => Theme
-  graphics: CanvasGraphics
-}) {
-  const [failed, setFailed] = createSignal(false)
-  const color = () => rgbaToHex(props.theme().text.base)
-  // The renderer sizes one em to one cell height on its own, so `size` is only
-  // the author-facing enlargement. The block-character mosaic packs two vertical
-  // pixels per cell, so its cell box (not its raster) is scaled there.
-  const scale = () => props.size()
-  const mosaic = () => mosaicScale(props.graphics.protocol())
-  // Unrenderable TeX is a value here, not a rejected resource: reading a rejected
-  // resource throws, which would abort the tree on the next update.
-  const [rendered] = createResource(
-    () =>
-      JSON.stringify({
-        content: props.content,
-        color: color(),
-        background: props.surface(),
-        cell: props.graphics.cell(),
-        scale: scale(),
-      }),
-    async (key): Promise<{ raster: MathImage } | { error: string }> => {
-      const input = JSON.parse(key) as { content: string; color: string; background: string; cell: CellSize | null; scale: number }
-      try {
-        const raster = await renderMathImage(input.content, true, input.color, input.background, input.cell, input.scale)
-        return raster ? { raster } : { error: "Renderer returned no image" }
-      } catch (error) {
-        return { error: error instanceof Error ? error.message : String(error) }
-      }
-    },
-  )
-  const raster = () => {
-    const value = rendered()
-    return value && "raster" in value ? value.raster : undefined
-  }
-  const source = () => `${props.open}${props.content}${props.close}`
-  const box = () => {
-    const image = raster()
-    const columns = (image ? image.columns : Math.min(24, props.maxWidth())) * mosaic()
-    const rows = (image ? image.rows : 3) * mosaic()
-    const max = props.maxWidth()
-    if (columns <= max) return { columns, rows: Math.max(1, rows) }
-    return { columns: max, rows: Math.max(1, Math.round((rows * max) / columns)) }
-  }
-
-  return (
-    <box width="100%" flexShrink={0} flexDirection="column" marginTop={1} marginBottom={1}>
-      <Switch>
-        <Match when={rendered.loading}>
-          <text fg={props.theme().text.muted} alignSelf="center">Rendering math...</text>
-        </Match>
-        <Match when={failed() || (rendered() && "error" in rendered()!)}>
-          <box flexDirection="column" border={["left"]} borderColor={props.theme().text.feedback.error} paddingLeft={1} alignSelf="center">
-            <text fg={props.theme().text.feedback.error}>Could not render TeX; showing source</text>
-            <text fg={props.theme().text.base} wrapMode="word">
-              {source()}
-            </text>
-          </box>
-        </Match>
-        <Match when={raster()}>
-          <box width="100%" height={box().rows} flexShrink={0} alignItems="center" justifyContent="center">
-            <image
-              id={`opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell(), scale())}`}
-              source={raster()!.png}
-              fit="fit"
-              protocol="auto"
-              width={box().columns}
-              height={box().rows}
-              onError={() => setFailed(true)}
-            />
-          </box>
-        </Match>
-      </Switch>
     </box>
   )
 }

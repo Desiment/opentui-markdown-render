@@ -2,7 +2,7 @@ import { SyntaxStyle, type RGBA, type ThemeTokenStyle } from "@opentui/core"
 import { defaultHeadingStyles, headingColor, headingLevels, type HeadingStyles } from "../headings"
 import type { HeadingLevel, Theme } from "./types"
 
-export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHeadingStyles) {
+export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHeadingStyles, defaultColor: RGBA = theme.text.base) {
   const { markdown, syntax, text } = theme
   const feedback = text.feedback
 
@@ -23,7 +23,7 @@ export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHe
   )
 
   return SyntaxStyle.fromTheme([
-    rule(["default"], text.base),
+    rule(["default"], defaultColor),
     rule(["prompt"], theme.accent),
     rule(["comment", "comment.documentation"], syntax.comment, { italic: true }),
     rule(["string", "symbol", "character.special", "character"], syntax.string),
@@ -57,12 +57,13 @@ export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHe
     ...headingRules,
     rule(["markup.bold", "markup.strong"], markdown.strong, { bold: true }),
     rule(["markup.italic"], markdown.emphasis, { italic: true }),
-    // List markers read as body text: a bullet or number should not compete with
-    // the prose it introduces, whatever a host theme sets `listItem` to.
-    rule(["markup.list"], markdown.text),
-    rule(["markup.list.enumeration"], markdown.text),
+    // OpenTUI emits markup.list for both bullet and numbered markers. A
+    // dedicated node renderer handles numbered markers when their colour differs.
+    rule(["markup.list"], markdown.listItem),
+    rule(["markup.list.enumeration"], markdown.listEnumeration),
     rule(["markup.quote"], markdown.blockQuote, { italic: true }),
-    rule(["markup.raw", "markup.raw.block"], markdown.code),
+    rule(["markup.raw"], markdown.code),
+    rule(["markup.raw.block"], markdown.codeBlock),
     rule(["markup.raw.inline"], markdown.code, { background: theme.background.base }),
     rule(["markup.link", "markup.link.url", "string.special", "string.special.url"], markdown.link, {
       underline: true,

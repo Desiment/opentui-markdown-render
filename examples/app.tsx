@@ -40,7 +40,6 @@ const frame: FrameConfig | undefined =
 
 function Demo() {
   const [mode, setMode] = createSignal<ThemeModeSetting>("auto")
-  const [scale, setScale] = createSignal(1)
   const [position, setPosition] = createSignal("1/1")
   const theme = () => resolveRendererTheme(renderer, { themeMode: mode(), config, cwd: import.meta.dir })
   const graphics = useCanvasGraphics(renderer)
@@ -65,8 +64,6 @@ function Demo() {
       const index = modes.indexOf(mode())
       setMode(modes[(index + 1) % modes.length]!)
     }
-    if (key.name === "+" || key.name === "=") setScale((value) => Math.min(2, Math.round((value + 0.1) * 10) / 10))
-    if (key.name === "-" || key.name === "_") setScale((value) => Math.max(0.5, Math.round((value - 0.1) * 10) / 10))
   })
 
   const state = (): StatusLineState => ({
@@ -74,9 +71,8 @@ function Demo() {
     mode: `theme:${mode()}`,
     protocol: graphics.protocol(),
     cell: graphics.cell() ? `${graphics.cell()!.width}x${graphics.cell()!.height}` : undefined,
-    mathScale: scale(),
     position: position(),
-    hint: "[t] theme  [+/-] math  [q] quit",
+    hint: "[t] theme  [q] quit",
   })
 
   return (
@@ -92,7 +88,6 @@ function Demo() {
           renderer={renderer}
           assetBase={() => import.meta.dir}
           themeMode={mode}
-          mathScale={scale}
           config={config}
           frame={frame}
           cwd={import.meta.dir}

@@ -47,12 +47,10 @@ describe("config parsing", () => {
     const config = parseConfig(`{
       "theme": { "accent": "#ff0000" },
       "statusline": { "enabled": false, "separator": " | ", "border": "top" },
-      "math": { "scale": 1.5, "displayScale": 2 },
       "images": { "maxColumns": 40, "maxRows": 12 },
       "mermaid": { "compact": true, "layoutMaxWidth": 90 }
     }`)
     expect(config.statusline).toEqual({ enabled: false, separator: " | ", border: "top" })
-    expect(config.math).toEqual({ scale: 1.5, displayScale: 2 })
     expect(config.images).toEqual({ maxColumns: 40, maxRows: 12 })
     expect(config.mermaid).toEqual({ compact: true, layoutMaxWidth: 90 })
   })
@@ -84,10 +82,16 @@ describe("config parsing", () => {
     expect(config.statusline?.highlight).toBeUndefined()
   })
 
-  test("drops invalid numbers", () => {
-    const config = parseConfig(`{ "images": { "maxColumns": 0, "maxRows": "wide" }, "math": { "scale": -1 } }`)
+  test("drops invalid image limits", () => {
+    const config = parseConfig(`{ "images": { "maxColumns": 0, "maxRows": "wide" } }`)
     expect(config.images).toEqual({})
-    expect(config.math).toEqual({})
+  })
+
+  test("reports legacy math settings as an unknown section", () => {
+    const messages: string[] = []
+    const config = parseConfig(`{ "math": { "scale": 2 } }`, "legacy.jsonc", (message) => messages.push(message))
+    expect(config).not.toHaveProperty("math")
+    expect(messages).toEqual(['Unknown config section "math" in legacy.jsonc'])
   })
 })
 

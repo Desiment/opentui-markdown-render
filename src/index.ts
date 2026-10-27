@@ -1,5 +1,6 @@
 export { MarkdownRenderer, resolveRendererTheme, loadRendererConfig, type MarkdownRendererProps, type MarkdownDiagnostic, type ThemeModeSetting } from "./app"
-export { scanDocument, CanvasFlow, parseInlineRuns, type CanvasBlock, type FlowBlock, type FlowItem, type InlineRun, type CanvasSource } from "./inline"
+export { CanvasFlow } from "./inline"
+export { scanDocument, parseInlineRuns, type CanvasBlock, type FlowBlock, type FlowItem, type InlineRun, type CanvasSource } from "./core"
 export {
   resolveFrame,
   isFrameAlign,
@@ -60,7 +61,6 @@ export {
   configFilenames,
   resolveConfiguredTheme,
   resolveConfiguredLayout,
-  resolveConfiguredMath,
   statusLineFields,
   isStatusLineField,
   statusLineStyles,
@@ -70,7 +70,6 @@ export {
   type StatusLineField,
   type StatusLineBorder,
   type StatusLineStyle,
-  type MathConfig,
   type ImagesConfig,
   type MermaidConfig,
   type HeadingsConfig,
@@ -79,7 +78,6 @@ export {
   type ConfigReporter,
   type ThemeRuntime,
   type LayoutRuntime,
-  type ResolvedMathSettings,
 } from "./config"
 export {
   defaultTheme,

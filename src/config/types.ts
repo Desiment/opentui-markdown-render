@@ -8,7 +8,6 @@ export type MarkdownConfig = {
   // Colour scheme. Mirrors the theme override shape.
   readonly theme?: ThemeOverride
   readonly statusline?: StatusLineConfig
-  readonly math?: MathConfig
   readonly images?: ImagesConfig
   readonly mermaid?: MermaidConfig
   readonly headings?: HeadingsConfig
@@ -42,13 +41,6 @@ export const statusLineStyles: readonly StatusLineStyle[] = ["plain", "bar"]
 
 export function isStatusLineStyle(value: unknown): value is StatusLineStyle {
   return typeof value === "string" && statusLineStyles.includes(value as StatusLineStyle)
-}
-
-export type MathConfig = {
-  // Multiplier for every rendered formula.
-  readonly scale?: number
-  // Multiplier applied to display math only.
-  readonly displayScale?: number
 }
 
 export type ImagesConfig = {

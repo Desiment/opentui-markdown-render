@@ -84,6 +84,8 @@ export function LocalImage(props: {
   readonly columns: () => number
   readonly cell: () => { width: number; height: number } | null | undefined
   readonly background: () => ColorInput | RGBA | undefined
+  readonly labelColor?: () => RGBA
+  readonly textColor?: () => RGBA
   readonly limits?: ImageLimits
 }) {
   const [failure, setFailure] = createSignal<string>()
@@ -169,10 +171,16 @@ export function LocalImage(props: {
     <box width="100%" flexDirection="column" flexShrink={0} overflow="hidden">
       <Switch>
         <Match when={loaded.loading}>
-          <text>Loading image: {props.alt || props.href}</text>
+          <box width="100%" flexDirection="row">
+            <text fg={props.labelColor?.()} flexShrink={0}>Loading image: </text>
+            <text fg={props.textColor?.()} wrapMode="word" flexGrow={1}>{props.alt || props.href}</text>
+          </box>
         </Match>
         <Match when={error()}>
-          <text wrapMode="word">Could not render image {props.alt || props.href}: {error()}</text>
+          <box width="100%" flexDirection="row">
+            <text fg={props.labelColor?.()} flexShrink={0}>Could not render image </text>
+            <text fg={props.textColor?.()} wrapMode="word" flexGrow={1}>{`${props.alt || props.href}: ${error()}`}</text>
+          </box>
         </Match>
         <Match when={media() && frame()}>
           <image

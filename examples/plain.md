@@ -70,7 +70,6 @@ finds one:
 ```json
 {
   "theme": { "mode": "auto" },
-  "math": { "scale": 1.2 },
   "images": { "maxColumns": 80 }
 }
 ```

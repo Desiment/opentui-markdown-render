@@ -452,6 +452,7 @@ export function CanvasFlow(props: {
                 runs={item.runs}
                 columns={Math.max(8, available() - hanging())}
                 prefix={(index) => (index === 0 ? `${" ".repeat(item.indent)}${item.marker} ` : " ".repeat(hanging()))}
+                prefixColor={/^\d/.test(item.marker) ? theme.markdown.listEnumeration : theme.markdown.listItem}
                 layout={layout}
               />
             )
