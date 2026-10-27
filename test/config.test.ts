@@ -2,10 +2,37 @@ import { describe, expect, test } from "bun:test"
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { discoverConfig, loadConfig, parseConfig } from "../src/config"
+import { discoverConfig, loadConfig, parseConfig, resolveConfiguredTheme } from "../src/config"
 import { loadRendererConfig } from "../src/app"
+import { defaultTheme } from "../src/theme"
 
 describe("config parsing", () => {
+  test("validates theme colors and nested keys without rejecting the rest of the theme", () => {
+    const messages: string[] = []
+    const config = parseConfig(`{
+      "theme": {
+        "mode": "neon", "accent": "#123456", "categorical": ["#fff", "no-such-color"],
+        "markdown": { "heading1": "#abcdef", "heading2": "not-a-color", "headingLevels": ["#123456"] },
+        "text": { "feedback": { "error": "red", "succes": "#00ff00" } }
+      }
+    }`, "theme.jsonc", (message) => messages.push(message))
+    expect(config.theme?.mode).toBeUndefined()
+    expect(config.theme?.accent).toBe("#123456")
+    expect(config.theme?.categorical).toEqual(["#fff"])
+    expect(config.theme?.markdown?.heading1).toBe("#abcdef")
+    expect(config.theme?.markdown?.heading2).toBeUndefined()
+    expect(config.theme?.text?.feedback?.error).toBe("red")
+    expect(messages).toHaveLength(5)
+    for (const message of messages) expect(message).toContain("theme.jsonc")
+  })
+
+  test("a malformed theme color cannot break theme resolution", () => {
+    const config = parseConfig(`{ "theme": { "accent": "invalid", "markdown": { "heading3": "#abc" } } }`)
+    const theme = resolveConfiguredTheme(config)
+    expect(theme.accent).toEqual(defaultTheme("dark").accent)
+    expect(theme.markdown.headingLevels[2]?.toInts()).toEqual([170, 187, 204, 255])
+  })
+
   test("accepts JSONC comments and trailing commas", () => {
     const config = parseConfig(`{
       // a comment

@@ -46,7 +46,7 @@ entirely.
 
 ```jsonc
 {
-  "$schema": "./node_modules/opentui-markdown-render/schema.json", // ignored
+  // $schema is reserved; the package does not currently publish a JSON schema.
   "theme": {
     "mode": "dark",
     "accent": "#7dd3fc",
@@ -72,6 +72,8 @@ entirely.
 ```
 
 Every section is optional and keeps the bundled default when it is missing.
+The file's theme keys and colors are checked before rendering; invalid colors
+and unknown nested theme keys are reported and ignored.
 Unknown sections and unknown status line field names are reported on stderr
 and ignored; a file that is not valid JSON is reported with its name and the
 bundled defaults are used. A host can collect those reports with `onDiagnostic`

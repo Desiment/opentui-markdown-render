@@ -7,15 +7,14 @@ import { LocalImage } from "./media"
 import { mathImageID, renderMathImage, rgbaToHex, type CellSize, type MathImage } from "./math"
 import { createThemedMermaidRenderer } from "./merman"
 import { generateSyntax } from "./theme/syntax"
-import { loadConfig } from "./config"
-import type { ImagesConfig, MarkdownConfig } from "./config"
-import { createDocumentLayout, type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
+import { loadConfig, resolveConfiguredTheme, resolveConfiguredLayout, resolveConfiguredMath } from "./config"
+import type { ImagesConfig, MarkdownConfig, ThemeModeSetting } from "./config"
+import { type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
 import { MarkdownFrame } from "./view/frame"
 import { createTableRenderer } from "./view/table"
-import { resolveTheme } from "./theme/resolve"
-import type { Theme, ThemeMode } from "./theme/types"
+import type { Theme } from "./theme/types"
 
-export type ThemeModeSetting = ThemeMode | "auto"
+export type { ThemeModeSetting } from "./config"
 
 // A diagnostic is a warning or a failure the host may want to show in its own
 // UI instead of the terminal's stderr.
@@ -52,9 +51,8 @@ export type MarkdownRendererProps = {
   readonly onDiagnostic?: (diagnostic: MarkdownDiagnostic) => void
 }
 
-// Theme priority: a host-provided theme, then the config file, then the bundled
-// default. `auto` mode follows the terminal's reported theme, falling back to the
-// config's own mode and finally to dark.
+// Keep the public host helper, but use the same config/runtime resolution as
+// the component. Loading the file remains an optional concern of this adapter.
 export function resolveRendererTheme(
   renderer: CliRenderer,
   options: {
@@ -68,9 +66,10 @@ export function resolveRendererTheme(
   const host = typeof options.theme === "function" ? options.theme() : options.theme
   if (host) return host
   const config = options.config ?? loadRendererConfig(options.configPath, options.cwd)
-  const setting = options.themeMode
-  const mode = setting && setting !== "auto" ? setting : (config.theme?.mode ?? renderer.themeMode ?? "dark")
-  return resolveTheme({ mode, override: config.theme })
+  return resolveConfiguredTheme(config, {
+    themeMode: options.themeMode,
+    terminalThemeMode: renderer.themeMode,
+  })
 }
 
 // A broken config file must not take the whole renderer down, so the failure
@@ -148,7 +147,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
     return explicit ?? config().tables
   })
   const layout = createMemo(() =>
-    createDocumentLayout({ viewport: viewportWidth(), frame: frameSetting(), tables: tableSetting() }),
+    resolveConfiguredLayout(config(), { viewport: viewportWidth(), frame: frameSetting(), tables: tableSetting() }),
   )
   const frame = () => layout().frame
   const contentWidth = () => layout().contentWidth
@@ -160,16 +159,17 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
   const mermaidNode = createThemedMermaidRenderer(renderer, {
     theme,
-    compact: config().mermaid?.compact,
-    layoutMaxWidth: config().mermaid?.layoutMaxWidth,
+    compact: () => config().mermaid?.compact,
+    layoutMaxWidth: () => config().mermaid?.layoutMaxWidth,
   })
   const tableNode = createTableRenderer(renderer, () => tableOptions())
   // A block is offered to the table renderer first and to the Mermaid renderer
   // second: both answer only for the tokens they own.
   const renderNode: NonNullable<MarkdownOptions["renderNode"]> = (token, context) =>
     tableNode(token, context) ?? mermaidNode(token, context)
-  const mathScale = () => props.mathScale?.() ?? config().math?.scale ?? 1
-  const displayScale = () => mathScale() * (config().math?.displayScale ?? 1)
+  const mathSettings = createMemo(() => resolveConfiguredMath(config(), { mathScale: props.mathScale?.() }))
+  const mathScale = () => mathSettings().scale
+  const displayScale = () => mathSettings().displayScale
 
   // OpenTUI's markdown renderable caches each chunk's resolved color and only
   // rebuilds a block when its text changes, so a theme swap leaves stale colors

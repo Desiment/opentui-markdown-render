@@ -3,6 +3,7 @@ import path from "node:path"
 import { isFrameAlign, isFrameStyle } from "../core/frame"
 import { isTableColumnFitter, isTableOverflow, isTableWidthMode } from "../core/tables"
 import { isHeadingLevelKey, isStatusLineField, isStatusLineStyle, type HeadingLevelConfig, type HeadingsConfig, type MarkdownConfig, type StatusLineField } from "./types"
+import { validateTheme } from "./theme"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
 
@@ -64,7 +65,7 @@ function validateConfig(value: Record<string, unknown>, file: string, report?: C
     }
   }
   return {
-    theme: isRecord(value.theme) ? (value.theme as MarkdownConfig["theme"]) : undefined,
+    theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
     statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
     math: isRecord(value.math) ? validateMath(value.math) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,

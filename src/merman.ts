@@ -9,8 +9,8 @@ export { createOpenCodeDiagramPalette, resolveOpenCodeDiagramPalette, type OpenC
 
 export type MermaidOptions = {
   readonly theme: () => Theme
-  readonly compact?: boolean
-  readonly layoutMaxWidth?: number
+  readonly compact?: boolean | (() => boolean | undefined)
+  readonly layoutMaxWidth?: number | (() => number | undefined)
 }
 
 // The Mermaid engine renders terminal cells itself; the theme only supplies the
@@ -19,9 +19,11 @@ export function createThemedMermaidRenderer(
   ctx: RenderContext,
   options: MermaidOptions,
 ): NonNullable<MarkdownOptions["renderNode"]> {
+  const value = <T>(input: T | (() => T | undefined) | undefined): T | undefined =>
+    typeof input === "function" ? (input as () => T | undefined)() : input
   return createMermaidMarkdownRenderer(ctx, () => ({
-    compact: options.compact,
-    layoutMaxWidth: options.layoutMaxWidth,
+    compact: value(options.compact),
+    layoutMaxWidth: value(options.layoutMaxWidth),
     colors: resolveOpenCodeDiagramPalette(options.theme()),
   }))
 }

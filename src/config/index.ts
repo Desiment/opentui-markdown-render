@@ -1,5 +1,14 @@
 export { loadConfig, discoverConfig, parseConfig, configFilenames, type ConfigReporter } from "./load"
 export {
+  resolveConfiguredTheme,
+  resolveConfiguredLayout,
+  resolveConfiguredMath,
+  type ThemeModeSetting,
+  type ThemeRuntime,
+  type LayoutRuntime,
+  type ResolvedMathSettings,
+} from "./resolve"
+export {
   statusLineFields,
   isStatusLineField,
   statusLineStyles,

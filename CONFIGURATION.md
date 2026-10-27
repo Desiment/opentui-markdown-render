@@ -1,6 +1,6 @@
 # Конфигурация opentui-markdown-render
 
-Полная схема текущего конфига + карта будущих правок для максимально конфигурируемого конфига.
+Схема существующего конфига и предварительные идеи расширения. Секция 6 — эскиз, а не поддерживаемый формат.
 
 ## 1. Путь конфигурации (pipeline)
 
@@ -11,15 +11,17 @@ opentui-markdown-render.jsonc | .json
       -> parseConfig()  (strip comments + trailing commas, JSON.parse)
         -> validateConfig() (мягкая валидация + варнинги)
           -> MarkdownConfig
-            -> resolveRendererTheme()  (props.theme > config.theme > defaultTheme)
-              -> mergeTheme()         (ThemeOverride -> Theme)
-                -> defaultTheme(mode)
+            -> resolveConfiguredTheme(config, runtime) -> Theme
+               (готовая тема хоста > runtime-режим > режим файла > терминал > dark)
+            -> resolveConfiguredLayout(config, runtime) -> DocumentLayout
+            -> resolveConfiguredMath(config, runtime) -> масштабы формул
             -> resolveHeadingStyles(config.headings) -> HeadingStyles
-            -> resolveFrame/resolveTableOptions
 ```
 
 Код:
 - `src/config/load.ts` - поиск/парсинг/валидация
+- `src/config/theme.ts` - проверка тематических override
+- `src/config/resolve.ts` - объединение конфигурации с runtime-входами хоста
 - `src/config/types.ts` - типы конфига
 - `src/theme/*` - тема и мердж
 - `src/headings.ts` - стили заголовков
@@ -30,7 +32,7 @@ opentui-markdown-render.jsonc | .json
 ### Корень
 ```ts
 type MarkdownConfig = {
-  theme?: ThemeOverride        // почти не валидируется
+    theme?: ThemeOverride        // проверяется рекурсивно при загрузке файла
   statusline?: StatusLineConfig
   math?: MathConfig
   images?: ImagesConfig
@@ -42,7 +44,7 @@ type MarkdownConfig = {
 ```
 
 ### theme (ThemeOverride)
-См. `src/theme/types.ts:120-145`. Фактически прокидывается как есть.
+См. `src/theme/types.ts`. JSONC-тема проверяется по известным ключам в `src/config/theme.ts`. Готовая тема, переданная хостом через `theme`, не проходит через этот валидатор.
 
 ```ts
 type ThemeOverride = {
@@ -210,7 +212,6 @@ type Theme = {
     code: RGBA
     blockQuote: RGBA
     emphasis: RGBA
-        } 
     strong: RGBA
     horizontalRule: RGBA
     listItem: RGBA
@@ -241,7 +242,7 @@ type Theme = {
 | Секция | Валидируется | Варнинги | Примечание
 |---|---|---|---|
 | root | allowlist + `$schema` игнор | `Unknown config section` | |
-| theme | только `isRecord` | нет | **минимум** |
+| theme | вложенные ключи, mode, hex/имена цветов, categorical | неизвестные и неверные поля | `src/config/theme.ts`; некорректный цвет не попадает в рендер |
 | statusline | поля, стили, highlight, border | много | неплохо |
 | math/images/mermaid | типы + положительные числа | нет явных варнингов (просто дроп) | |
 | headings | уровни 1-6, опции, типы | много | хорошо |
@@ -250,25 +251,15 @@ type Theme = {
 
 ## 5. План до максимально конфигурируемого
 
-### Шаг 1. Глубокая валидация theme
-Файл: `src/config/load.ts`
+### Реализовано: валидация темы и разделение источников
 
-Добавить `validateTheme(value: Record<string,unknown>, file: string, report?: ConfigReporter)`:
-- allowlist верхнего уровня темы
-- валидация `mode`
-- валидация цветов: принимать строку, при желании можно проверять через `parseColor` из `@opentui/core` (но парсинг `parseColor` может кинуть) — лучше просто тип `string` + варнинг при не строке
-- `categorical` массив строк
-- `markdown.heading1..heading6`, все markdown-ключи
-- `markdown.headingLevels` массив из 6 строк (если хотим явно)
-- `syntax.*`, `diff.*`, `text.feedback.*`, `text.action.primary.focused`
-- неизвестные ключи -> варнинг
+`src/config/theme.ts` проверяет вложенные поля темы и отбрасывает некорректные цвета с предупреждениями. `src/config/resolve.ts` отдельно принимает конфиг и runtime-параметры хоста; разрешение темы, layout и масштаба математики можно использовать без `CliRenderer` и без файловой системы.
 
-Заменить в `validateConfig`:
-```ts
-theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
-```
+Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > режим терминала > dark. Для `frame`, `tables` и `mathScale` явно заданные runtime-значения перекрывают настройки файла. `auto` разрешает выбор режиму файла или терминала, а не запрашивает отдельную цветовую схему.
 
-### Шаг 2. Расширить ThemeOverride
+Оставшаяся задача — последовательно отделить загрузку/проверку статического файла от реактивных входов хоста во всех ветках рендера. В частности, нужно проверить изменение Mermaid-настроек при обновлении конфига.
+
+### Идея, не утверждённая схема: расширить ThemeOverride
 Файл: `src/theme/types.ts`
 ```ts
 export type MarkdownThemeOverride = {
@@ -286,7 +277,7 @@ export type MarkdownThemeOverride = {
 
 Файл: `src/theme/resolve.ts` `mergeMarkdownTheme()` - добавить поддержку массива (приоритет выше `heading1..heading6` или наоборот? Лучше зафиксировать: `headingLevels` массив целиком перезаписывает, либо `headingN` приоритетнее массива. Нужно продумать, но явно добавить обработку)
 
-### Шаг 3. Цвет в headings.levels
+### Идея, не утверждённая схема: цвет в headings.levels
 Файлы: `src/config/types.ts`, `src/config/load.ts`, `src/headings.ts`, `src/theme/resolve.ts` или `src/app.tsx`
 
 1. `src/config/types.ts`
@@ -303,7 +294,7 @@ export type HeadingLevelConfig = {
 }
 ```
 
-2. `src/config/load.ts` `validateHeadingLevel()` добавить case `color`: только `typeof entry === "string"`
+2. `src/config/load.ts` `validateHeadingLevel()` добавить case `color` с проверкой допустимого цвета.
 
 3. Склейка: нужно применить `config.headings.levels[N].color` к теме. Самый чистый вариант - в `resolveTheme` или отдельная функция `applyHeadingColors(theme, headings)` вызываемая в `app.tsx` после `resolveRendererTheme()`. Альтернатива - расширить `mergeTheme` чтобы принимать `headings`.
 
@@ -336,7 +327,9 @@ function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]):
 
 Варианты: расширить `theme` (новые секции) или добавить `spacing/lists/blocks` в корень конфига.
 
-## 6. Референс полного будущего конфига
+## 6. Черновой пример будущего конфига (содержит неподдерживаемые поля)
+
+**Не копируйте этот пример как рабочий JSONC.** `theme.markdown.headingLevels` и `headings.levels[N].color` сейчас не поддерживаются, `$schema` здесь не указывает на опубликованный файл. Структура будущего конфига ещё не утверждена.
 ```jsonc
 {
   "$schema": "./node_modules/opentui-markdown-render/schema.json",

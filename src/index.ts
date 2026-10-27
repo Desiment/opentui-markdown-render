@@ -58,6 +58,9 @@ export {
   discoverConfig,
   parseConfig,
   configFilenames,
+  resolveConfiguredTheme,
+  resolveConfiguredLayout,
+  resolveConfiguredMath,
   statusLineFields,
   isStatusLineField,
   statusLineStyles,
@@ -74,6 +77,9 @@ export {
   type HeadingLevelConfig,
   type HeadingLevelKey,
   type ConfigReporter,
+  type ThemeRuntime,
+  type LayoutRuntime,
+  type ResolvedMathSettings,
 } from "./config"
 export {
   defaultTheme,
