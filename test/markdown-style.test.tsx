@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
+import { createSignal } from "solid-js"
 import { BoxRenderable } from "@opentui/core"
 import { MarkdownRenderer } from "../src/app"
 import { defaultTheme, generateSyntax, mergeTheme } from "../src/theme"
@@ -64,6 +65,23 @@ describe("semantic Markdown colors", () => {
     const setup = await render("- parent\n  1. nested\n")
     expect(colorOf(setup, "- ")).toEqual(theme.markdown.listItem.toInts())
     expect(colorOf(setup, "1. ")).toEqual(theme.markdown.listEnumeration.toInts())
+  })
+
+  test("keeps code and marker colors after content changes", async () => {
+    const [content, setContent] = createSignal("1. first\n\n```\nold\n```\n")
+    function Document() {
+      return <MarkdownRenderer content={content} renderer={useRenderer()} theme={theme} discoverConfig={false} />
+    }
+    const setup = await testRender(() => <Document />, { width: 40, height: 10 })
+    await setup.renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    await setup.renderOnce()
+    setContent("1. second\n\n```\nnew code\n```\n")
+    await setup.renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    await setup.renderOnce()
+    expect(colorOf(setup, "1. ")).toEqual(theme.markdown.listEnumeration.toInts())
+    expect(colorOf(setup, "new code")).toEqual(theme.markdown.codeBlock.toInts())
   })
 
   test("colors the actual border of a horizontal rule", async () => {
