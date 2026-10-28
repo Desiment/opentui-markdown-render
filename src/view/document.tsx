@@ -85,10 +85,19 @@ export function DocumentView(props: DocumentViewProps) {
                 ? flow(child.children, (row) => row === 0
                     ? `${marker(index(), item.task, item.checked).padStart(markerWidth)} ` : " ".repeat(hanging),
                   block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem)
+                : childIndex() === 0
+                  ? <box flexDirection="row" width="100%" flexShrink={0}>
+                      <text width={hanging} flexShrink={0}
+                        fg={block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem}>
+                        {`${marker(index(), item.task, item.checked).padStart(markerWidth)} `}
+                      </text>
+                      <BlockView block={() => child} columns={Math.max(1, columns - hanging)} quote={input.quote} />
+                    </box>
                 : <box marginLeft={hanging} width={Math.max(1, columns - hanging)} flexDirection="column">
                     <BlockView block={() => child} columns={Math.max(1, columns - hanging)} quote={input.quote} />
                   </box>}
               </For>
+              {item.blocks.length === 0 && <text fg={props.theme.markdown.listItem}>{marker(index(), item.task, item.checked)}</text>}
             </box>}</For>
           </box>
         }

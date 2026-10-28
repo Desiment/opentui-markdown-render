@@ -137,3 +137,13 @@ test("Mermaid last-good stays with its block during a streaming update", async (
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("Gamma")
 })
+
+test("shows a list marker when the first item block is display math", async () => {
+  const source = "- $$\na+b\n$$"
+  const setup = await testRender(() => <DocumentView document={parseDocument(source)} columns={40}
+    theme={defaultTheme("dark")} headings={defaultHeadingStyles} graphics={graphics}
+    surface={() => "#0d1117"} assetBase={() => undefined} tableOptions={resolveTableOptions()} />,
+  { width: 40, height: 10 })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("- ")
+})

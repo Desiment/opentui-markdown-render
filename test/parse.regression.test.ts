@@ -85,4 +85,10 @@ describe("AST-lite conversion", () => {
       { type: "math", raw: String.raw`$a\$b$`, content: String.raw`a\$b`, open: "$", close: "$" },
     ])
   })
+
+  test("keeps multiline display math inside a list item", () => {
+    const [list] = parseDocument("- $$\na+b\n$$").blocks
+    if (list?.type !== "list") throw new Error("expected list")
+    expect(list.items[0]?.blocks).toMatchObject([{ type: "display-math", content: "\na+b\n", source: null }])
+  })
 })
