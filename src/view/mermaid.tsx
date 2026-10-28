@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js"
 import { StyledText } from "@opentui/core"
 import { measureMermaidDiagram, type PreparedDiagram } from "../merman/markdown"
-import { resolveOpenCodeDiagramPalette } from "../merman/theme"
+import { resolveOpenCodeDiagramPalette } from "../merman/palette"
 import type { Theme } from "../theme/types"
 
 export type MermaidDiagramViewProps = {

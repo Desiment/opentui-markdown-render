@@ -1,7 +1,8 @@
 import { BoxRenderable, TextTableRenderable, type RenderContext } from "@opentui/core"
 import type { ResolvedTableOptions } from "../core/tables"
 import type { Block } from "../core/document"
-import { createTableRenderer, type ScrollableTableRenderable, type TextTableContent } from "./table"
+import { createTableRenderer } from "./table"
+import type { TextTableContent } from "@opentui/core"
 import { flattenInline } from "./inline-style"
 import { defaultHeadingStyles } from "../headings"
 import type { Theme } from "../theme/types"
@@ -24,10 +25,10 @@ function toTableChunks(inlines: any[], theme: Theme) {
 
 export function TableBlock(props: { block: Block & { type: "table" }; options: ResolvedTableOptions; theme: Theme }) {
   const b = props.block
-  const content: TextTableContent = {
-    headers: b.header.map((h: any) => toTableChunks(h.children, props.theme)),
-    rows: b.rows.map((row: any) => row.map((cell: any) => toTableChunks(cell.children, props.theme))),
-  }
+  const content: TextTableContent = [
+    b.header.map((h: any) => toTableChunks(h.children, props.theme)),
+    ...b.rows.map((row: any) => row.map((cell: any) => toTableChunks(cell.children, props.theme))),
+  ]
   return (
     <md_text_table content={content} resolved={props.options} foreground={props.theme.text.base} background={props.theme.background.base} />
   )
