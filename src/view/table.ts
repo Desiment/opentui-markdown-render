@@ -85,7 +85,10 @@ export class ScrollableTableRenderable extends BoxRenderable {
   }
 
   protected syncOverflowState(width = this.width) {
-    const viewport = Number.isFinite(width) ? Math.round(width) : 0
+    // A Solid custom renderable receives props before Yoga assigns its first
+    // width. Measuring the table at that point can poison the layout cache.
+    if (!Number.isFinite(width) || width <= 0) return
+    const viewport = Math.round(width)
     const max = Math.max(0, tableWidth(this.table) - viewport)
     this.offset = this.panEnabled ? Math.min(this.offset, max) : 0
     this.table.marginLeft = -this.offset

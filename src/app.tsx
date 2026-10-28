@@ -1,19 +1,13 @@
-import type { CliRenderer, MarkdownOptions } from "@opentui/core"
-import { createMemo, createSignal, For, Show } from "solid-js"
-import { useCanvasGraphics, type CanvasGraphics } from "./graphics"
-import { resolveHeadingStyles, type HeadingStyles } from "./headings"
-import { CanvasFlow } from "./inline"
-import { LocalImage } from "./media"
+import type { CliRenderer } from "@opentui/core"
+import { createMemo, createSignal, Show } from "solid-js"
+import { useCanvasGraphics } from "./graphics"
+import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
-import { createThemedMermaidRenderer } from "./merman"
-import { generateSyntax } from "./theme/syntax"
 import { loadRendererConfig, resolveConfiguredTheme, resolveConfiguredLayout } from "./config"
 import type { ImagesConfig, MarkdownConfig, ThemeModeSetting } from "./config"
-import { scanDocument, type CanvasBlock, type FlowBlock, type FrameConfig, type ResolvedTableOptions, type TablesConfig } from "./core"
+import { parseDocument, type FrameConfig, type TablesConfig } from "./core"
 import { MarkdownFrame } from "./view/frame"
-import { DisplayMath } from "./view/math"
-import { createTableRenderer } from "./view/table"
-import { createMarkdownStyleRenderer } from "./view/markdown-style"
+import { DocumentView } from "./view/document"
 import type { Theme } from "./theme/types"
 
 export type { ThemeModeSetting } from "./config"
@@ -135,22 +129,10 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const contentWidth = () => layout().contentWidth
   const tableOptions = () => layout().tables
 
-  const blocks = createMemo(() => scanDocument(props.content()))
+  const document = createMemo(() => parseDocument(props.content()))
   // The look of the heading levels is a configuration of its own: the colours
   // come from the theme, the attributes and the spacing from the config file.
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
-  const mermaidNode = createThemedMermaidRenderer(renderer, {
-    theme,
-    compact: () => config().mermaid?.compact,
-    layoutMaxWidth: () => config().mermaid?.layoutMaxWidth,
-  })
-  const tableNode = createTableRenderer(renderer, () => tableOptions())
-  const styleNode = createMarkdownStyleRenderer(renderer, theme)
-  // A block is offered to the table renderer first and to the Mermaid renderer
-  // second: both answer only for the tokens they own.
-  const renderNode: NonNullable<MarkdownOptions["renderNode"]> = (token, context) =>
-    tableNode(token, context) ?? mermaidNode(token, context) ?? styleNode(token, context)
-
   // OpenTUI's markdown renderable caches each chunk's resolved color and only
   // rebuilds a block when its text changes, so a theme swap leaves stale colors
   // behind (most visibly on list markers). Rebuilding the subtree whenever the
@@ -164,113 +146,26 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
           flexShrink={0}
           backgroundColor={activeTheme.background.base}
           onSizeChange={function () {
-            setMeasured(this.width)
+            const width = this.width
+            if (width !== viewportWidth()) queueMicrotask(() => setMeasured(width))
           }}
         >
           <MarkdownFrame frame={frame()} theme={activeTheme}>
-            <For each={blocks()}>
-              {(block) => (
-                <BlockView
-                  block={block}
-                  theme={theme}
-                  graphics={graphics}
-                  renderNode={renderNode}
-                  tableOptions={tableOptions}
-                  columns={contentWidth}
-                  surface={surface}
-                  assetBase={() => props.assetBase?.()}
-                  imageLimits={config().images}
-                  headings={headings()}
-                />
-              )}
-            </For>
+            <DocumentView
+              document={document()}
+              columns={contentWidth()}
+              theme={activeTheme}
+              headings={headings()}
+              graphics={graphics}
+              surface={surface}
+              assetBase={() => props.assetBase?.()}
+              imageLimits={config().images}
+              tableOptions={tableOptions()}
+              mermaidOptions={config().mermaid}
+            />
           </MarkdownFrame>
         </box>
       )}
     </Show>
-  )
-}
-
-type BlockViewProps = {
-  readonly block: CanvasBlock
-  readonly theme: () => Theme
-  readonly graphics: CanvasGraphics
-  readonly renderNode: NonNullable<MarkdownOptions["renderNode"]>
-  readonly tableOptions: () => ResolvedTableOptions
-  readonly columns: () => number
-  readonly surface: () => string
-  readonly assetBase: () => string | undefined
-  readonly imageLimits?: ImagesConfig
-  readonly headings?: HeadingStyles
-}
-
-// A block owns either OpenTUI's Markdown renderer or the inline flow, never both.
-function BlockView(props: BlockViewProps) {
-  const view = createMemo(() => {
-    const block = props.block
-    if (block.type === "markdown") {
-      return (
-        <markdown
-          syntaxStyle={generateSyntax(props.theme(), props.headings)}
-          renderNode={props.renderNode}
-          content={block.content}
-          internalBlockMode="top-level"
-          tableOptions={{
-            style: "grid",
-            widthMode: props.tableOptions().widthMode,
-            columnFitter: props.tableOptions().columnFitter,
-            wrapMode: props.tableOptions().wrapMode,
-            cellPaddingX: props.tableOptions().cellPaddingX,
-          }}
-          conceal
-          fg={props.theme().markdown.text}
-          bg={props.theme().background.base}
-        />
-      )
-    }
-    if (block.type === "display-math") {
-      return (
-        <DisplayMath
-          content={block.content}
-          open={block.open}
-          close={block.close}
-          maxWidth={props.columns}
-          surface={props.surface}
-          theme={props.theme}
-          graphics={props.graphics}
-        />
-      )
-    }
-    if (block.type === "image") {
-      return (
-        <LocalImage
-          href={block.href}
-          alt={block.alt}
-          base={props.assetBase}
-          columns={props.columns}
-          cell={props.graphics.cell}
-          background={props.surface}
-          labelColor={() => props.theme().markdown.image}
-          textColor={() => props.theme().markdown.imageText}
-          limits={props.imageLimits}
-        />
-      )
-    }
-    return (
-      <CanvasFlow
-        block={block.block as FlowBlock}
-        columns={props.columns}
-        surface={props.surface}
-        background={() => props.theme().background.base}
-        theme={props.theme()}
-        graphics={props.graphics}
-        headings={props.headings}
-      />
-    )
-  })
-  return (
-    <box width="100%" flexDirection="column" flexShrink={0}>
-      {view()}
-    </box>
   )
 }

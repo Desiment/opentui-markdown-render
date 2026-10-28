@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { testRender } from "@opentui/solid"
+import { TextRenderable, type Renderable } from "@opentui/core"
 import { InlineFlow } from "../src/view/inline-flow"
 import { defaultTheme } from "../src/theme/defaults"
 import { defaultHeadingStyles } from "../src/headings"
@@ -34,5 +35,30 @@ describe("unified inline flow", () => {
     const frame = await render("[site](https://example.com) $x$ text")
     expect(frame).toContain("site")
     expect(frame).toContain("text")
+  })
+
+  test("a formula at line end remains a two-row raster", async () => {
+    const frame = await render("text $x^2$")
+    expect(frame.split("\n").filter((line) => /[▀▄█▌▐░▒▓▖▗▘▝▚▞▛▜▙▟]/.test(line))).toHaveLength(2)
+  })
+
+  test("a formula sharing a line with text uses a compact text-row raster", async () => {
+    const frame = await render("text $x^2$ more")
+    expect(frame.split("\n").filter((line) => /[▀▄█▌▐░▒▓▖▗▘▝▚▞▛▜▙▟]/.test(line))).toHaveLength(1)
+  })
+
+  test("retains the URL in rendered text chunks, not just the label", async () => {
+    const block = parseDocument("[site](https://example.com) $x$").blocks[0]
+    if (block?.type !== "paragraph") throw new Error("expected paragraph")
+    const setup = await testRender(() => <InlineFlow inlines={block.children} columns={40}
+      theme={defaultTheme("dark")} headings={defaultHeadingStyles}
+      graphics={graphics} surface={() => "#0d1117"} />, { width: 40, height: 8 })
+    await setup.renderOnce()
+    const visit = (node: Renderable): TextRenderable[] => [
+      ...(node instanceof TextRenderable ? [node] : []),
+      ...node.getChildren().flatMap(visit),
+    ]
+    const links = visit(setup.renderer.root).flatMap((node) => node.chunks.flatMap((chunk) => chunk.link?.url ? [chunk.link.url] : []))
+    expect(links).toContain("https://example.com")
   })
 })

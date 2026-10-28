@@ -2,6 +2,8 @@ import { expect, test } from "bun:test"
 import { testRender } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { TableBlock } from "../src/view/document-table"
+import { MarkdownTableRenderable } from "../src/view/document-table"
+import { TextTableRenderable, type Renderable } from "@opentui/core"
 import { parseDocument } from "../src/core/parse"
 import { resolveTableOptions } from "../src/core/tables"
 import { defaultTheme } from "../src/theme/defaults"
@@ -30,4 +32,27 @@ test("renders a Markdown table through the public Solid extension and updates it
   update("two")
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("two")
+})
+
+test("wide content mode table remains finite inside a narrow viewport", async () => {
+  const header = Array.from({ length: 12 }, (_, index) => `column ${index}`).join(" | ")
+  const divider = Array.from({ length: 12 }, () => "---").join(" | ")
+  const table = parseDocument(`| ${header} |\n| ${divider} |\n| ${header} |`).blocks[0]
+  if (table?.type !== "table") throw new Error("expected table")
+  const setup = await testRender(() => <box width="100%" height="100%" flexDirection="column">
+    <TableBlock block={table} options={resolveTableOptions()} theme={defaultTheme("dark")} headings={defaultHeadingStyles} />
+  </box>, { width: 40, height: 12 })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("column 0")
+  const findTable = (node: Renderable): MarkdownTableRenderable | undefined => node instanceof MarkdownTableRenderable
+    ? node : node.getChildren().map(findTable).find((child) => child !== undefined)
+  const wrapper = findTable(setup.renderer.root)
+  expect(wrapper).toBeDefined()
+  expect(wrapper?.getChildren()[0]).toBeInstanceOf(TextTableRenderable)
+  expect((wrapper?.getChildren()[0] as TextTableRenderable).selectable).toBe(false)
+  await setup.mockMouse.scroll(5, 1, "right")
+  await setup.renderOnce()
+  await setup.mockMouse.drag(15, 1, 5, 1)
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("column 1")
 })
