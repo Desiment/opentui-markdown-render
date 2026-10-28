@@ -1,70 +1,93 @@
-import { BoxRenderable, TextTableRenderable, type RenderContext } from "@opentui/core"
-import type { ResolvedTableOptions } from "../core/tables"
+import { TextAttributes, TextTableRenderable, type RenderContext, type RGBA, type TextChunk, type TextTableContent } from "@opentui/core"
+import { extend } from "@opentui/solid"
+import { resolveTableOptions, type ResolvedTableOptions } from "../core/tables"
 import type { Block } from "../core/document"
-import { createTableRenderer } from "./table"
-import type { TextTableContent } from "@opentui/core"
-import { flattenInline } from "./inline-style"
-import { defaultHeadingStyles } from "../headings"
+import { ScrollableTableRenderable } from "./table"
+import { toTableChunks } from "./inline-style"
+import type { HeadingStyles } from "../headings"
 import type { Theme } from "../theme/types"
 
-function toTableChunks(inlines: any[], theme: Theme) {
-  const atoms = flattenInline(inlines, { theme, headings: defaultHeadingStyles })
-  const chunks: any[] = []
-  for (const a of atoms) {
-    if (a.type === "text") {
-      chunks.push({ text: a.text, fg: a.fg, attributes: a.attributes, link: a.href ? { url: a.href } : undefined })
-    } else if (a.type === "math") {
-      chunks.push({ text: a.raw, fg: theme.markdown.text })
-    } else if (a.type === "break") {
-      chunks.push({ text: "\n" })
+export type DocumentTableOptions = {
+  tableData: TextTableContent
+  resolved: ResolvedTableOptions
+  foreground: RGBA
+  background: RGBA
+}
+
+export class MarkdownTableRenderable extends ScrollableTableRenderable {
+  constructor(ctx: RenderContext, _options?: Partial<DocumentTableOptions> & { id?: string }) {
+    const defaults = resolveTableOptions()
+    const table = new TextTableRenderable(ctx, {
+      content: [],
+      columnWidthMode: defaults.widthMode,
+      columnFitter: defaults.columnFitter,
+      cellPaddingX: defaults.cellPaddingX,
+      wrapMode: defaults.wrapMode,
+      showBorders: true, border: true, outerBorder: true, borderStyle: "single",
+      selectable: true,
+    })
+    super(ctx, table)
+  }
+
+  // The Solid reconciler stringifies every `content` prop. Use a different
+  // public setter so TextChunk[][] reaches the OpenTUI table intact.
+  get tableData(): TextTableContent { return this.table.content }
+  set tableData(value: TextTableContent) {
+    this.table.content = value
+    this.syncOverflowState()
+  }
+
+  get resolved(): ResolvedTableOptions {
+    return {
+      widthMode: this.table.columnWidthMode,
+      columnFitter: this.table.columnFitter,
+      cellPaddingX: this.table.cellPaddingX,
+      wrapMode: this.table.wrapMode === "none" ? "none" : "word",
+      overflow: this.panEnabled ? "scroll" : "wrap",
     }
   }
-  if (chunks.length === 0) chunks.push({ text: " " })
-  return chunks
+  set resolved(value: ResolvedTableOptions) {
+    this.table.columnWidthMode = value.widthMode
+    this.table.columnFitter = value.columnFitter
+    this.table.cellPaddingX = value.cellPaddingX
+    this.table.wrapMode = value.wrapMode
+    this.panEnabled = value.widthMode === "content" && value.overflow === "scroll"
+    this.syncOverflowState()
+  }
+
+  get foreground(): RGBA { return this.table.fg }
+  set foreground(value: RGBA) { this.table.fg = value; this.syncOverflowState() }
+  get background(): RGBA { return this.backgroundColor }
+  set background(value: RGBA) {
+    this.backgroundColor = value
+    this.syncOverflowState()
+  }
 }
 
-export function TableBlock(props: { block: Block & { type: "table" }; options: ResolvedTableOptions; theme: Theme }) {
-  const b = props.block
-  const content: TextTableContent = [
-    b.header.map((h: any) => toTableChunks(h.children, props.theme)),
-    ...b.rows.map((row: any) => row.map((cell: any) => toTableChunks(cell.children, props.theme))),
+// Register once, through the public Solid extension API.
+extend({ md_text_table: MarkdownTableRenderable })
+
+declare module "@opentui/solid" {
+  interface OpenTUIComponents {
+    md_text_table: typeof MarkdownTableRenderable
+  }
+}
+
+export function TableBlock(props: {
+  block: Extract<Block, { type: "table" }>
+  options: ResolvedTableOptions
+  theme: Theme
+  headings: HeadingStyles
+}) {
+  const cell = (inlines: readonly import("../core/document").Inline[], header: boolean): TextChunk[] => {
+    const chunks = toTableChunks(inlines, props.theme, props.headings)
+    if (!header) return chunks
+    return chunks.map((chunk) => ({ ...chunk, fg: props.theme.markdown.heading, attributes: TextAttributes.BOLD }))
+  }
+  const content = (): TextTableContent => [
+    props.block.header.map((value) => cell(value.children, true)),
+    ...props.block.rows.map((row) => row.map((value) => cell(value.children, false))),
   ]
-  return (
-    <md_text_table content={content} resolved={props.options} foreground={props.theme.text.base} background={props.theme.background.base} />
-  )
-}
-
-export function registerTableRenderable() {
-  try {
-    // try to extend
-    const { extend } = require("@opentui/solid")
-    extend({ md_text_table: MarkdownTableRenderable as any })
-  } catch (e) {
-    // ignore
-  }
-}
-
-export class MarkdownTableRenderable extends BoxRenderable {
-  private table: TextTableRenderable
-  constructor(
-    ctx: RenderContext,
-    options: { content: TextTableContent; resolved: ResolvedTableOptions; foreground: any; background: any },
-  ) {
-    super(ctx, { width: "100%" })
-    this.table = new TextTableRenderable(ctx, {
-      content: options.content,
-      columnWidthMode: options.resolved.widthMode as any,
-      columnFitter: options.resolved.columnFitter as any,
-      cellPaddingX: options.resolved.cellPaddingX,
-      wrapMode: options.resolved.wrapMode as any,
-      showBorders: true,
-      border: true,
-      outerBorder: true,
-      borderStyle: "single",
-      selectable: true,
-      fg: options.foreground,
-      bg: options.background,
-    } as any)
-    this.add(this.table)
-  }
+  return <md_text_table tableData={content()} resolved={props.options}
+    foreground={props.theme.markdown.text} background={props.theme.background.base} />
 }

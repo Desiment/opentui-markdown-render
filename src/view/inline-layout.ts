@@ -3,10 +3,8 @@ import type { StyledAtom } from "./inline-style"
 
 export type MathMeasure = { columns: number; rows: number; baseline: number }
 export type MathVariant = "normal" | "compact" | "standard"
-export type LayoutAtom =
-  | { kind: "text"; text: string; atom: Extract<StyledAtom, { type: "text" }> }
-  | { kind: "math"; atom: Extract<StyledAtom, { type: "math" }> }
-export type LayoutLine = { atoms: LayoutAtom[]; columns: number; height: number; textRow: number }
+export type LayoutRun = { atom: Extract<StyledAtom, { type: "text" | "math" }>; columns: number; rows: number; variant?: MathVariant }
+export type LayoutLine = { runs: LayoutRun[]; columns: number; height: number; textRow: number }
 
 function hardChunks(content: string, columns: number) {
   const chunks: string[] = []
@@ -23,115 +21,127 @@ function hardChunks(content: string, columns: number) {
   return chunks
 }
 
+// The measurements, compact collision check and standard-size choice mirror
+// the original CanvasFlow layout; the input is now the shared styled AST.
 export function layoutAtoms(
-  atoms: StyledAtom[],
+  atoms: readonly StyledAtom[],
   columns: number,
   measureOf: (content: string) => { normal: MathMeasure; compact: MathMeasure; standard: MathMeasure } | undefined,
   compactOverflow: boolean,
 ): LayoutLine[] {
+  columns = Math.max(1, columns)
   const lines: LayoutLine[] = []
-  let current: LayoutLine = { atoms: [], columns: 0, height: 1, textRow: 0 }
-  const flush = () => {
-    if (!current.atoms.length) return
+  let current: LayoutLine = { runs: [], columns: 0, height: 1, textRow: 0 }
+  const flush = (force = false) => {
+    if (!current.runs.length && !force) return
     lines.push(current)
-    current = { atoms: [], columns: 0, height: 1, textRow: 0 }
+    current = { runs: [], columns: 0, height: 1, textRow: 0 }
   }
-  const place = (entry: LayoutAtom, textRow = 0) => {
-    const add = (e: LayoutAtom) => {
-      current.atoms.push(e)
-      const w = e.kind === "text" ? stringWidth(e.text) : (e as any).columns || 0
-      // columns computed separately
-      current.height = Math.max(current.height, e.kind === "math" ? (e as any).rows || 1 : 1, textRow + 1)
+  const place = (run: LayoutRun, textRow = 0) => {
+    const add = (entry: LayoutRun) => {
+      current.runs.push(entry)
+      current.columns += entry.columns
+      current.height = Math.max(current.height, entry.rows, textRow + 1)
       current.textRow = Math.max(current.textRow, textRow)
     }
-    // compute width
-    let entryW = 0
-    let entryRows = 1
-    if (entry.kind === "text") {
-      entryW = stringWidth(entry.text)
-    } else if (entry.kind === "math") {
-      const m = measureOf(entry.atom.content)
-      if (m) {
-        const n = m.normal
-        entryW = Math.max(1, Math.round(n.columns))
-        entryRows = Math.max(1, Math.round(n.rows))
-      } else {
-        entryW = Math.min(columns, Math.max(3, entry.atom.content.length + 2))
-        entryRows = 1
-      }
-    }
-    ;(entry as any).columns = entryW
-    ;(entry as any).rows = entryRows
-    if (current.columns + entryW <= columns || !current.atoms.length) {
-      current.atoms.push(entry)
-      current.columns += entryW
-      current.height = Math.max(current.height, entryRows, textRow + 1)
-      current.textRow = Math.max(current.textRow, textRow)
+    if (current.columns + run.columns <= columns || !current.runs.length) {
+      add(run)
       return
     }
-    if (entry.kind === "text") {
+    if (run.atom.type === "text") {
+      const text = run.atom.text.trimStart()
+      const trimmed = { ...run, atom: { ...run.atom, text }, columns: stringWidth(text) }
+      if (current.columns + trimmed.columns <= columns) {
+        add(trimmed)
+        return
+      }
       flush()
-      current.atoms.push(entry)
-      current.columns += entryW
-      current.height = Math.max(current.height, entryRows, textRow + 1)
-      current.textRow = Math.max(current.textRow, textRow)
+      add(trimmed)
       return
     }
     flush()
-    current.atoms.push(entry)
-    current.columns += entryW
-    current.height = Math.max(current.height, entryRows, textRow + 1)
-    current.textRow = Math.max(current.textRow, textRow)
+    add(run)
   }
 
-  for (let i = 0; i < atoms.length; i++) {
-    const a = atoms[i]
-    if (a.type === "break") {
-      flush()
-      // push empty line marker? just flush creates new line
+  for (const atom of atoms) {
+    if (atom.type === "break") {
+      flush(true)
       continue
     }
-    if (a.type === "math") {
-      const measured = measureOf(a.content)
-      const natural = measured?.normal
+    if (atom.type === "math") {
+      const natural = measureOf(atom.content)?.normal
       const squeezed = natural ? natural.columns > columns : false
-      const entry: any = { kind: "math", atom: a, variant: "normal" as MathVariant }
-      if (natural) {
-        entry.columns = squeezed ? columns : natural.columns
-        entry.rows = Math.max(1, Math.round(squeezed ? (natural.rows * columns) / natural.columns : natural.rows))
-      } else {
-        entry.columns = Math.min(columns, Math.max(3, a.content.length + 2))
-        entry.rows = 1
-      }
-      const textRow = natural ? Math.max(0, Math.ceil(natural.baseline) - 1) : 0
-      place(entry, textRow)
+      const entry: LayoutRun = natural
+        ? { atom, columns: squeezed ? columns : natural.columns, rows: Math.max(1, Math.round(squeezed ? natural.rows * columns / natural.columns : natural.rows)) }
+        : { atom, columns: Math.min(columns, Math.max(3, atom.raw.length)), rows: 1 }
+      place(entry, natural ? Math.max(0, Math.ceil(natural.baseline) - 1) : 0)
       continue
     }
-    if (a.type === "text") {
-      // split by words
-      const matches = a.text.match(/\s*\S+\s*/g)
-      if (!matches) {
-        place({ kind: "text", atom: a, text: a.text } as any)
-        continue
-      }
-      for (const word of matches) {
-        const size = stringWidth(word)
-        if (size > columns) {
-          for (const chunk of hardChunks(word.trimEnd(), columns)) {
-            place({ kind: "text", atom: { ...a, text: chunk }, text: chunk } as any)
-          }
-          continue
+    // Soft newlines in Markdown prose are spaces. A hard break is its own atom.
+    for (const word of atom.text.replace(/\r?\n/g, " ").match(/\s*\S+\s*/g) ?? []) {
+      if (stringWidth(word) > columns) {
+        for (const chunk of hardChunks(word.trimEnd(), columns)) {
+          place({ atom: { ...atom, text: chunk }, columns: stringWidth(chunk), rows: 1 })
         }
-        place({ kind: "text", atom: { ...a, text: word }, text: word } as any)
+      } else {
+        place({ atom: { ...atom, text: word }, columns: stringWidth(word), rows: 1 })
       }
-      continue
     }
   }
   flush()
-  // recompute
+
+  if (compactOverflow) {
+    let changed = true
+    while (changed) {
+      changed = false
+      const occupied = lines.flatMap((line, row) => {
+        let column = 0
+        return line.runs.map((entry) => {
+          const area = {
+            entry, column,
+            row: row + (entry.atom.type === "text" ? line.textRow : 0),
+            rows: entry.atom.type === "math" ? entry.rows : 1,
+          }
+          column += entry.columns
+          return area
+        })
+      })
+      for (const area of occupied) {
+        if (area.entry.atom.type !== "math" || area.entry.variant === "compact" || area.rows <= 1) continue
+        const collision = occupied.some((other) =>
+          other.entry !== area.entry &&
+          other.column < area.column + area.entry.columns &&
+          area.column < other.column + other.entry.columns &&
+          other.row < area.row + area.rows &&
+          area.row + 1 < other.row + other.rows,
+        )
+        if (!collision) continue
+        const compact = measureOf(area.entry.atom.content)?.compact
+        if (!compact) continue
+        area.entry.variant = "compact"
+        area.entry.columns = compact.columns
+        area.entry.rows = compact.rows
+        changed = true
+      }
+    }
+  }
   for (const line of lines) {
-    line.columns = line.atoms.reduce((t, e: any) => t + (e.columns || 0), 0)
-    line.height = Math.max(1, line.textRow + 1, ...line.atoms.map((e: any) => e.rows || 1))
+    const entry = line.runs.at(-1)
+    if (!entry || entry.atom.type !== "math" || entry.variant === "compact") continue
+    const standard = measureOf(entry.atom.content)?.standard
+    if (!standard || line.columns - entry.columns + standard.columns > columns) continue
+    entry.variant = "standard"
+    entry.columns = standard.columns
+    entry.rows = standard.rows
+  }
+  for (const line of lines) {
+    line.columns = line.runs.reduce((total, entry) => total + entry.columns, 0)
+    line.textRow = Math.max(0, ...line.runs.flatMap((entry) => {
+      if (entry.atom.type !== "math") return []
+      const measured = measureOf(entry.atom.content)
+      return measured ? [Math.max(0, Math.ceil(measured[entry.variant ?? "normal"].baseline) - 1)] : []
+    }))
+    line.height = Math.max(1, line.textRow + 1, ...line.runs.map((entry) => entry.rows))
   }
   return lines
 }

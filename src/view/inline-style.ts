@@ -1,4 +1,4 @@
-import { TextAttributes, type RGBA } from "@opentui/core"
+import { TextAttributes, type RGBA, type TextChunk } from "@opentui/core"
 import type { HeadingLevel, Theme } from "../theme/types"
 import type { HeadingStyles } from "../headings"
 import { headingColor } from "../headings"
@@ -18,29 +18,11 @@ export type InlineStyleContext = {
   attributes?: number
 }
 
-function mergeAttributes(a: number, b: number) {
-  return a | b
-}
-
 export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContext): StyledAtom[] {
   const out: StyledAtom[] = []
   const baseAttr = ctx.attributes || 0
   const quote = !!ctx.quote
   const linkCtx = ctx.link
-
-  const pushText = (text: string, extraAttr: number, extraLink?: { href: string }) => {
-    if (text.length === 0) return
-    let fg = ctx.theme.markdown.text
-    if (quote) fg = ctx.theme.markdown.blockQuote
-    if (ctx.heading) {
-      fg = headingColor(ctx.theme, ctx.heading.level)
-    }
-    if (linkCtx || extraLink) {
-      fg = ctx.theme.markdown.linkText
-    }
-    const href = extraLink?.href || linkCtx?.href
-    out.push({ type: "text", text, fg, attributes: baseAttr | extraAttr, href })
-  }
 
   function walk(list: readonly Inline[], attr: number, link: { href: string; title?: string | null } | undefined) {
     for (const node of list) {
@@ -49,18 +31,16 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
         if (quote && !link && !ctx.heading) fg = ctx.theme.markdown.blockQuote
         if (ctx.heading) fg = headingColor(ctx.theme, ctx.heading.level)
         if (link) fg = ctx.theme.markdown.linkText
-        out.push({ type: "text", text: node.text, fg, attributes: baseAttr | attr, href: link?.href })
+        if (node.text) out.push({ type: "text", text: node.text, fg, attributes: baseAttr | attr, href: link?.href })
         continue
       }
       if (node.type === "code") {
         // code has priority styling
-        const fg = ctx.theme.markdown.codeBlock
-        out.push({ type: "text", text: node.text, fg, attributes: 0, href: link?.href })
+        const fg = ctx.theme.markdown.code
+        out.push({ type: "text", text: node.text, fg, attributes: TextAttributes.NONE, href: link?.href })
         continue
       }
       if (node.type === "math") {
-        // math will be handled by inline flow; represent as special marker? but inline flow needs atoms
-        // push text marker not needed, but better to include structure - we'll handle separately
         out.push({ type: "math", content: node.content, raw: node.raw, open: node.open, close: node.close })
         continue
       }
@@ -69,17 +49,15 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
         continue
       }
       if (node.type === "strong") {
-        walk(node.children, mergeAttributes(attr, TextAttributes.BOLD), link)
+        walk(node.children, attr | TextAttributes.BOLD, link)
         continue
       }
       if (node.type === "em") {
-        walk(node.children, mergeAttributes(attr, TextAttributes.ITALIC), link)
+        walk(node.children, attr | TextAttributes.ITALIC, link)
         continue
       }
       if (node.type === "del") {
-        // if strikethrough not present, use muted
-        const delAttr = (TextAttributes as any).STRIKETHROUGH || TextAttributes.BOLD
-        walk(node.children, mergeAttributes(attr, delAttr), link)
+        walk(node.children, attr | TextAttributes.STRIKETHROUGH, link)
         continue
       }
       if (node.type === "link") {
@@ -90,7 +68,7 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
       if (node.type === "inline-image") {
         const l = link
         // render alt as text with link style
-        out.push({ type: "text", text: node.alt || node.href || "", fg: l ? ctx.theme.markdown.linkText : ctx.theme.markdown.imageText, attributes: baseAttr | attr, href: l?.href || node.href })
+        out.push({ type: "text", text: node.alt || node.href || "image", fg: ctx.theme.markdown.linkText, attributes: baseAttr | attr, href: l?.href || node.href })
         continue
       }
     }
@@ -98,4 +76,19 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
 
   walk(inlines, baseAttr, linkCtx)
   return out
+}
+
+export function toTableChunks(inlines: readonly Inline[], theme: Theme, headings: HeadingStyles): TextChunk[] {
+  const chunks: TextChunk[] = []
+  for (const atom of flattenInline(inlines, { theme, headings })) {
+    if (atom.type === "text") {
+      chunks.push({ __isChunk: true, text: atom.text, fg: atom.fg, attributes: atom.attributes,
+        ...(atom.href ? { link: { url: atom.href } } : {}) })
+    } else if (atom.type === "math") {
+      chunks.push({ __isChunk: true, text: atom.raw, fg: theme.markdown.text })
+    } else {
+      chunks.push({ __isChunk: true, text: "\n", fg: theme.markdown.text })
+    }
+  }
+  return chunks.length ? chunks : [{ __isChunk: true, text: " ", fg: theme.markdown.text }]
 }

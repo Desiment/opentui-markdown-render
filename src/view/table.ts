@@ -31,9 +31,10 @@ function tableWidth(table: TextTableRenderable): number {
 // its natural width and moves it sideways, the same way a Mermaid diagram is
 // panned. A table that actually needs the scroller gives up cell selection:
 // otherwise a drag would select text instead of panning.
-class ScrollableTableRenderable extends BoxRenderable {
-  private readonly table: TextTableRenderable
-  private offset = 0
+export class ScrollableTableRenderable extends BoxRenderable {
+  protected readonly table: TextTableRenderable
+  protected offset = 0
+  protected panEnabled = true
   private dragX: number | undefined
 
   constructor(ctx: RenderContext, table: TextTableRenderable) {
@@ -51,7 +52,7 @@ class ScrollableTableRenderable extends BoxRenderable {
       this.dragX = event.x
     }
     this.onMouseDrag = (event: MouseEvent) => {
-      if (this.dragX === undefined) return
+      if (this.dragX === undefined || !this.panEnabled) return
       const dx = event.x - this.dragX
       this.dragX = event.x
       if (!dx || !this.overflows()) return
@@ -68,7 +69,7 @@ class ScrollableTableRenderable extends BoxRenderable {
     // A vertical wheel is left to the host: the document scroll box owns it.
     this.onMouseScroll = (event: MouseEvent) => {
       const direction = event.scroll?.direction
-      if (direction !== "left" && direction !== "right") return
+      if (!this.panEnabled || (direction !== "left" && direction !== "right")) return
       if (!this.overflows()) return
       event.preventDefault()
       event.stopPropagation()
@@ -80,7 +81,15 @@ class ScrollableTableRenderable extends BoxRenderable {
   // gives its drag to the scroller.
   protected override onResize(width: number, _height: number) {
     super.onResize(width, _height)
-    this.table.selectable = !this.overflows(width)
+    this.syncOverflowState(width)
+  }
+
+  protected syncOverflowState(width = this.width) {
+    const viewport = Number.isFinite(width) ? Math.round(width) : 0
+    const max = Math.max(0, tableWidth(this.table) - viewport)
+    this.offset = this.panEnabled ? Math.min(this.offset, max) : 0
+    this.table.marginLeft = -this.offset
+    this.table.selectable = !this.panEnabled || max === 0
   }
 
   private overflows(width = this.width) {
