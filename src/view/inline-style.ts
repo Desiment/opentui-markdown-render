@@ -1,7 +1,7 @@
 import { TextAttributes, type RGBA, type TextChunk } from "@opentui/core"
 import type { HeadingLevel, Theme } from "../theme/types"
 import type { HeadingStyles } from "../headings"
-import { headingColor } from "../headings"
+import { headingAttributes, headingColor } from "../headings"
 import type { Inline } from "../core/document"
 
 export type StyledAtom =
@@ -20,7 +20,9 @@ export type InlineStyleContext = {
 
 export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContext): StyledAtom[] {
   const out: StyledAtom[] = []
-  const baseAttr = ctx.attributes || 0
+  const baseAttr = (ctx.attributes ?? 0) |
+    (ctx.heading ? headingAttributes(ctx.headings[ctx.heading.level]) : 0) |
+    (ctx.quote ? TextAttributes.ITALIC : 0)
   const quote = !!ctx.quote
   const linkCtx = ctx.link
 
@@ -31,7 +33,9 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
         if (quote && !link && !ctx.heading) fg = ctx.theme.markdown.blockQuote
         if (ctx.heading) fg = headingColor(ctx.theme, ctx.heading.level)
         if (link) fg = ctx.theme.markdown.linkText
-        if (node.text) out.push({ type: "text", text: node.text, fg, attributes: baseAttr | attr, href: link?.href })
+        else if (attr & TextAttributes.BOLD && !ctx.heading) fg = ctx.theme.markdown.strong
+        else if (attr & TextAttributes.ITALIC && !ctx.heading && !quote) fg = ctx.theme.markdown.emphasis
+        if (node.text) out.push({ type: "text", text: node.text, fg, attributes: baseAttr | attr | (link ? TextAttributes.UNDERLINE : 0), href: link?.href })
         continue
       }
       if (node.type === "code") {

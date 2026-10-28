@@ -7,6 +7,11 @@ export type Slot = {
   update: (b: Block) => void
 }
 
+function sameKind(old: Block, next: Block): boolean {
+  if (old.type !== next.type) return false
+  return old.type !== "mermaid" || (next.type === "mermaid" && old.language === next.language)
+}
+
 export function reconcileSlots(prev: Slot[], next: Block[]): Slot[] {
   if (prev.length === 0) {
     return next.map((b) => {
@@ -16,7 +21,7 @@ export function reconcileSlots(prev: Slot[], next: Block[]): Slot[] {
   }
   // prefix
   let prefix = 0
-  while (prefix < prev.length && prefix < next.length && prev[prefix].kind === next[prefix].type && JSON.stringify(prev[prefix].block().raw) === JSON.stringify(next[prefix].raw)) {
+  while (prefix < prev.length && prefix < next.length && sameKind(prev[prefix].block(), next[prefix]) && prev[prefix].block().raw === next[prefix].raw) {
     prefix++
   }
   // suffix
@@ -24,8 +29,8 @@ export function reconcileSlots(prev: Slot[], next: Block[]): Slot[] {
   while (
     suffix < prev.length - prefix &&
     suffix < next.length - prefix &&
-    prev[prev.length - 1 - suffix].kind === next[next.length - 1 - suffix].type &&
-    JSON.stringify(prev[prev.length - 1 - suffix].block().raw) === JSON.stringify(next[next.length - 1 - suffix].raw)
+    sameKind(prev[prev.length - 1 - suffix].block(), next[next.length - 1 - suffix]) &&
+    prev[prev.length - 1 - suffix].block().raw === next[next.length - 1 - suffix].raw
   ) {
     suffix++
   }
@@ -33,11 +38,10 @@ export function reconcileSlots(prev: Slot[], next: Block[]): Slot[] {
   // prefix
   for (let i = 0; i < prefix; i++) result.push(prev[i])
   // middle
-  const midCount = Math.min(prev.length - prefix - suffix, next.length - prefix - suffix)
-  if (midCount === 1 && prev.length - prefix - suffix === 1 && next.length - prefix - suffix === 1) {
+  if (prev.length - prefix - suffix === 1 && next.length - prefix - suffix === 1) {
     // reuse slot
     const slot = prev[prefix]
-    if (slot.kind === next[prefix].type) {
+    if (sameKind(slot.block(), next[prefix])) {
       slot.update(next[prefix])
       result.push(slot)
     } else {

@@ -70,7 +70,7 @@ export function DisplayMath(props: {
         <Match when={raster()}>
           <box width="100%" height={box().rows} flexShrink={0} alignItems="center" justifyContent="center">
             <image
-              id={`opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell())}`}
+              id={`opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell())}-${props.surface()}`}
               source={raster()!.png}
               fit="fit"
               protocol="auto"
