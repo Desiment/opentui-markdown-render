@@ -147,3 +147,20 @@ test("shows a list marker when the first item block is display math", async () =
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("- ")
 })
+
+test("task lists keep the bullet next to the checkbox, with and without math", async () => {
+  const source = "- [x] done\n- [ ] next $x$"
+  const setup = await testRender(() => <DocumentView document={parseDocument(source)} columns={40}
+    theme={defaultTheme("dark")} headings={defaultHeadingStyles} graphics={graphics}
+    surface={() => "#0d1117"} assetBase={() => undefined} tableOptions={resolveTableOptions()} />,
+  { width: 40, height: 10 })
+  await setup.renderOnce()
+  const frame = setup.captureCharFrame()
+  expect(frame).toContain("- [x] done")
+  expect(frame).toContain("- [ ] next")
+  const spans = setup.captureSpans().lines.flatMap((line) => line.spans)
+  expect(spans.find((span) => span.text.includes("[x]"))?.fg.toInts())
+    .toEqual(defaultTheme("dark").text.feedback.success.toInts())
+  expect(spans.find((span) => span.text.includes("[ ]"))?.fg.toInts())
+    .toEqual(defaultTheme("dark").text.muted.toInts())
+})

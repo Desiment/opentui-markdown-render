@@ -1,5 +1,5 @@
 import { createEffect, createMemo, For, Show } from "solid-js"
-import { StyledText, type RGBA, type TextRenderable } from "@opentui/core"
+import { StyledText, type RGBA, type TextChunk, type TextRenderable } from "@opentui/core"
 import { mosaicScale, type CanvasGraphics } from "../graphics"
 import { mathImageID, rgbaToHex } from "../math"
 import { layoutAtoms, type LayoutRun, type MathVariant } from "./inline-layout"
@@ -20,6 +20,15 @@ export type InlineFlowProps = {
   heading?: { level: HeadingLevel }
   prefix?: (index: number) => string
   prefixColor?: () => RGBA
+  prefixChunks?: (index: number) => TextChunk[]
+}
+
+function PrefixSegment(props: { chunks: () => TextChunk[]; width: number }) {
+  let ref: TextRenderable | undefined
+  createEffect(() => {
+    if (ref) ref.content = new StyledText(props.chunks())
+  })
+  return <text ref={ref} wrapMode="none" width={props.width} flexShrink={0} />
 }
 
 function StyledSegment(props: { entry: LayoutRun; textRow: number }) {
@@ -64,9 +73,10 @@ export function InlineFlow(props: InlineFlowProps) {
         {(line, index) => (
           <box flexDirection="row" alignItems="flex-start" width="100%" height={line.height} flexShrink={0} backgroundColor={props.theme.background.base}>
             <Show when={props.prefix}>
-              <text fg={props.prefixColor?.() ?? props.theme.markdown.text} wrapMode="none" width={prefixWidth()} flexShrink={0}>
-                {props.prefix?.(index()) ?? ""}
-              </text>
+              <Show when={props.prefixChunks} fallback={<text fg={props.prefixColor?.() ?? props.theme.markdown.text}
+                wrapMode="none" width={prefixWidth()} flexShrink={0}>{props.prefix?.(index()) ?? ""}</text>}>
+                {(chunks) => <PrefixSegment chunks={() => chunks()(index())} width={prefixWidth()} />}
+              </Show>
             </Show>
             <For each={line.runs}>
               {(entry, position) => {

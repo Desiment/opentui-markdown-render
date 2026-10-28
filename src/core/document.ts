@@ -28,3 +28,7 @@ export type Inline =
   | { readonly type: 'inline-image'; readonly href: string; readonly alt: string; readonly title: string | null }
   | { readonly type: 'break'; readonly hard: boolean }
   | { readonly type: 'math'; readonly content: string; readonly open: '$' | '\\('; readonly close: '$' | '\\)'; readonly raw: string }
+
+export function assertNever(value: never): never {
+  throw new Error(`Unexpected document node: ${String(value)}`)
+}

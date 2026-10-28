@@ -1,6 +1,7 @@
 import { createMemo, For } from "solid-js"
 import stringWidth from "string-width"
-import type { Block, Document } from "../core/document"
+import { type TextChunk } from "@opentui/core"
+import { assertNever, type Block, type Document } from "../core/document"
 import type { ResolvedTableOptions } from "../core/tables"
 import type { ImagesConfig, MermaidConfig } from "../config/types"
 import type { CanvasGraphics } from "../graphics"
@@ -46,9 +47,11 @@ export function DocumentView(props: DocumentViewProps) {
     const view = createMemo(() => {
       const block = input.block()
       const columns = Math.max(1, input.columns)
-      const flow = (children: Extract<Block, { type: "paragraph" }>["children"], prefix?: (index: number) => string, prefixColor?: () => Theme["text"]["base"]) => (
+      const flow = (children: Extract<Block, { type: "paragraph" }>["children"], prefix?: (index: number) => string,
+        prefixColor?: () => Theme["text"]["base"], prefixChunks?: (index: number) => TextChunk[]) => (
         <InlineFlow inlines={children} columns={columns} theme={props.theme} headings={props.headings}
-          graphics={props.graphics} surface={props.surface} quote={input.quote} prefix={prefix} prefixColor={prefixColor} />
+          graphics={props.graphics} surface={props.surface} quote={input.quote} prefix={prefix}
+          prefixColor={prefixColor} prefixChunks={prefixChunks} />
       )
       switch (block.type) {
         case "paragraph": return flow(block.children)
@@ -75,8 +78,10 @@ export function DocumentView(props: DocumentViewProps) {
             columns={columns > 2 ? columns - 2 : columns} quote />}</For>
         </box>
         case "list": {
-          const marker = (index: number, task: boolean, checked: boolean | null) => block.ordered
-            ? `${block.start + index}.` : task ? (checked ? "[x]" : "[ ]") : "-"
+          const marker = (index: number, task: boolean, checked: boolean | null) => {
+            const bullet = block.ordered ? `${block.start + index}.` : "-"
+            return task ? `${bullet} ${checked ? "[x]" : "[ ]"}` : bullet
+          }
           const markerWidth = Math.max(...block.items.map((item, index) => stringWidth(marker(index, item.task, item.checked))), 1)
           const hanging = markerWidth + 1
           return <box flexDirection="column" width="100%" flexShrink={0}>
@@ -85,7 +90,15 @@ export function DocumentView(props: DocumentViewProps) {
               <For each={item.blocks}>{(child, childIndex) => childIndex() === 0 && child.type === "paragraph"
                 ? flow(child.children, (row) => row === 0
                     ? `${marker(index(), item.task, item.checked).padStart(markerWidth)} ` : " ".repeat(hanging),
-                  () => block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem)
+                  () => block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem,
+                  item.task ? (row) => row === 0
+                    ? [
+                        { __isChunk: true, text: `${block.ordered ? `${block.start + index()}.` : "-"} `,
+                          fg: block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem },
+                        { __isChunk: true, text: `${item.checked ? "[x]" : "[ ]"}${" ".repeat(markerWidth - stringWidth(marker(index(), item.task, item.checked)) + 1)}`,
+                          fg: item.checked ? props.theme.text.feedback.success : props.theme.text.muted },
+                      ] : [{ __isChunk: true, text: " ".repeat(hanging), fg: props.theme.text.muted }]
+                    : undefined)
                 : childIndex() === 0
                   ? <box flexDirection="row" width="100%" flexShrink={0}>
                       <text width={hanging} flexShrink={0}
@@ -103,10 +116,12 @@ export function DocumentView(props: DocumentViewProps) {
           </box>
         }
         case "code": return <CodeBlock content={block.content} language={block.language} theme={props.theme} headings={props.headings} />
-        case "mermaid": return null // A different block type gets a new slot.
+        case "mermaid": return <MermaidDiagramView source={block.content} theme={props.theme} columns={columns}
+          mermaidOptions={props.mermaidOptions} headings={props.headings} onDiagnostic={props.onDiagnostic} />
         case "table": return <TableBlock block={block} options={props.tableOptions} theme={props.theme} headings={props.headings}
           hyperlinks={props.graphics.hyperlinks?.() ?? true} />
         case "literal": return <text fg={props.theme.markdown.text} wrapMode="word" content={block.text} />
+        default: return assertNever(block)
       }
     })
     return <box width="100%" flexDirection="column" flexShrink={0}>{view()}</box>
