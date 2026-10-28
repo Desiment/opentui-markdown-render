@@ -25,6 +25,7 @@ export type DocumentViewProps = {
   imageLimits?: ImagesConfig
   tableOptions: ResolvedTableOptions
   mermaidOptions?: MermaidConfig
+  onDiagnostic?: (diagnostic: { level: "warning" | "error"; message: string }) => void
 }
 
 export function DocumentView(props: DocumentViewProps) {
@@ -39,7 +40,8 @@ export function DocumentView(props: DocumentViewProps) {
     // while its fenced source changes. The other variants can remount on edit.
     if (input.block().type === "mermaid") {
       return <MermaidDiagramView source={(input.block() as Extract<Block, { type: "mermaid" }>).content}
-        theme={props.theme} columns={input.columns} mermaidOptions={props.mermaidOptions} />
+        theme={props.theme} columns={input.columns} mermaidOptions={props.mermaidOptions}
+        headings={props.headings} onDiagnostic={props.onDiagnostic} />
     }
     const view = createMemo(() => {
       const block = input.block()

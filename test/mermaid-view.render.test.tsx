@@ -20,3 +20,10 @@ test("Mermaid keeps the last good diagram while a fence is incomplete", async ()
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("Gamma")
 })
+
+test("unrecognized first Mermaid fence remains readable code", async () => {
+  const setup = await testRender(() => <MermaidDiagramView source="not a diagram" theme={defaultTheme("dark")} columns={40} />,
+    { width: 40, height: 8 })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("not a diagram")
+})

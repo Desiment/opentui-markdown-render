@@ -7,12 +7,15 @@ import { DiagramCanvasSizeError } from "../merman/core/canvas"
 import { resolveOpenCodeDiagramPalette } from "../merman/palette"
 import type { Theme } from "../theme/types"
 import type { MermaidConfig } from "../config/types"
+import { defaultHeadingStyles, type HeadingStyles } from "../headings"
+import { CodeBlock } from "./code"
 
 export type MermaidDiagramViewProps = {
   source: string
   theme: Theme
   columns: number
   mermaidOptions?: MermaidConfig
+  headings?: HeadingStyles
   onDiagnostic?: (diagnostic: { level: "error"; message: string }) => void
 }
 
@@ -88,7 +91,8 @@ export function MermaidDiagramView(props: MermaidDiagramViewProps) {
     return undefined
   })
   return <box width="100%" flexDirection="column" flexShrink={0}>
-    <Show when={prepared()} fallback={<text content={props.source} fg={props.theme.markdown.codeBlock} wrapMode="word" />}>
+    <Show when={prepared()} fallback={<CodeBlock content={props.source} language="mermaid"
+      theme={props.theme} headings={props.headings ?? defaultHeadingStyles} />}>
       {(value) => <DiagramText prepared={value} />}
     </Show>
   </box>

@@ -162,6 +162,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
               imageLimits={config().images}
               tableOptions={tableOptions()}
               mermaidOptions={config().mermaid}
+              onDiagnostic={props.onDiagnostic}
             />
           </MarkdownFrame>
         </box>
