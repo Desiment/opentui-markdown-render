@@ -5,7 +5,9 @@
     "": {
       "name": "opentui-markdown-render",
       "dependencies": {
+        "entities": "7.0.1",
         "gifuct-js": "2.1.2",
+        "marked": "17.0.1",
         "string-width": "7.2.0",
       },
       "devDependencies": {
