@@ -73,13 +73,16 @@ export function DocumentView(props: DocumentViewProps) {
       )
     }
     if (b.type === "code") {
-      return <box width="100%"><text content={b.content} fg={props.theme.markdown.codeBlock} /></box>
+      const CodeBlock = require("./code").CodeBlock
+      return <CodeBlock content={b.content} language={b.language} theme={props.theme} headings={props.headings} />
     }
     if (b.type === "mermaid") {
-      return <box width="100%"><text content={b.content} fg={props.theme.markdown.codeBlock} /></box>
+      const MermaidDiagramView = require("./mermaid").MermaidDiagramView
+      return <MermaidDiagramView source={b.content} theme={props.theme} columns={props.columns} mermaidOptions={props.mermaidOptions} />
     }
     if (b.type === "table") {
-      return <box width="100%"><text content={"[table]"} fg={props.theme.markdown.text} /></box>
+      const TableBlock = require("./document-table").TableBlock
+      return <TableBlock block={b as any} options={props.tableOptions} theme={props.theme} />
     }
     if (b.type === "literal") {
       return <text content={b.text} fg={props.theme.markdown.text} />
