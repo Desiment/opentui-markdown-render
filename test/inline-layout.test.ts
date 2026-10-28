@@ -33,4 +33,10 @@ describe("unified inline layout", () => {
     const lines = layoutAtoms([text("one\ntwo"), { type: "break", hard: true }, { type: "break", hard: true }, text("three")], 20, () => undefined, false)
     expect(lines.map((line) => line.runs.map((run) => run.atom.type === "text" ? run.atom.text : "").join(""))).toEqual(["one two", "", "three"])
   })
+
+  test("keeps whitespace-only tokens between styled fragments", () => {
+    const lines = layoutAtoms([text("a"), text("  "), math("x"), text(" "), text("b")], 20, measure, false)
+    expect(lines[0]?.runs.map((run) => run.atom.type === "text" ? run.atom.text : run.atom.raw).join(""))
+      .toBe("a  $x$ b")
+  })
 })

@@ -47,7 +47,7 @@ export function rgbToHex(color: Rgb) {
 type AnimatedFrame = { readonly image: NativeImage; readonly delay: number }
 type Media = { readonly box: { columns: number; rows: number }; readonly image?: NativeImage; readonly frames?: readonly AnimatedFrame[] }
 
-export { standaloneImage, type MarkdownImage } from "./core/blocks"
+export { standaloneImage, type MarkdownImage } from "./core/image"
 
 export function resolveLocalImage(base: string | undefined, href: string) {
   if (!base) return { error: "No asset base is configured" }

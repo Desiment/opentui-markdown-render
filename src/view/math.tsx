@@ -3,8 +3,7 @@ import { mosaicScale, type CanvasGraphics } from "../graphics"
 import { mathImageID, renderMathImage, rgbaToHex, type CellSize, type MathImage } from "../math"
 import type { Theme } from "../theme/types"
 
-// Display math owns its own block. Inline math flows with the text around it
-// and is laid out by CanvasFlow instead.
+// Display math owns its own block. Inline math flows with the text around it.
 export function DisplayMath(props: {
   content: string
   open: string

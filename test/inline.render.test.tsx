@@ -1,22 +1,27 @@
 import { describe, expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
-import { CanvasFlow, type FlowBlock, type InlineRun } from "../src/inline"
+import { InlineFlow } from "../src/view/inline-flow"
+import { parseDocument } from "../src/core"
+import { defaultHeadingStyles } from "../src/headings"
 import { MarkdownRenderer } from "../src/app"
 import { defaultTheme } from "../src/theme/defaults"
 
 // The block mosaic needs a larger measured formula, but the layout is the same.
 const graphics = { protocol: () => "kitty", cell: () => ({ width: 8, height: 16 }) } as never
 
-async function renderRuns(runs: InlineRun[], columns = 40) {
+async function renderRuns(source: string, columns = 40) {
+  const block = parseDocument(source).blocks[0]
+  if (block?.type !== "paragraph") throw new Error("expected paragraph")
   const setup = await testRender(
     () => (
       <box width="100%" height="100%" flexDirection="column">
-        <CanvasFlow
-          block={{ type: "paragraph", runs } as FlowBlock}
-          columns={() => columns}
+        <InlineFlow
+          inlines={block.children}
+          columns={columns}
           surface={() => "#0d1117"}
           theme={defaultTheme("dark")}
           graphics={graphics}
+          headings={defaultHeadingStyles}
         />
       </box>
     ),
@@ -38,7 +43,7 @@ function mosaicRows(lines: string[]) {
 
 describe("inline formula layout", () => {
   test("a formula that stands alone keeps the standard text size", async () => {
-    const lines = await renderRuns([{ type: "math", content: "x^2", open: "$", close: "$" }])
+    const lines = await renderRuns("$x^2$")
     // The standard size is not squeezed into a single text row, so the formula
     // covers two of them.
     expect(mosaicRows(lines)).toBe(2)
@@ -47,19 +52,12 @@ describe("inline formula layout", () => {
   test("a formula that ends its line keeps the standard text size", async () => {
     // Nothing follows the formula on its line, so it does not have to share
     // the row with text that comes after it.
-    const lines = await renderRuns([
-      { type: "text", content: "text ", style: "text" },
-      { type: "math", content: "x^2", open: "$", close: "$" },
-    ])
+    const lines = await renderRuns("text $x^2$")
     expect(mosaicRows(lines)).toBe(2)
   })
 
   test("a formula that shares its line with text is squeezed into the text row", async () => {
-    const lines = await renderRuns([
-      { type: "text", content: "text ", style: "text" },
-      { type: "math", content: "x^2", open: "$", close: "$" },
-      { type: "text", content: " more", style: "text" },
-    ])
+    const lines = await renderRuns("text $x^2$ more")
     expect(mosaicRows(lines)).toBe(1)
   })
 })

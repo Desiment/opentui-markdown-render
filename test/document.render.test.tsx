@@ -117,3 +117,23 @@ test("wide table with a measured root can pan", async () => {
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("column 1")
 })
+
+test("Mermaid last-good stays with its block during a streaming update", async () => {
+  let update!: (value: string) => void
+  const source = (body: string) => `Prelude\n\n\`\`\`mermaid\n${body}\n\`\`\``
+  const setup = await testRender(() => {
+    const [content, setContent] = createSignal(source("flowchart LR\n A[Alpha] --> B[Beta]"))
+    update = setContent
+    return <DocumentView document={parseDocument(content())} columns={60}
+      theme={defaultTheme("dark")} headings={defaultHeadingStyles} graphics={graphics}
+      surface={() => "#0d1117"} assetBase={() => undefined} tableOptions={resolveTableOptions()} />
+  }, { width: 60, height: 14 })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("Alpha")
+  update(source("flowchart LR\n A[Alpha] --> B[Beta]\n A-->"))
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("Alpha")
+  update(source("flowchart LR\n A[Alpha] --> C[Gamma]"))
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("Gamma")
+})

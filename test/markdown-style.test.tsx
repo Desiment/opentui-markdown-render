@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createSignal } from "solid-js"
-import { BoxRenderable } from "@opentui/core"
 import { MarkdownRenderer } from "../src/app"
 import { defaultTheme, generateSyntax, mergeTheme } from "../src/theme"
-import { createMarkdownStyleRenderer } from "../src/view/markdown-style"
-import { scanDocument } from "../src/core"
+import { parseDocument } from "../src/core"
 
 const theme = mergeTheme(defaultTheme("dark"), {
   markdown: {
@@ -53,8 +51,8 @@ describe("semantic Markdown colors", () => {
   })
 
   test("colors markers in the inline-math flow as well", async () => {
-    expect(scanDocument("- marker $x$\n")[0]?.type).toBe("flow")
-    expect(scanDocument("1. marker $x$\n")[0]?.type).toBe("flow")
+    expect(parseDocument("- marker $x$\n").blocks[0]?.type).toBe("list")
+    expect(parseDocument("1. marker $x$\n").blocks[0]?.type).toBe("list")
     const unordered = await render("- marker $x$\n")
     const ordered = await render("1. marker $x$\n")
     expect(colorOf(unordered, "- ")).toEqual(theme.markdown.listItem.toInts())
@@ -88,16 +86,8 @@ describe("semantic Markdown colors", () => {
     const document = await render("before\n\n---\n\nafter\n")
     expect(document.captureCharFrame()).toContain("─")
     expect(document.captureCharFrame()).toContain("after")
-    const setup = await testRender(() => <box />, { width: 20, height: 4 })
-    const rule = new BoxRenderable(setup.renderer, { width: "100%", border: ["top"] })
-    const renderer = createMarkdownStyleRenderer(setup.renderer, () => theme)
-    const styled = renderer(
-      { type: "hr", raw: "---" },
-      { defaultRender: () => rule, syntaxStyle: generateSyntax(theme), conceal: true, concealCode: false },
-    )
-    expect(styled).toBeInstanceOf(BoxRenderable)
-    expect(rule.borderColor).toEqual(theme.markdown.horizontalRule)
-    styled?.destroyRecursively()
+    expect(document.captureSpans().lines.flatMap((line) => line.spans).some((span) =>
+      span.text.includes("─") && span.fg.toInts().join() === theme.markdown.horizontalRule.toInts().join())).toBe(true)
   })
 
   test("uses image and imageText for distinct fallback parts", async () => {

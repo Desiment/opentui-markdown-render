@@ -30,6 +30,14 @@ function isEscaped(src: string, index: number): boolean {
   return backslashes % 2 === 1
 }
 
+function closing(src: string, delimiter: string, start: number, singleLine: boolean): number {
+  for (let index = start; index < src.length; index++) {
+    if (singleLine && src[index] === "\n") break
+    if (src.startsWith(delimiter, index) && !isEscaped(src, index)) return index
+  }
+  return -1
+}
+
 export function createMathInlineExtension(): TokenizerAndRendererExtension {
   return {
     name: "mathInline",
@@ -60,7 +68,7 @@ export function createMathInlineExtension(): TokenizerAndRendererExtension {
       // Try \(...\)
       if (src.startsWith("\\(")) {
         // look for \)
-        const end = src.indexOf("\\)")
+        const end = closing(src, "\\)", 2, true)
         if (end > 2 && src.slice(2, end).indexOf("\n") === -1) {
           const content = src.slice(2, end)
           const raw = src.slice(0, end + 2)
@@ -126,7 +134,7 @@ export function createMathDisplayExtension(): TokenizerAndRendererExtension {
     tokenizer(src: string) {
       // $$...$$
       if (src.startsWith("$$")) {
-        const end = src.indexOf("$$", 2)
+        const end = closing(src, "$$", 2, false)
         if (end > 2) {
           const content = src.slice(2, end)
           const raw = src.slice(0, end + 2)
@@ -142,7 +150,7 @@ export function createMathDisplayExtension(): TokenizerAndRendererExtension {
       }
       // \[...\]
       if (src.startsWith("\\[")) {
-        const end = src.indexOf("\\]", 2)
+        const end = closing(src, "\\]", 2, false)
         if (end > 2) {
           const content = src.slice(2, end)
           const raw = src.slice(0, end + 2)

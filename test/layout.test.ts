@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync, readdirSync } from "node:fs"
 import path from "node:path"
-import { createDocumentLayout, resolveFrame, scanDocument } from "../src/core"
+import { createDocumentLayout, resolveFrame, parseDocument } from "../src/core"
 
 describe("document layout", () => {
   test("resolves the frame and the table policy together", () => {
@@ -26,7 +26,7 @@ describe("document layout", () => {
 
 describe("the core entry point", () => {
   test("exposes scanning and layout without a renderer", () => {
-    expect(scanDocument("hello")[0]?.type).toBe("markdown")
+    expect(parseDocument("hello").blocks[0]?.type).toBe("paragraph")
     expect(resolveFrame(40, { enabled: true, width: 20 }).contentWidth).toBe(16)
   })
 

@@ -1,4 +1,4 @@
-export * from "./blocks"
+export * from "./image"
 export * from "./frame"
 export * from "./layout"
 export * from "./tables"

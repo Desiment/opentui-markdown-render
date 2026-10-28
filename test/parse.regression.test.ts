@@ -78,4 +78,11 @@ describe("AST-lite conversion", () => {
     expect(paragraph(doc.blocks[0]!).children.map((child) => child.type)).toEqual(["code", "text", "link"])
     expect(doc.blocks[1]?.type).toBe("mermaid")
   })
+
+  test("does not close a formula on an escaped dollar delimiter", () => {
+    const [block] = parseDocument(String.raw`$a\$b$`).blocks
+    expect(paragraph(block!).children).toEqual([
+      { type: "math", raw: String.raw`$a\$b$`, content: String.raw`a\$b`, open: "$", close: "$" },
+    ])
+  })
 })

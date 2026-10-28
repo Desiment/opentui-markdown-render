@@ -7,7 +7,7 @@ import { flattenInline, type InlineStyleContext } from "./inline-style"
 import { useInlineMathImages } from "./inline-math"
 import type { Inline } from "../core/document"
 import type { Theme, HeadingLevel } from "../theme/types"
-import type { HeadingStyles } from "../headings"
+import { headingColor, type HeadingStyles } from "../headings"
 
 export type InlineFlowProps = {
   inlines: readonly Inline[]
@@ -42,7 +42,7 @@ export function InlineFlow(props: InlineFlowProps) {
     return flattenInline(props.inlines, ctx)
   })
   const contents = createMemo(() => [...new Set(atoms().flatMap((atom) => atom.type === "math" ? [atom.content] : []))])
-  const foreground = () => rgbaToHex(props.heading ? props.theme.markdown.headingLevels[props.heading.level - 1] : props.theme.text.base)
+  const foreground = () => rgbaToHex(props.heading ? headingColor(props.theme, props.heading.level) : props.theme.text.base)
   const images = useInlineMathImages(contents, foreground, props.surface, props.graphics.cell)
   const scale = createMemo(() => mosaicScale(props.graphics.protocol()))
   const prefixWidth = () => props.prefix?.(0).length ?? 0

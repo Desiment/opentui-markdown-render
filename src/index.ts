@@ -1,6 +1,5 @@
 export { MarkdownRenderer, resolveRendererTheme, loadRendererConfig, type MarkdownRendererProps, type MarkdownDiagnostic, type ThemeModeSetting } from "./app"
-export { CanvasFlow } from "./inline"
-export { scanDocument, parseInlineRuns, type CanvasBlock, type FlowBlock, type FlowItem, type InlineRun, type CanvasSource } from "./core"
+export { parseDocument, type Document, type Block, type Inline, type ListItem, type TableCell, type SourceRange } from "./core"
 export {
   resolveFrame,
   isFrameAlign,

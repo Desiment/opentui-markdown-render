@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { imageInfo } from "@opentui/core"
 import { decompressFrames, parseGIF } from "gifuct-js"
 import path from "node:path"
-import { scanDocument } from "../src/inline"
+import { parseDocument } from "../src/core"
 import { imageBox, resolveLocalImage, standaloneImage } from "../src/media"
 
-describe("raw Markdown block scanner", () => {
+describe("Markdown document", () => {
   const source = [
     "| A | B |",
     "| - | - |",
@@ -25,32 +25,32 @@ describe("raw Markdown block scanner", () => {
     "![Chart](assets/chart.png)",
   ].join("\n")
 
-  test("isolates display math and images while keeping tables and Mermaid in Markdown", () => {
-    const blocks = scanDocument(source)
+  test("preserves tables, Mermaid, inline and display math and images as blocks", () => {
+    const blocks = parseDocument(source).blocks
     expect(blocks.map((block) => block.type)).toEqual([
-      "markdown",
-      "markdown",
-      "markdown",
-      "flow",
+      "table",
+      "mermaid",
+      "paragraph",
+      "paragraph",
       "display-math",
       "image",
     ])
-    expect(blocks[0]).toMatchObject({ type: "markdown", content: "| A | B |\n| - | - |\n| 1 | 2 |" })
-    expect(blocks[1]).toMatchObject({ type: "markdown", source: { atom: "mermaid" } })
+    expect(blocks[0]).toMatchObject({ type: "table", header: [{ header: true }, { header: true }] })
+    expect(blocks[1]).toMatchObject({ type: "mermaid", content: "flowchart LR\n  A --> B" })
     expect(blocks[4]).toMatchObject({ type: "display-math", content: "\\frac{a}{b}" })
     expect(blocks[5]).toMatchObject({ type: "image", alt: "Chart", href: "assets/chart.png" })
   })
 
   test("does not treat math inside a code fence as a formula", () => {
-    const blocks = scanDocument("```tex\n$x$\n```\n")
-    expect(blocks.map((block) => block.type)).toEqual(["markdown"])
-    expect(blocks[0]).toMatchObject({ type: "markdown", content: "```tex\n$x$\n```" })
+    const blocks = parseDocument("```tex\n$x$\n```\n").blocks
+    expect(blocks.map((block) => block.type)).toEqual(["code"])
+    expect(blocks[0]).toMatchObject({ type: "code", content: "$x$", fenced: true })
   })
 
-  test("routes headings and inline-math paragraphs through the inline flow", () => {
-    expect(scanDocument("# Title\n").map((block) => block.type)).toEqual(["flow"])
-    expect(scanDocument("Before $a$ after\n").map((block) => block.type)).toEqual(["flow"])
-    expect(scanDocument("No math here.\n").map((block) => block.type)).toEqual(["markdown"])
+  test("uses the same paragraph structure whether math is present or not", () => {
+    expect(parseDocument("# Title\n").blocks.map((block) => block.type)).toEqual(["heading"])
+    expect(parseDocument("Before $a$ after\n").blocks.map((block) => block.type)).toEqual(["paragraph"])
+    expect(parseDocument("No math here.\n").blocks.map((block) => block.type)).toEqual(["paragraph"])
   })
 })
 

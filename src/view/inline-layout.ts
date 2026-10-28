@@ -78,7 +78,9 @@ export function layoutAtoms(
       continue
     }
     // Soft newlines in Markdown prose are spaces. A hard break is its own atom.
-    for (const word of atom.text.replace(/\r?\n/g, " ").match(/\s*\S+\s*/g) ?? []) {
+    const normalized = atom.text.replace(/\r?\n/g, " ")
+    const words = normalized.match(/\s*\S+\s*/g) ?? (normalized ? [normalized] : [])
+    for (const word of words) {
       if (stringWidth(word) > columns) {
         for (const chunk of hardChunks(word.trimEnd(), columns)) {
           place({ atom: { ...atom, text: chunk }, columns: stringWidth(chunk), rows: 1 })

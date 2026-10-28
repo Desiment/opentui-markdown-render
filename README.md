@@ -276,11 +276,9 @@ layout.tables       // resolved table policy
 
 Recompute the layout when the area changes; it is cheap and pure.
 
-`createDocumentLayout` imports neither OpenTUI nor Solid, and neither do
-`scanDocument`, `parseInlineRuns`, `resolveFrame`, `resolveTableOptions`, or the
-block types. The `opentui-markdown-render/core` entry point exposes exactly that
-renderer-free half, so a host can scan a document and size it without a
-renderer.
+`createDocumentLayout`, `parseDocument`, `resolveFrame`, `resolveTableOptions`,
+and the AST-lite block types import neither OpenTUI nor Solid. The
+`opentui-markdown-render/core` entry point exposes that renderer-free half.
 
 The integration points the host controls:
 
@@ -316,20 +314,29 @@ document, which is what the standalone viewer does.
 
 ## Source Preservation
 
-The scanner extracts `$...$`, `$$...$$`, `\\(...\\)`, and `\\[...\\]` from raw
-Markdown before Markdown rendering. It preserves the original delimiters and
-source offsets, skips code spans and fenced blocks, and exposes an open-math
-boundary for streaming hosts. The component never changes canonical Markdown.
+`parseDocument` lexes the original Markdown once with Marked and local math
+extensions for `$...$`, `$$...$$`, `\\(...\\)`, and `\\[...\\]`. It preserves
+the original source and math delimiters, skips code spans and fenced blocks,
+and keeps lists and quotes intact around display formulas. Exact source ranges
+are available where Marked tokens match the original text; normalized nested
+tokens have `source: null`. Unclosed math remains literal text; there is no
+open-math boundary API. The component never changes canonical Markdown.
 
 ## Markdown Features
 
-- Plain Markdown, quotes, lists, and tables use OpenTUI's native renderer;
-  paragraphs and list items that contain math flow through the inline layout so
-  text and formulas share one baseline.
+- Plain and math-containing paragraphs, headings, nested lists, task lists and
+  quotes share one parser and one inline layout; links retain their `href` in
+  rendered text chunks.
+- Fenced code uses OpenTUI's `CodeRenderable`; Mermaid and tables use the
+  low-level OpenTUI primitives without OpenTUI's `<markdown>` parser.
 - Tables size their columns to the content and pan sideways when they are wider
   than the document; `tables.overflow: "wrap"` wraps them instead.
 - Headings flow through the inline layout as well, so every level can have its
   own colour, attributes and spacing.
+- Inline images show linked alt text, not a bitmap. Formula source inside a
+  table cell stays literal text: `TextTableRenderable` cannot embed images.
+  Table alignment is retained in the parsed model but not visually applied by
+  the current OpenTUI table primitive. HTML is displayed literally.
 - The vendored Mermaid engine renders flowcharts, sequence, state, gantt,
   timeline, git graphs, and class diagrams as terminal diagrams; unsupported
   Mermaid syntax remains a normal source fence.
@@ -338,6 +345,19 @@ boundary for streaming hosts. The component never changes canonical Markdown.
 - Transparent images are composited against the configured background before
   terminal placement. GIFs are decoded and advanced by their embedded frame
   delays.
+
+### Migration from the two-path renderer
+
+`scanDocument(source): CanvasBlock[]` was replaced by
+`parseDocument(source): Document`; use `document.blocks` for typed
+paragraph/list/table/math/image nodes instead of `markdown`/`flow` routing.
+`parseInlineRuns` was replaced by `paragraph.children` in the new AST-lite
+model. The routing-only `CanvasBlock`, `CanvasSource`, `FlowBlock`, `FlowItem`,
+`InlineRun`, `InlineStyle` and `CanvasFlow` exports were removed. Hosts should
+render documents with `MarkdownRenderer` rather than instantiating the old
+inline flow. `standaloneImage`, `MarkdownImage`, `createTableRenderer`, and
+`createThemedMermaidRenderer` remain exported; the last two are independent
+helpers for hosts rendering their own OpenTUI `<markdown>` nodes.
 
 Run independent examples after building the native addon:
 
