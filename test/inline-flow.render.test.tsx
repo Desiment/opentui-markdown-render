@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { testRender } from "@opentui/solid"
+import { createSignal } from "solid-js"
 import { TextRenderable, type Renderable } from "@opentui/core"
 import { InlineFlow } from "../src/view/inline-flow"
 import { defaultTheme } from "../src/theme/defaults"
@@ -60,5 +61,27 @@ describe("unified inline flow", () => {
     ]
     const links = visit(setup.renderer.root).flatMap((node) => node.chunks.flatMap((chunk) => chunk.link?.url ? [chunk.link.url] : []))
     expect(links).toContain("https://example.com")
+  })
+
+  test("shows the target only when hyperlinks are unavailable", async () => {
+    const block = parseDocument("[site](https://example.com) text").blocks[0]
+    if (block?.type !== "paragraph") throw new Error("expected paragraph")
+    let toggle!: (value: boolean) => void
+    const setup = await testRender(() => {
+      const [enabled, setEnabled] = createSignal(true)
+      toggle = setEnabled
+      return <InlineFlow inlines={block.children} columns={60} theme={defaultTheme("dark")}
+        headings={defaultHeadingStyles}
+        graphics={{ protocol: () => "kitty", cell: () => ({ width: 8, height: 16 }), hyperlinks: enabled } as never}
+        surface={() => "#0d1117"} />
+    }, { width: 60, height: 8 })
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).not.toContain("(https://example.com)")
+    toggle(false)
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain("site (https://example.com) text")
+    toggle(true)
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).not.toContain("(https://example.com)")
   })
 })

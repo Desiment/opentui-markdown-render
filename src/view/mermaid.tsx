@@ -66,10 +66,21 @@ export function MermaidDiagramView(props: MermaidDiagramViewProps) {
   const prepared = createMemo(() => {
     const source = props.source
     const kind = detectMermaidDiagram(source)
+    if (kind && lastGood && lastGood.kind !== kind) lastGood = undefined
     const options = {
       compact: props.mermaidOptions?.compact,
       layoutMaxWidth: Math.min(props.mermaidOptions?.layoutMaxWidth ?? 120, Math.max(1, props.columns)),
       colors: resolveOpenCodeDiagramPalette(props.theme),
+    }
+    const restore = () => {
+      if (!lastGood) return undefined
+      try {
+        // Reprepare with the current width and palette, never display an old
+        // StyledText raster carrying stale colors or geometry.
+        return measureMermaidDiagram(lastGood.source, options)
+      } catch {
+        return undefined
+      }
     }
     try {
       const result = measureMermaidDiagram(source, options)
@@ -78,11 +89,27 @@ export function MermaidDiagramView(props: MermaidDiagramViewProps) {
         return result
       }
       if (lastGood && (!kind || lastGood.kind === kind)) {
-        return measureMermaidDiagram(lastGood.source, options) ?? lastGood
+        return restore()
       }
     } catch (error) {
       if (error instanceof MermaidSyntaxError && lastGood && lastGood.kind === kind) {
-        return measureMermaidDiagram(lastGood.source, options) ?? lastGood
+        return restore()
+      }
+      if (error instanceof MermaidSyntaxError && kind) {
+        const lines = source.split("\n")
+        if (error.lineNumber > 2 && !lines.slice(error.lineNumber).some((line) => line.trim())) {
+          try {
+            const result = measureMermaidDiagram(lines.slice(0, error.lineNumber - 1).join("\n"), options)
+            if (result?.height) {
+              lastGood = result
+              return result
+            }
+          } catch (prefixError) {
+            if (!(prefixError instanceof MermaidSyntaxError || prefixError instanceof DiagramCanvasSizeError)) {
+              props.onDiagnostic?.({ level: "error", message: prefixError instanceof Error ? prefixError.message : String(prefixError) })
+            }
+          }
+        }
       }
       if (!(error instanceof MermaidSyntaxError || error instanceof DiagramCanvasSizeError)) {
         props.onDiagnostic?.({ level: "error", message: error instanceof Error ? error.message : String(error) })

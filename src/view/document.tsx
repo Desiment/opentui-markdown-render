@@ -46,7 +46,7 @@ export function DocumentView(props: DocumentViewProps) {
     const view = createMemo(() => {
       const block = input.block()
       const columns = Math.max(1, input.columns)
-      const flow = (children: Extract<Block, { type: "paragraph" }>["children"], prefix?: (index: number) => string, prefixColor?: Theme["text"]["base"]) => (
+      const flow = (children: Extract<Block, { type: "paragraph" }>["children"], prefix?: (index: number) => string, prefixColor?: () => Theme["text"]["base"]) => (
         <InlineFlow inlines={children} columns={columns} theme={props.theme} headings={props.headings}
           graphics={props.graphics} surface={props.surface} quote={input.quote} prefix={prefix} prefixColor={prefixColor} />
       )
@@ -59,7 +59,7 @@ export function DocumentView(props: DocumentViewProps) {
           return <box width="100%" flexDirection="column" flexShrink={0} marginTop={style.marginTop} marginBottom={style.marginBottom}>
             <InlineFlow inlines={children} columns={columns} theme={props.theme} headings={props.headings}
               graphics={props.graphics} surface={props.surface} heading={{ level }}
-              prefix={(index) => index === 0 ? `${"#".repeat(level)} ` : " ".repeat(level + 1)} prefixColor={props.theme.text.muted} />
+              prefix={(index) => index === 0 ? `${"#".repeat(level)} ` : " ".repeat(level + 1)} prefixColor={() => props.theme.text.muted} />
           </box>
         }
         case "rule": return <box height={1} width="100%" border={["top"]} borderColor={props.theme.markdown.horizontalRule} />
@@ -69,9 +69,10 @@ export function DocumentView(props: DocumentViewProps) {
           limits={props.imageLimits} />
         case "display-math": return <DisplayMath content={block.content} open={block.open} close={block.close}
           maxWidth={() => columns} theme={() => props.theme} graphics={props.graphics} surface={props.surface} />
-        case "quote": return <box border={["left"]} borderColor={props.theme.markdown.blockQuote}
+        case "quote": return <box border={columns > 2 ? ["left"] : []} borderColor={props.theme.markdown.blockQuote}
           paddingLeft={columns > 2 ? 1 : 0} width="100%" flexDirection="column">
-          <For each={block.blocks}>{(child) => <BlockView block={() => child} columns={Math.max(1, columns - 2)} quote />}</For>
+          <For each={block.blocks}>{(child) => <BlockView block={() => child}
+            columns={columns > 2 ? columns - 2 : columns} quote />}</For>
         </box>
         case "list": {
           const marker = (index: number, task: boolean, checked: boolean | null) => block.ordered
@@ -84,7 +85,7 @@ export function DocumentView(props: DocumentViewProps) {
               <For each={item.blocks}>{(child, childIndex) => childIndex() === 0 && child.type === "paragraph"
                 ? flow(child.children, (row) => row === 0
                     ? `${marker(index(), item.task, item.checked).padStart(markerWidth)} ` : " ".repeat(hanging),
-                  block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem)
+                  () => block.ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem)
                 : childIndex() === 0
                   ? <box flexDirection="row" width="100%" flexShrink={0}>
                       <text width={hanging} flexShrink={0}
@@ -103,7 +104,8 @@ export function DocumentView(props: DocumentViewProps) {
         }
         case "code": return <CodeBlock content={block.content} language={block.language} theme={props.theme} headings={props.headings} />
         case "mermaid": return null // A different block type gets a new slot.
-        case "table": return <TableBlock block={block} options={props.tableOptions} theme={props.theme} headings={props.headings} />
+        case "table": return <TableBlock block={block} options={props.tableOptions} theme={props.theme} headings={props.headings}
+          hyperlinks={props.graphics.hyperlinks?.() ?? true} />
         case "literal": return <text fg={props.theme.markdown.text} wrapMode="word" content={block.text} />
       }
     })

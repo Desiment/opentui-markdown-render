@@ -78,9 +78,10 @@ export function TableBlock(props: {
   options: ResolvedTableOptions
   theme: Theme
   headings: HeadingStyles
+  hyperlinks?: boolean
 }) {
   const cell = (inlines: readonly import("../core/document").Inline[], header: boolean): TextChunk[] => {
-    const chunks = toTableChunks(inlines, props.theme, props.headings)
+    const chunks = toTableChunks(inlines, props.theme, props.headings, props.hyperlinks)
     if (!header) return chunks
     return chunks.map((chunk) => ({ ...chunk, fg: props.theme.markdown.heading, attributes: TextAttributes.BOLD }))
   }

@@ -19,7 +19,7 @@ export type InlineFlowProps = {
   quote?: boolean
   heading?: { level: HeadingLevel }
   prefix?: (index: number) => string
-  prefixColor?: RGBA
+  prefixColor?: () => RGBA
 }
 
 function StyledSegment(props: { entry: LayoutRun; textRow: number }) {
@@ -38,7 +38,8 @@ function StyledSegment(props: { entry: LayoutRun; textRow: number }) {
 
 export function InlineFlow(props: InlineFlowProps) {
   const atoms = createMemo(() => {
-    const ctx: InlineStyleContext = { theme: props.theme, headings: props.headings, quote: props.quote, heading: props.heading }
+    const ctx: InlineStyleContext = { theme: props.theme, headings: props.headings, quote: props.quote, heading: props.heading,
+      hyperlinks: props.graphics.hyperlinks?.() ?? true }
     return flattenInline(props.inlines, ctx)
   })
   const contents = createMemo(() => [...new Set(atoms().flatMap((atom) => atom.type === "math" ? [atom.content] : []))])
@@ -63,7 +64,7 @@ export function InlineFlow(props: InlineFlowProps) {
         {(line, index) => (
           <box flexDirection="row" alignItems="flex-start" width="100%" height={line.height} flexShrink={0} backgroundColor={props.theme.background.base}>
             <Show when={props.prefix}>
-              <text fg={props.prefixColor ?? props.theme.markdown.text} wrapMode="none" width={prefixWidth()} flexShrink={0}>
+              <text fg={props.prefixColor?.() ?? props.theme.markdown.text} wrapMode="none" width={prefixWidth()} flexShrink={0}>
                 {props.prefix?.(index()) ?? ""}
               </text>
             </Show>

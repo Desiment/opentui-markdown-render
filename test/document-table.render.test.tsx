@@ -75,3 +75,44 @@ test("selection follows table overflow when the viewport is resized", async () =
   await setup.renderOnce()
   expect(textTable?.selectable).toBe(true)
 })
+
+test("changing scroll to wrap/full stops panning and restores selection", async () => {
+  const header = Array.from({ length: 8 }, (_, index) => `column ${index}`).join(" | ")
+  const divider = Array.from({ length: 8 }, () => "---").join(" | ")
+  const table = parseDocument(`| ${header} |\n| ${divider} |\n| ${header} |`).blocks[0]
+  if (table?.type !== "table") throw new Error("expected table")
+  let update!: (mode: "scroll" | "wrap" | "full") => void
+  const setup = await testRender(() => {
+    const [mode, setMode] = createSignal<"scroll" | "wrap" | "full">("scroll")
+    update = setMode
+    return <box width="100%" height="100%">
+      <TableBlock block={table} options={resolveTableOptions(mode() === "full"
+        ? { widthMode: "full", overflow: "wrap", cellPaddingX: 2, columnFitter: "proportional" }
+        : { overflow: mode() === "scroll" ? "scroll" : "wrap", cellPaddingX: 2 })} theme={defaultTheme("dark")} headings={defaultHeadingStyles} />
+    </box>
+  }, { width: 24, height: 12 })
+  const find = (node: Renderable): MarkdownTableRenderable | undefined => node instanceof MarkdownTableRenderable
+    ? node : node.getChildren().map(find).find(Boolean)
+  await setup.renderOnce()
+  const wrapper = find(setup.renderer.root)!
+  const inner = wrapper.getChildren()[0] as TextTableRenderable
+  expect(inner.selectable).toBe(false)
+  await setup.mockMouse.scroll(5, 1, "right")
+  await setup.renderOnce()
+  await setup.mockMouse.drag(18, 1, 5, 1)
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("column 2")
+  update("wrap")
+  await setup.renderOnce()
+  expect(inner.selectable).toBe(true)
+  expect(inner.wrapMode).toBe("word")
+  update("full")
+  await setup.renderOnce()
+  expect(inner.columnWidthMode).toBe("full")
+  expect(inner.cellPaddingX).toBe(2)
+  expect(inner.columnFitter).toBe("proportional")
+  const fullFrame = setup.captureCharFrame()
+  await setup.mockMouse.scroll(5, 1, "right")
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toBe(fullFrame)
+})

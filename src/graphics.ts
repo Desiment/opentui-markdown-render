@@ -74,8 +74,12 @@ export function useCanvasGraphics(renderer: CliRenderer) {
     queried()
     return resolveGraphicsProtocol(renderer.capabilities, resolution() !== null)
   })
+  const hyperlinks = createMemo(() => {
+    queried()
+    return renderer.capabilities?.hyperlinks === true
+  })
 
-  return { cell, protocol }
+  return { cell, protocol, hyperlinks }
 }
 
 export type CanvasGraphics = ReturnType<typeof useCanvasGraphics>

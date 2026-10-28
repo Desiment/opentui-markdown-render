@@ -16,6 +16,7 @@ export type InlineStyleContext = {
   quote?: boolean
   link?: { href: string; title?: string | null }
   attributes?: number
+  hyperlinks?: boolean
 }
 
 export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContext): StyledAtom[] {
@@ -67,6 +68,10 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
       if (node.type === "link") {
         const l = { href: node.href, title: node.title }
         walk(node.children, attr, l)
+        const label = node.children.map((child) => child.type === "text" || child.type === "code" ? child.text : "").join("")
+        if (ctx.hyperlinks === false && label !== node.href) {
+          out.push({ type: "text", text: ` (${node.href})`, fg: ctx.theme.markdown.link, attributes: baseAttr, href: node.href })
+        }
         continue
       }
       if (node.type === "inline-image") {
@@ -82,9 +87,9 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
   return out
 }
 
-export function toTableChunks(inlines: readonly Inline[], theme: Theme, headings: HeadingStyles): TextChunk[] {
+export function toTableChunks(inlines: readonly Inline[], theme: Theme, headings: HeadingStyles, hyperlinks = true): TextChunk[] {
   const chunks: TextChunk[] = []
-  for (const atom of flattenInline(inlines, { theme, headings })) {
+  for (const atom of flattenInline(inlines, { theme, headings, hyperlinks })) {
     if (atom.type === "text") {
       chunks.push({ __isChunk: true, text: atom.text, fg: atom.fg, attributes: atom.attributes,
         ...(atom.href ? { link: { url: atom.href } } : {}) })

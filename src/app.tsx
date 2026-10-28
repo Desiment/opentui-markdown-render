@@ -1,5 +1,5 @@
 import type { CliRenderer } from "@opentui/core"
-import { createMemo, createSignal, Show } from "solid-js"
+import { createMemo, createSignal } from "solid-js"
 import { useCanvasGraphics } from "./graphics"
 import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
@@ -133,28 +133,22 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   // The look of the heading levels is a configuration of its own: the colours
   // come from the theme, the attributes and the spacing from the config file.
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
-  // OpenTUI's markdown renderable caches each chunk's resolved color and only
-  // rebuilds a block when its text changes, so a theme swap leaves stale colors
-  // behind (most visibly on list markers). Rebuilding the subtree whenever the
-  // theme identity changes forces every chunk to be re-resolved.
   return (
-    <Show when={theme()} keyed>
-      {(activeTheme) => (
         <box
           width="100%"
           flexDirection="column"
           flexShrink={0}
-          backgroundColor={activeTheme.background.base}
+          backgroundColor={theme().background.base}
           onSizeChange={function () {
             const width = this.width
             if (width !== viewportWidth()) queueMicrotask(() => setMeasured(width))
           }}
         >
-          <MarkdownFrame frame={frame()} theme={activeTheme}>
+          <MarkdownFrame frame={frame()} theme={theme()}>
             <DocumentView
               document={document()}
               columns={contentWidth()}
-              theme={activeTheme}
+              theme={theme()}
               headings={headings()}
               graphics={graphics}
               surface={surface}
@@ -166,7 +160,5 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
             />
           </MarkdownFrame>
         </box>
-      )}
-    </Show>
   )
 }

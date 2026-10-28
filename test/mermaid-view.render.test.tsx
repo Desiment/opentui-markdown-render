@@ -27,3 +27,21 @@ test("unrecognized first Mermaid fence remains readable code", async () => {
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("not a diagram")
 })
+
+test("partial first diagram shows valid prefix and theme changes reprepare it", async () => {
+  let setMode!: (value: "dark" | "light") => void
+  const setup = await testRender(() => {
+    const [mode, update] = createSignal<"dark" | "light">("dark")
+    setMode = update
+    return <MermaidDiagramView source={"flowchart LR\n A[Alpha] --> B[Beta]\n A-->"}
+      theme={defaultTheme(mode())} columns={60} />
+  }, { width: 60, height: 14 })
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("Alpha")
+  const first = setup.captureSpans().lines.flatMap((line) => line.spans).find((span) => span.text.includes("Alpha"))?.fg.toInts()
+  setMode("light")
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toContain("Alpha")
+  const second = setup.captureSpans().lines.flatMap((line) => line.spans).find((span) => span.text.includes("Alpha"))?.fg.toInts()
+  expect(second).not.toEqual(first)
+})
