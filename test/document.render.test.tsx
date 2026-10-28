@@ -138,6 +138,25 @@ test("Mermaid last-good stays with its block during a streaming update", async (
   expect(setup.captureCharFrame()).toContain("Gamma")
 })
 
+test("inserting a Mermaid fence does not transfer a neighboring diagram's last-good", async () => {
+  let update!: (value: string) => void
+  const valid = "```mermaid\nflowchart LR\n A[Alpha] --> B[Beta]\n```"
+  const invalid = "```mermaid\nnot a diagram\n```"
+  const setup = await testRender(() => {
+    const [content, setContent] = createSignal(valid)
+    update = setContent
+    return <DocumentView document={parseDocument(content())} columns={60}
+      theme={defaultTheme("dark")} headings={defaultHeadingStyles} graphics={graphics}
+      surface={() => "#0d1117"} assetBase={() => undefined} tableOptions={resolveTableOptions()} />
+  }, { width: 60, height: 20 })
+  await setup.renderOnce()
+  update(`${invalid}\n\n${valid}`)
+  await setup.renderOnce()
+  const frame = setup.captureCharFrame()
+  expect(frame).toContain("not a diagram")
+  expect(frame.split("Alpha")).toHaveLength(2)
+})
+
 test("shows a list marker when the first item block is display math", async () => {
   const source = "- $$\na+b\n$$"
   const setup = await testRender(() => <DocumentView document={parseDocument(source)} columns={40}
@@ -163,4 +182,16 @@ test("task lists keep the bullet next to the checkbox, with and without math", a
     .toEqual(defaultTheme("dark").text.feedback.success.toInts())
   expect(spans.find((span) => span.text.includes("[ ]"))?.fg.toInts())
     .toEqual(defaultTheme("dark").text.muted.toInts())
+})
+
+test("nested bullet and nested task use the same hanging indent", async () => {
+  const source = "3. one\n   - two\n   - [x] task\n4. four"
+  const setup = await testRender(() => <DocumentView document={parseDocument(source)} columns={40}
+    theme={defaultTheme("dark")} headings={defaultHeadingStyles} graphics={graphics}
+    surface={() => "#0d1117"} assetBase={() => undefined} tableOptions={resolveTableOptions()} />,
+  { width: 40, height: 10 })
+  await setup.renderOnce()
+  const lines = setup.captureCharFrame().split("\n")
+  expect(lines.find((line) => line.includes("two"))?.indexOf("-")).toBe(3)
+  expect(lines.find((line) => line.includes("task"))?.indexOf("-")).toBe(3)
 })

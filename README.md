@@ -326,7 +326,8 @@ open-math boundary API. The component never changes canonical Markdown.
 
 - Plain and math-containing paragraphs, headings, nested lists, task lists and
   quotes share one parser and one inline layout; links retain their `href` in
-  rendered text chunks.
+  rendered text chunks. On terminals without hyperlinks, link targets are
+  also shown as `label (url)`.
 - Fenced code uses OpenTUI's `CodeRenderable`; Mermaid and tables use the
   low-level OpenTUI primitives without OpenTUI's `<markdown>` parser.
 - Tables size their columns to the content and pan sideways when they are wider
@@ -337,6 +338,9 @@ open-math boundary API. The component never changes canonical Markdown.
   table cell stays literal text: `TextTableRenderable` cannot embed images.
   Table alignment is retained in the parsed model but not visually applied by
   the current OpenTUI table primitive. HTML is displayed literally.
+- Streaming updates retain unchanged prefix/suffix blocks and a single edited
+  block's local Mermaid state. These are transient component slots, **not**
+  stable IDs for review annotations or arbitrary block reordering.
 - The vendored Mermaid engine renders flowcharts, sequence, state, gantt,
   timeline, git graphs, and class diagrams as terminal diagrams; unsupported
   Mermaid syntax remains a normal source fence.

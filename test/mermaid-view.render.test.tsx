@@ -45,3 +45,21 @@ test("partial first diagram shows valid prefix and theme changes reprepare it", 
   const second = setup.captureSpans().lines.flatMap((line) => line.spans).find((span) => span.text.includes("Alpha"))?.fg.toInts()
   expect(second).not.toEqual(first)
 })
+
+for (const [kind, source, label] of [
+  ["flowchart", "flowchart LR\n A[Alpha] --> B[Beta]", "Alpha"],
+  ["class", "classDiagram\n class Animal", "Animal"],
+  ["class LR", "classDiagram LR\n Animal <|-- Dog", "Animal"],
+  ["sequence", "sequenceDiagram\n participant User\n User->>Renderer: Open", "User"],
+  ["state", "stateDiagram-v2\n [*] --> Ready", "Ready"],
+  ["gantt", "gantt\n dateFormat s\n section Render\n Parse Markdown :0, 2", "Parse"],
+  ["timeline", "timeline\n title History\n 2026 : Render", "Render"],
+  ["gitGraph", "gitGraph\n commit id: \"base\"\n branch media", "base"],
+] as const) {
+  test(`${kind} renders with the unified Mermaid view`, async () => {
+    const setup = await testRender(() => <MermaidDiagramView source={source} theme={defaultTheme("dark")} columns={70} />,
+      { width: 70, height: 20 })
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain(label)
+  })
+}
