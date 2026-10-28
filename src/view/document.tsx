@@ -37,10 +37,10 @@ export function DocumentView(props: DocumentViewProps) {
       return <box height={1} width="100%" border={["top"]} borderColor={props.theme.markdown.horizontalRule} />
     }
     if (b.type === "image") {
-      return <LocalImage src={b.href} alt={b.alt} base={props.assetBase} theme={props.theme} limits={props.imageLimits} />
+      return <LocalImage href={b.href} alt={b.alt} base={() => props.assetBase} columns={() => props.columns} cell={() => props.graphics?.cell?.() || null} background={() => props.surface.backgroundColor?.() || "#000000"} labelColor={() => props.theme.markdown.image} textColor={() => props.theme.markdown.imageText} limits={props.imageLimits} />
     }
     if (b.type === "display-math") {
-      return <DisplayMath content={b.content} columns={props.columns} theme={props.theme} graphics={props.graphics} surface={props.surface} />
+      return <DisplayMath content={b.content} open={b.open} close={b.close} maxWidth={() => props.columns} theme={() => props.theme} graphics={props.graphics} surface={() => props.surface.backgroundColor?.() || "#000000"} />
     }
     if (b.type === "quote") {
       return (

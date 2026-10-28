@@ -65,7 +65,7 @@ export function flattenInline(inlines: readonly Inline[], ctx: InlineStyleContex
         continue
       }
       if (node.type === "break") {
-        out.push({ type: "break", hard: !!node.hard })
+        out.push({ type: "break", hard: true })
         continue
       }
       if (node.type === "strong") {

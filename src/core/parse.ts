@@ -1,6 +1,6 @@
 import { Marked } from "marked"
 import { createMathDisplayExtension, createMathInlineExtension } from "./math"
-import type { Block, Document, Inline, ListItem, SourceRange } from "./document"
+import type { Block, Document, Inline, ListItem, SourceRange, TableCell } from "./document"
 
 function isMermaidLanguage(lang: string | null | undefined): boolean {
   if (!lang) return false

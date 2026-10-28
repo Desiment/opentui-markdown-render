@@ -20,7 +20,7 @@ export function useInlineMathImages(
           renderMathImage(content, false, o.foreground, o.background, o.cell, o.scale, true, false),
           renderMathImage(content, false, o.foreground, o.background, o.cell, o.scale, false, true),
         ])
-        map.set(content, { normal, compact, standard })
+        if (normal && compact && standard) map.set(content, { normal, compact, standard })
       } catch (e) {
         // leave missing, will fallback to text
       }
