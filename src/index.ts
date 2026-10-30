@@ -1,5 +1,6 @@
-export { MarkdownRenderer, resolveRendererTheme, loadRendererConfig, type MarkdownRendererProps, type MarkdownDiagnostic, type ThemeModeSetting } from "./app"
-export { parseDocument, type Document, type Block, type Inline, type ListItem, type TableCell, type SourceRange } from "./core"
+export { MarkdownRenderer, resolveRendererTheme, loadRendererConfig, type MarkdownRendererProps, type MarkdownRendererCommonProps, type MarkdownDiagnostic, type ThemeModeSetting } from "./app"
+export type { RenderUnit } from "./view/document"
+export { parseDocument, type Document, type Block, type Inline, type ListItem, type TableCell, type SourceRange, type UnitInfo } from "./core"
 export {
   resolveFrame,
   isFrameAlign,

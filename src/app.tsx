@@ -5,9 +5,9 @@ import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
 import { loadRendererConfig, resolveConfiguredTheme, resolveConfiguredLayout } from "./config"
 import type { ImagesConfig, MarkdownConfig, ThemeModeSetting } from "./config"
-import { parseDocument, type FrameConfig, type TablesConfig } from "./core"
+import { parseDocument, type Document, type FrameConfig, type TablesConfig } from "./core"
 import { MarkdownFrame } from "./view/frame"
-import { DocumentView } from "./view/document"
+import { DocumentView, type RenderUnit } from "./view/document"
 import type { Theme } from "./theme/types"
 
 export type { ThemeModeSetting } from "./config"
@@ -20,8 +20,7 @@ export type MarkdownDiagnostic = {
   readonly message: string
 }
 
-export type MarkdownRendererProps = {
-  readonly content: () => string
+export type MarkdownRendererCommonProps = {
   readonly renderer: CliRenderer
   readonly columns?: () => number
   readonly assetBase?: () => string | undefined
@@ -45,7 +44,16 @@ export type MarkdownRendererProps = {
   // Warnings and errors are reported here instead of stderr, which lets a host
   // put them in its own UI.
   readonly onDiagnostic?: (diagnostic: MarkdownDiagnostic) => void
+  // The host may wrap every top-level block and every item of a top-level list.
+  readonly renderUnit?: RenderUnit
 }
+
+// The renderer takes either Markdown text or a document the host already parsed.
+// A ready document skips the parser entirely.
+export type MarkdownRendererProps = MarkdownRendererCommonProps & (
+  | { readonly content: () => string; readonly document?: never }
+  | { readonly document: () => Document; readonly content?: never }
+)
 
 // Keep the public host helper, but use the same config/runtime resolution as
 // the component. Loading the file remains an optional concern of this adapter.
@@ -129,7 +137,13 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   const contentWidth = () => layout().contentWidth
   const tableOptions = () => layout().tables
 
-  const document = createMemo(() => parseDocument(props.content()))
+  const document = createMemo<Document>(() => {
+    const ready = props.document
+    if (ready) return ready()
+    const content = props.content
+    if (!content) throw new Error("MarkdownRenderer requires either a content or a document accessor")
+    return parseDocument(content())
+  })
   // The look of the heading levels is a configuration of its own: the colours
   // come from the theme, the attributes and the spacing from the config file.
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
@@ -157,6 +171,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
               tableOptions={tableOptions()}
               mermaidOptions={config().mermaid}
               onDiagnostic={props.onDiagnostic}
+              renderUnit={props.renderUnit}
             />
           </MarkdownFrame>
         </box>

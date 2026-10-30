@@ -17,7 +17,17 @@ export type Block =
   | (NodeBase & { readonly type: 'image'; readonly href: string; readonly alt: string; readonly title: string | null })
   | (NodeBase & { readonly type: 'literal'; readonly text: string })
 
-export type ListItem = { readonly task: boolean; readonly checked: boolean | null; readonly loose: boolean; readonly blocks: readonly Block[] }
+export type ListItem = {
+  readonly task: boolean
+  readonly checked: boolean | null
+  readonly loose: boolean
+  readonly blocks: readonly Block[]
+  readonly source: SourceRange | null
+}
+
+export type UnitInfo =
+  | { readonly kind: 'block'; readonly block: Exclude<Block, { type: 'list' }>; readonly source: SourceRange | null }
+  | { readonly kind: 'list-item'; readonly item: ListItem; readonly source: SourceRange | null }
 
 export type TableCell = { readonly children: readonly Inline[]; readonly header: boolean; readonly align: 'left' | 'center' | 'right' | null }
 

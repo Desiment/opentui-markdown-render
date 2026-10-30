@@ -5,7 +5,9 @@ import { defaultTheme } from "../src/theme/defaults"
 
 const theme = defaultTheme("dark")
 
-async function renderDocument(content: string, props: Partial<MarkdownRendererProps> = {}, width = 40, height = 12) {
+type FrameProps = Omit<MarkdownRendererProps, "content" | "document">
+
+async function renderDocument(content: string, props: Partial<FrameProps> = {}, width = 40, height = 12) {
   function Document() {
     const renderer = useRenderer()
     return <MarkdownRenderer content={() => content} renderer={renderer} theme={theme} {...props} />

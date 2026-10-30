@@ -23,6 +23,64 @@ import { MarkdownRenderer } from "opentui-markdown-render"
 />
 ```
 
+The renderer accepts exactly one of two inputs:
+
+- `content: () => string` parses Markdown text on every update.
+- `document: () => Document` takes a document the host already built with
+  `parseDocument`; the parser is skipped.
+
+Both are accessors, so streaming and theme updates stay reactive. A ready
+document is useful when the host already owns parsing, caching, or source
+mapping:
+
+```tsx
+<MarkdownRenderer
+  document={() => parseDocument(markdown())}
+  renderer={renderer}
+/>
+```
+
+## Document Units
+
+A host that needs selection, comments, or another overlay can wrap the rendered
+top-level units with `renderUnit`:
+
+```tsx
+<MarkdownRenderer
+  content={content}
+  renderer={renderer}
+  renderUnit={(info, content) => <Unit info={info}>{content}</Unit>}
+/>
+```
+
+`info` is an accessor for `UnitInfo`:
+
+```ts
+type UnitInfo =
+  | { kind: "block"; block: Exclude<Block, { type: "list" }>; source: SourceRange | null }
+  | { kind: "list-item"; item: ListItem; source: SourceRange | null }
+```
+
+Units never overlap. Outside a top-level list, every top-level block is one
+unit. Inside a top-level list, each whole item is one unit, including its nested
+lists, tables, images, and formulas; the children of an item are not separate
+units and the list itself is not a unit. `renderUnit` is called once for each
+such unit and receives the original rendered content. Without it, the renderer
+returns the content unchanged and adds no wrapper.
+
+`source` is the exact range in the original Markdown when the parser could prove
+it, and `null` otherwise. A unit with `source: null` is still rendered and still
+passed to `renderUnit`; the renderer never invents a range. The library stores no
+selection, comment, or persistent ID state: hosts own that state and may keep it
+beside the units they render.
+
+`renderUnit` may be changed after mount. `RenderUnit` and
+`MarkdownRendererCommonProps` are exported from the package root for host
+helpers. `MarkdownRendererProps` now requires exactly one of `content` or
+`document`; helpers that supply the input later can use
+`Partial<MarkdownRendererCommonProps>`. Hand-built `ListItem` values must now
+include `source: null` when no range is known.
+
 ## Theming
 
 The component resolves its theme in priority order: a host-provided `theme`
@@ -314,13 +372,18 @@ document, which is what the standalone viewer does.
 
 ## Source Preservation
 
-`parseDocument` lexes the original Markdown once with Marked and local math
+`parseDocument` lexes the Markdown once with Marked and local math
 extensions for `$...$`, `$$...$$`, `\\(...\\)`, and `\\[...\\]`. It preserves
 the original source and math delimiters, skips code spans and fenced blocks,
 and keeps lists and quotes intact around display formulas. Exact source ranges
 are available where Marked tokens match the original text; normalized nested
-tokens have `source: null`. Unclosed math remains literal text; there is no
-open-math boundary API. The component never changes canonical Markdown.
+tokens have `source: null`. A top-level list item also has an exact
+`ListItem.source` when its raw text matches the list source in order; a list
+inside a quote or another normalized container has `source: null`. Unclosed math
+remains literal text; there is no open-math boundary API. The component never
+changes canonical Markdown.
+CRLF and CR line endings are normalized for token matching, then ranges are
+mapped back to offsets in the original source.
 
 ## Markdown Features
 
@@ -338,9 +401,12 @@ open-math boundary API. The component never changes canonical Markdown.
   table cell stays literal text: `TextTableRenderable` cannot embed images.
   Table alignment is retained in the parsed model but not visually applied by
   the current OpenTUI table primitive. HTML is displayed literally.
-- Streaming updates retain unchanged prefix/suffix blocks and a single edited
-  block's local Mermaid state. These are transient component slots, **not**
-  stable IDs for review annotations or arbitrary block reordering.
+- Streaming updates retain unchanged prefix/suffix block slots, refresh rendered
+  content only when parsed fields change, and refresh source ranges separately.
+  A single edited block keeps
+  its component identity, including local Mermaid last-good state. These are
+  transient component slots, **not** stable IDs for review annotations or
+  arbitrary block reordering; use `renderUnit` and host-owned state for that.
 - The vendored Mermaid engine renders flowcharts, sequence, state, gantt,
   timeline, git graphs, and class diagrams as terminal diagrams; unsupported
   Mermaid syntax remains a normal source fence.

@@ -132,13 +132,23 @@ function convertBlocks(tokens: readonly ParserToken[], source: string | null, st
         break
       case "list": {
         const list = token as Tokens.List
+        let cursor = 0
+        const items = list.items.map((item) => {
+          let itemSource: SourceRange | null = null
+          if (range !== null && list.raw.slice(cursor, cursor + item.raw.length) === item.raw) {
+            itemSource = { start: range.start + cursor, end: range.start + cursor + item.raw.length }
+          }
+          cursor += item.raw.length
+          return {
+            task: item.task, checked: item.task ? (item.checked ?? false) : null, loose: item.loose,
+            blocks: convertBlocks(item.tokens, null),
+            source: itemSource,
+          }
+        })
         blocks.push({
           type: "list", raw: list.raw, source: range, ordered: list.ordered,
           start: list.start === "" ? 1 : list.start, loose: list.loose,
-          items: list.items.map((item) => ({
-            task: item.task, checked: item.task ? (item.checked ?? false) : null, loose: item.loose,
-            blocks: convertBlocks(item.tokens, null),
-          })),
+          items,
         })
         break
       }
@@ -174,5 +184,25 @@ function convertBlocks(tokens: readonly ParserToken[], source: string | null, st
 }
 
 export function parseDocument(source: string): Document {
-  return { source, blocks: convertBlocks(parser.lexer(source), source) }
+  // Marked token raw text uses LF even for CRLF input. Parse against the same
+  // normalized text, then translate proven offsets back into the host's source.
+  const normalized = source.replace(/\r\n?/g, "\n")
+  const blocks = convertBlocks(parser.lexer(normalized), normalized)
+  if (normalized === source) return { source, blocks }
+
+  const offsets: number[] = [0]
+  for (let index = 0; index < source.length; index++) {
+    if (source[index] === "\r" && source[index + 1] === "\n") index++
+    offsets.push(index + 1)
+  }
+  const originalRange = (range: SourceRange | null): SourceRange | null => range === null ? null
+    : { start: offsets[range.start]!, end: offsets[range.end]! }
+  const originalBlock = (block: Block): Block => {
+    if (block.type === "list") return {
+      ...block, source: originalRange(block.source),
+      items: block.items.map((item) => ({ ...item, source: originalRange(item.source) })),
+    }
+    return { ...block, source: originalRange(block.source) }
+  }
+  return { source, blocks: blocks.map(originalBlock) }
 }
