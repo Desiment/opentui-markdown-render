@@ -27,7 +27,6 @@ export {
   type TableWidthMode,
   type TablesConfig,
 } from "./core/tables"
-export { createTableRenderer } from "./view/table"
 export { createDocumentLayout, type DocumentLayout, type DocumentLayoutInput } from "./core"
 export { LocalImage, imageBox, resolveLocalImage, resolveBackground, rgbToHex, standaloneImage, maxColumns, type ImageLimits, type MarkdownImage } from "./media"
 export { useCanvasGraphics, mosaicScale, type CanvasGraphics, type CellSize } from "./graphics"
@@ -40,7 +39,7 @@ export {
   type HeadingStyle,
   type HeadingStyles,
 } from "./headings"
-export { createThemedMermaidRenderer, detectMermaidDiagram, MermaidSyntaxError, type MermaidOptions, type MermaidDiagramKind } from "./merman"
+export { detectMermaidDiagram, MermaidSyntaxError, type MermaidDiagramKind } from "./merman"
 export { rgbaToHex, mathImageID, renderMathImage, type MathImage } from "./math"
 export { renderMath, clearMathCache, type MathRenderRequest, type RenderedMath } from "./math/renderer"
 export {

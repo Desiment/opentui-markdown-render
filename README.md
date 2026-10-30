@@ -359,9 +359,11 @@ paragraph/list/table/math/image nodes instead of `markdown`/`flow` routing.
 model. The routing-only `CanvasBlock`, `CanvasSource`, `FlowBlock`, `FlowItem`,
 `InlineRun`, `InlineStyle` and `CanvasFlow` exports were removed. Hosts should
 render documents with `MarkdownRenderer` rather than instantiating the old
-inline flow. `standaloneImage`, `MarkdownImage`, `createTableRenderer`, and
-`createThemedMermaidRenderer` remain exported; the last two are independent
-helpers for hosts rendering their own OpenTUI `<markdown>` nodes.
+inline flow. `standaloneImage` and `MarkdownImage` remain exported. The old
+`createTableRenderer` and `createThemedMermaidRenderer` helpers, and the
+`MermaidOptions` type, are no longer exported: hosts using OpenTUI's own
+`<markdown>` nodes must supply their own adapters. This is a breaking API
+change; the built-in `MarkdownRenderer` uses neither helper.
 
 Run independent examples after building the native addon:
 

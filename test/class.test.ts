@@ -3,7 +3,7 @@ import { MermaidSyntaxError } from "../src/merman"
 import { renderClassDiagram } from "../src/merman/class/diagram"
 import { layoutClassDiagram } from "../src/merman/class/layout"
 import { isMermaidClassDiagram, parseMermaidClassDiagram } from "../src/merman/class/parser"
-import { measureMermaidDiagram } from "../src/merman/markdown"
+import { measureMermaidDiagram } from "../src/merman/diagram"
 
 describe("class diagram detection", () => {
   test("matches the header with and without an inline direction", () => {

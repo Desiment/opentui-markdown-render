@@ -1,6 +1,6 @@
 import { createEffect, createMemo, Show, type Accessor } from "solid-js"
 import { type MouseEvent, type TextRenderable } from "@opentui/core"
-import { measureMermaidDiagram, type PreparedDiagram } from "../merman/markdown"
+import { measureMermaidDiagram, type PreparedDiagram } from "../merman/diagram"
 import { detectMermaidDiagram } from "../merman/detect"
 import { MermaidSyntaxError } from "../merman/diagnostics"
 import { DiagramCanvasSizeError } from "../merman/core/canvas"

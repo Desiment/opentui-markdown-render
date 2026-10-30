@@ -1,19 +1,10 @@
 import {
-  TextRenderable,
-  RenderableEvents,
-  createMarkdownCodeBlockRenderer,
   parseColor,
   type ColorInput,
-  type MarkdownOptions,
-  type MarkdownCodeBlockRenderer,
-  type MouseEvent,
-  type RenderContext,
   type RGBA,
   type StyledText,
 } from "@opentui/core"
-import { MermaidSyntaxError } from "./diagnostics.js"
 import type { OpenCodeDiagramPalette } from "./palette.js"
-import { DiagramCanvasSizeError } from "./core/canvas.js"
 import { drawClassDiagramGrid } from "./class/drawing.js"
 import { parseMermaidClassDiagram } from "./class/parser.js"
 import { renderClassGridStyledText } from "./class/render-grid.js"
@@ -53,7 +44,7 @@ export interface PreparedDiagram {
   readonly height: number
 }
 
-export interface MermaidMarkdownRendererOptions {
+export interface MermaidDiagramOptions {
   /** Use terminal-optimized diagram spacing. Defaults to true. */
   compact?: boolean
   /** Fold responsive horizontal diagrams that exceed this width. Defaults to 120 columns. */
@@ -67,56 +58,10 @@ function color(value: ColorInput | undefined): RGBA | undefined {
   return value === undefined ? undefined : parseColor(value)
 }
 
-class StaticDiagramRenderable extends TextRenderable {
-  constructor(ctx: RenderContext, prepared: PreparedDiagram) {
-    super(ctx, {
-      content: prepared.text,
-      width: "100%",
-      height: prepared.height,
-      wrapMode: "none",
-      selectable: false,
-      marginTop: 1,
-    })
-    let dragX: number | undefined
-    this.onMouseDown = (event: MouseEvent) => {
-      if (event.button !== 0) return
-      ctx.clearSelection()
-      dragX = event.x
-      event.preventDefault()
-      event.stopPropagation()
-    }
-    this.onMouseDrag = (event: MouseEvent) => {
-      event.preventDefault()
-      event.stopPropagation()
-      if (dragX === undefined) return
-      const dx = event.x - dragX
-      dragX = event.x
-      if (dx) this.scrollX -= dx
-    }
-    this.onMouseDragEnd = (event: MouseEvent) => {
-      dragX = undefined
-      event.preventDefault()
-      event.stopPropagation()
-    }
-    this.onMouseUp = (event: MouseEvent) => {
-      if (event.button !== 0) return
-      dragX = undefined
-      event.preventDefault()
-      event.stopPropagation()
-    }
-    this.onMouseScroll = (event: MouseEvent) => {
-      const scroll = event.scroll
-      if (!scroll || (scroll.direction !== "left" && scroll.direction !== "right")) return
-      event.preventDefault()
-      event.stopPropagation()
-    }
-  }
-}
-
 function prepareDiagram(
   kind: DiagramKind,
   source: string,
-  options: MermaidMarkdownRendererOptions,
+  options: MermaidDiagramOptions,
   layoutMaxWidth: number,
 ): PreparedDiagram {
   const colors = options.colors ?? {}
@@ -281,100 +226,15 @@ function prepareDiagram(
   }
 }
 
-// The renderer and the tests both need the prepared diagram without an OpenTUI
-// render context, so the pure layout step is exposed on its own. `undefined`
-// means the fence is not a Mermaid diagram at all.
+// The view and the tests both need the prepared diagram without a render
+// context. `undefined` means the fence is not a Mermaid diagram at all.
 export function measureMermaidDiagram(
   source: string,
-  options: MermaidMarkdownRendererOptions = {},
+  options: MermaidDiagramOptions = {},
 ): PreparedDiagram | undefined {
   const kind = detectMermaidDiagram(source)
   if (!kind) return undefined
   const configuredMaxWidth =
     options.layoutMaxWidth === undefined ? 120 : Math.max(1, Math.trunc(options.layoutMaxWidth))
   return prepareDiagram(kind, source, options, configuredMaxWidth)
-}
-
-/** Create an OpenTUI Markdown node renderer for fenced Mermaid diagrams. */
-export function createMermaidMarkdownRenderer(
-  ctx: RenderContext,
-  input: MermaidMarkdownRendererOptions | (() => MermaidMarkdownRendererOptions) = {},
-): NonNullable<MarkdownOptions["renderNode"]> {
-  return createMarkdownCodeBlockRenderer({ mermaid: createMermaidCodeBlockRenderer(ctx, input) })!
-}
-
-export function createMermaidCodeBlockRenderer(
-  ctx: RenderContext,
-  input: MermaidMarkdownRendererOptions | (() => MermaidMarkdownRendererOptions) = {},
-): MarkdownCodeBlockRenderer {
-  const lastGood = new Map<string, PreparedDiagram>()
-  return (token, context) => {
-    const kind = detectMermaidDiagram(token.text)
-    if (!kind) return undefined
-    // OpenTUI's default block ID is the stable identity available for this fence across streaming updates.
-    const key = context.defaultRender()?.id
-    const options = typeof input === "function" ? input() : input
-    const configuredMaxWidth =
-      options.layoutMaxWidth === undefined ? 120 : Math.max(1, Math.trunc(options.layoutMaxWidth))
-    const layoutMaxWidth = Math.min(configuredMaxWidth, Math.max(1, Math.trunc(ctx.width)))
-
-    try {
-      const prepared = prepareDiagram(kind, token.text, options, layoutMaxWidth)
-      // A detected fence can still draw nothing (a bare `flowchart LR` header, an
-      // empty `gantt` or `timeline`). A zero-height renderable would occupy no
-      // space and suppress the default code block, so the source would vanish
-      // instead of falling back to it. Returning `undefined` hands the fence back
-      // to the default renderer, which shows the source.
-      if (prepared.height <= 0) return undefined
-      const diagram = new StaticDiagramRenderable(ctx, prepared)
-      if (key) claimLastGood(key, prepared, diagram, lastGood)
-      return diagram
-    } catch (error) {
-      if (error instanceof MermaidSyntaxError) {
-        const previous = key ? lastGood.get(key) : undefined
-        if (previous?.kind === kind) {
-          const diagram = new StaticDiagramRenderable(ctx, previous)
-          claimLastGood(key!, previous, diagram, lastGood)
-          return diagram
-        }
-
-        const lines = token.text.split("\n")
-        if (error.lineNumber <= 2 || lines.slice(error.lineNumber).some((line) => line.trim())) return undefined
-
-        try {
-          const prepared = prepareDiagram(
-            kind,
-            lines.slice(0, error.lineNumber - 1).join("\n"),
-            options,
-            layoutMaxWidth,
-          )
-          if (!prepared.height) return undefined
-          const diagram = new StaticDiagramRenderable(ctx, prepared)
-          if (key) claimLastGood(key, prepared, diagram, lastGood)
-          return diagram
-        } catch (error) {
-          if (error instanceof MermaidSyntaxError || error instanceof DiagramCanvasSizeError) return undefined
-          throw error
-        }
-      }
-      if (error instanceof DiagramCanvasSizeError) return undefined
-      throw error
-    }
-  }
-}
-
-function claimLastGood(
-  key: string,
-  value: PreparedDiagram,
-  owner: StaticDiagramRenderable,
-  cache: Map<string, PreparedDiagram>,
-): void {
-  const claim = { ...value }
-  cache.set(key, claim)
-  owner.once(RenderableEvents.DESTROYED, () => {
-    // Reconciliation destroys the old block before synchronously creating its replacement.
-    queueMicrotask(() => {
-      if (cache.get(key) === claim) cache.delete(key)
-    })
-  })
 }

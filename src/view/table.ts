@@ -1,18 +1,9 @@
 import {
   BoxRenderable,
   TextTableRenderable,
-  type MarkdownOptions,
   type MouseEvent,
   type RenderContext,
 } from "@opentui/core"
-import type { ResolvedTableOptions } from "../core/tables"
-
-function applyTableOptions(table: TextTableRenderable, options: ResolvedTableOptions) {
-  table.columnWidthMode = options.widthMode
-  table.columnFitter = options.columnFitter
-  table.cellPaddingX = options.cellPaddingX
-  table.wrapMode = options.wrapMode
-}
 
 // In content mode a table keeps its natural columns even when its layout box is
 // narrower, so its drawn width can be larger than `table.width`. The layout
@@ -105,24 +96,5 @@ export class ScrollableTableRenderable extends BoxRenderable {
     const max = Math.max(0, tableWidth(this.table) - viewportWidth)
     this.offset = Math.max(0, Math.min(max, this.offset + delta))
     this.table.marginLeft = -this.offset
-  }
-}
-
-// Returns the renderer the Markdown renderable consults before every structured
-// block. A table is handed back either as the default renderable with the
-// configured sizing (so OpenTUI can still reconcile it in place) or wrapped in
-// the horizontal scroller.
-export function createTableRenderer(
-  ctx: RenderContext,
-  options: () => ResolvedTableOptions,
-): NonNullable<MarkdownOptions["renderNode"]> {
-  return (token, context) => {
-    if (token.type !== "table") return undefined
-    const renderable = context.defaultRender()
-    if (!(renderable instanceof TextTableRenderable)) return undefined
-    const resolved = options()
-    applyTableOptions(renderable, resolved)
-    if (resolved.widthMode !== "content" || resolved.overflow !== "scroll") return renderable
-    return new ScrollableTableRenderable(ctx, renderable)
   }
 }
