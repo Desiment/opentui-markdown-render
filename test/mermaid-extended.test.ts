@@ -7,6 +7,7 @@ import { parseMermaidStateDiagram } from "../src/merman/state/parser"
 import { parseMermaidGanttDiagram } from "../src/merman/gantt/parser"
 import { parseMermaidGitGraphDiagram } from "../src/merman/gitgraph/parser"
 import { parseMermaidClassDiagram } from "../src/merman/class/parser"
+import { renderClassDiagram } from "../src/merman/class/diagram"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { parseDocument } from "../src/core/parse"
@@ -140,6 +141,17 @@ test("the extended class diagram fixture renders labels and attached notes", () 
   expect(labelledText).toContain("Transaction Ledger")
   expect(noteText).toContain("Validates every request before routing.")
   expect(noteText).toContain("Entries expire after five minutes.")
+})
+
+test("independent class edges cross with a vertical gap, but fan-out buses stay joined", () => {
+  const sources = exampleMermaidSources("merman-ext")
+  const lines = renderClassDiagram(sources[3]!).split("\n") // diamond inheritance
+  const hasBridge = lines.some((line, y) => [...line].some((char, x) =>
+    char === "─" && line[x - 1] === "─" && line[x + 1] === "─"
+      && lines[y - 1]?.[x] === "│" && lines[y + 1]?.[x] === "│",
+  ))
+  expect(hasBridge).toBe(true)
+  expect(renderClassDiagram(sources[1]!)).toContain("┴") // shared fan-out bus
 })
 
 test("gitGraph cherry-pick creates a commit on the current branch", () => {

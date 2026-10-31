@@ -55,6 +55,7 @@ function drawClassDiagramLayout(layout: ClassDiagramLayout): ClassGrid {
   const vertical = layout.direction === "TB" || layout.direction === "BT"
   for (const box of layout.boxes) drawBox(grid, box)
   for (const edge of layout.edges) drawEdgeLine(grid, edge)
+  bridgeIndependentCrossings(grid, layout.edges)
   for (const edge of layout.edges) drawEdgeEndpoints(grid, edge)
   for (const edge of layout.edges) drawEdgeLabels(grid, edge, vertical)
   return grid
@@ -115,6 +116,40 @@ function drawEdgeLine(grid: ClassGrid, edge: ClassEdge): void {
     cornerStyle: "square",
     lineStyle: relationship.dashed ? "dashed" : "single",
   })
+}
+
+function bridgeIndependentCrossings(grid: ClassGrid, edges: readonly ClassEdge[]): void {
+  const verticalByX = new Map<number, Array<{ top: number; bottom: number; edgeIndex: number }>>()
+  const horizontal: Array<{ left: number; right: number; y: number; edgeIndex: number }> = []
+  const vertices = new Set<string>()
+  const key = (x: number, y: number): string => `${x}:${y}`
+
+  edges.forEach((edge, edgeIndex) => {
+    for (const point of edge.path) vertices.add(key(point.x, point.y))
+    for (let index = 1; index < edge.path.length; index++) {
+      const from = edge.path[index - 1]!
+      const to = edge.path[index]!
+      if (from.x === to.x) {
+        const segments = verticalByX.get(from.x) ?? []
+        segments.push({ top: Math.min(from.y, to.y), bottom: Math.max(from.y, to.y), edgeIndex })
+        verticalByX.set(from.x, segments)
+      } else if (from.y === to.y) {
+        horizontal.push({ left: Math.min(from.x, to.x), right: Math.max(from.x, to.x), y: from.y, edgeIndex })
+      }
+    }
+  })
+
+  for (const segment of horizontal) {
+    // Only the interiors of two different straight segments can be a crossing.
+    // Corners and endpoints (including shared fan-out buses) remain connected.
+    for (let x = segment.left + 1; x < segment.right; x++) {
+      if (vertices.has(key(x, segment.y))) continue
+      for (const vertical of verticalByX.get(x) ?? []) {
+        if (vertical.edgeIndex === segment.edgeIndex || segment.y <= vertical.top || segment.y >= vertical.bottom) continue
+        if (grid.getCell(x, segment.y)?.char === "┼") grid.replaceCell(x, segment.y, "─", "edge")
+      }
+    }
+  }
 }
 
 function drawEdgeEndpoints(grid: ClassGrid, edge: ClassEdge): void {

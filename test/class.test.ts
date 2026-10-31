@@ -208,9 +208,9 @@ describe("class diagram rendering", () => {
     }
   })
 
-  test("renders crossings as linework without X markers", () => {
+  test("keeps horizontal crossings continuous without X markers", () => {
     const output = renderClassDiagram("classDiagram\n A --> B\n B --> C\n C --> A\n A --> C")
-    expect(output).toContain("┼")
+    expect(output).toContain("└────┐│")
     expect(output).not.toContain("╳")
   })
 
