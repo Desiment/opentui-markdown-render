@@ -7,6 +7,7 @@ import { parseMermaidStateDiagram } from "../src/merman/state/parser"
 import { parseMermaidGanttDiagram } from "../src/merman/gantt/parser"
 import { parseMermaidGitGraphDiagram } from "../src/merman/gitgraph/parser"
 import { parseMermaidClassDiagram } from "../src/merman/class/parser"
+import { createClassDiagramLayout, drawClassDiagramGrid } from "../src/merman/class/drawing"
 import { renderClassDiagram } from "../src/merman/class/diagram"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
@@ -151,7 +152,24 @@ test("independent class edges cross with a vertical gap, but fan-out buses stay 
       && lines[y - 1]?.[x] === "│" && lines[y + 1]?.[x] === "│",
   ))
   expect(hasBridge).toBe(true)
+  const diagram = parseMermaidClassDiagram(sources[3]!)
+  const layout = createClassDiagramLayout(diagram)
+  const endpoint = layout.edges.find((edge) => edge.fromId === "Device" && edge.toId === "Networked")!.path.at(-1)!
+  const grid = drawClassDiagramGrid(diagram)
+  // The independent Cluster -> Router line crosses this endpoint: keep the
+  // connector into Networked rather than rendering a false four-way junction.
+  expect(grid.getCell(endpoint.x, endpoint.y)?.char).toBe("│")
+  expect(grid.getCell(endpoint.x - 1, endpoint.y)?.char).toBe("─")
+  expect(grid.getCell(endpoint.x + 1, endpoint.y)?.char).toBe("─")
   expect(renderClassDiagram(sources[1]!)).toContain("┴") // shared fan-out bus
+})
+
+test("duplicate class routes do not change crossing geometry", () => {
+  const links = ["A --> D", "B --> E", "C --> F", "A --> F", "B --> E"]
+  const once = renderClassDiagram(`classDiagram\n ${links.join("\n ")}`)
+  const repeatedLinks = [...links, ...Array.from({ length: 100 }, () => ["A --> F", "B --> E"]).flat()]
+  const repeated = renderClassDiagram(`classDiagram\n ${repeatedLinks.join("\n ")}`)
+  expect(repeated).toBe(once)
 })
 
 test("gitGraph cherry-pick creates a commit on the current branch", () => {

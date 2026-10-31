@@ -55,8 +55,8 @@ function drawClassDiagramLayout(layout: ClassDiagramLayout): ClassGrid {
   const vertical = layout.direction === "TB" || layout.direction === "BT"
   for (const box of layout.boxes) drawBox(grid, box)
   for (const edge of layout.edges) drawEdgeLine(grid, edge)
-  bridgeIndependentCrossings(grid, layout.edges)
   for (const edge of layout.edges) drawEdgeEndpoints(grid, edge)
+  bridgeIndependentCrossings(grid, layout.edges)
   for (const edge of layout.edges) drawEdgeLabels(grid, edge, vertical)
   return grid
 }
@@ -118,36 +118,72 @@ function drawEdgeLine(grid: ClassGrid, edge: ClassEdge): void {
   })
 }
 
+interface CrossingAxis {
+  through: number[]
+  ends: number[]
+}
+
+interface CrossingCell {
+  horizontal: CrossingAxis
+  vertical: CrossingAxis
+}
+
+function rememberOwner(owners: number[], owner: number): void {
+  // Two distinct owners suffice to determine whether the other axis is independent.
+  if (owners.length < 2 && !owners.includes(owner)) owners.push(owner)
+}
+
+function independent(first: readonly number[], second: readonly number[]): boolean {
+  return first.length > 0 && second.length > 0 &&
+    (first.length > 1 || second.length > 1 || first[0] !== second[0])
+}
+
 function bridgeIndependentCrossings(grid: ClassGrid, edges: readonly ClassEdge[]): void {
-  const verticalByX = new Map<number, Array<{ top: number; bottom: number; edgeIndex: number }>>()
-  const horizontal: Array<{ left: number; right: number; y: number; edgeIndex: number }> = []
-  const vertices = new Set<string>()
-  const key = (x: number, y: number): string => `${x}:${y}`
+  const cells = new Map<number, CrossingCell>()
+  const seenPaths = new Set<string>()
 
   edges.forEach((edge, edgeIndex) => {
-    for (const point of edge.path) vertices.add(key(point.x, point.y))
+    // Repeated relationships can have identical routes; their geometry only
+    // needs to be recorded once, regardless of how many times it was drawn.
+    const pathKey = edge.path.map(({ x, y }) => `${x}:${y}`).join(";")
+    if (seenPaths.has(pathKey)) return
+    seenPaths.add(pathKey)
+
     for (let index = 1; index < edge.path.length; index++) {
       const from = edge.path[index - 1]!
       const to = edge.path[index]!
-      if (from.x === to.x) {
-        const segments = verticalByX.get(from.x) ?? []
-        segments.push({ top: Math.min(from.y, to.y), bottom: Math.max(from.y, to.y), edgeIndex })
-        verticalByX.set(from.x, segments)
-      } else if (from.y === to.y) {
-        horizontal.push({ left: Math.min(from.x, to.x), right: Math.max(from.x, to.x), y: from.y, edgeIndex })
+      const horizontal = from.y === to.y
+      if (!horizontal && from.x !== to.x) continue
+      const start = horizontal ? from.x : from.y
+      const end = horizontal ? to.x : to.y
+      for (let position = Math.min(start, end); position <= Math.max(start, end); position++) {
+        const x = horizontal ? position : from.x
+        const y = horizontal ? from.y : position
+        const cellKey = y * grid.width + x
+        const cell = cells.get(cellKey) ?? {
+          horizontal: { through: [], ends: [] },
+          vertical: { through: [], ends: [] },
+        }
+        const axis = horizontal ? cell.horizontal : cell.vertical
+        if (position !== start && position !== end) rememberOwner(axis.through, edgeIndex)
+        else if ((position === start && index === 1) || (position === end && index === edge.path.length - 1)) {
+          rememberOwner(axis.ends, edgeIndex)
+        }
+        cells.set(cellKey, cell)
       }
     }
   })
 
-  for (const segment of horizontal) {
-    // Only the interiors of two different straight segments can be a crossing.
-    // Corners and endpoints (including shared fan-out buses) remain connected.
-    for (let x = segment.left + 1; x < segment.right; x++) {
-      if (vertices.has(key(x, segment.y))) continue
-      for (const vertical of verticalByX.get(x) ?? []) {
-        if (vertical.edgeIndex === segment.edgeIndex || segment.y <= vertical.top || segment.y >= vertical.bottom) continue
-        if (grid.getCell(x, segment.y)?.char === "┼") grid.replaceCell(x, segment.y, "─", "edge")
-      }
+  for (const [cellKey, cell] of cells) {
+    const x = cellKey % grid.width
+    const y = Math.floor(cellKey / grid.width)
+    if (grid.getCell(x, y)?.char !== "┼") continue
+    if (independent(cell.horizontal.through, cell.vertical.through) ||
+        independent(cell.horizontal.ends, cell.vertical.through)) {
+      grid.replaceCell(x, y, "─", "edge")
+    } else if (independent(cell.horizontal.through, cell.vertical.ends)) {
+      // A vertical endpoint must still reach its box; break the passing line instead.
+      grid.replaceCell(x, y, "│", "edge")
     }
   }
 }
