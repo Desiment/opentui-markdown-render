@@ -29,8 +29,16 @@ describe("config parsing", () => {
   test("a malformed theme color cannot break theme resolution", () => {
     const config = parseConfig(`{ "theme": { "accent": "invalid", "markdown": { "heading3": "#abc" } } }`)
     const theme = resolveConfiguredTheme(config)
-    expect(theme.accent).toEqual(defaultTheme("dark").accent)
+    expect(theme.accent).toEqual(defaultTheme("light").accent)
     expect(theme.markdown.headingLevels[2]?.toInts()).toEqual([170, 187, 204, 255])
+  })
+
+  test("rejects auto as a theme mode in the config file", () => {
+    const messages: string[] = []
+    const config = parseConfig(`{ "theme": { "mode": "auto" } }`, "theme.jsonc", (message) => messages.push(message))
+    expect(config.theme?.mode).toBeUndefined()
+    expect(resolveConfiguredTheme(config).mode).toBe("light")
+    expect(messages).toHaveLength(1)
   })
 
   test("accepts JSONC comments and trailing commas", () => {

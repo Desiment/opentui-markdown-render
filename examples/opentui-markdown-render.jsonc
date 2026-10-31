@@ -4,7 +4,7 @@
   "statusline": {
     "style": "bar",
     "highlight": "title",
-    "fields": ["title", "mode", "protocol", "cell", "position", "hint"],
+    "fields": ["title", "mode", "protocol", "cell", "position"],
     "separator": " · ",
     "border": "top"
   },

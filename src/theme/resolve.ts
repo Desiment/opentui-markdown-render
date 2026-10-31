@@ -8,7 +8,7 @@ export function resolveTheme(options: {
   override?: ThemeOverride
 }): Theme {
   const override = options.override
-  const mode = override?.mode ?? options.mode ?? "dark"
+  const mode = override?.mode ?? options.mode ?? "light"
   return mergeTheme(defaultTheme(mode), override)
 }
 

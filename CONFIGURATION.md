@@ -11,8 +11,8 @@ opentui-markdown-render.jsonc | .json
       -> parseConfig()  (strip comments + trailing commas, JSON.parse)
         -> validateConfig() (мягкая валидация + варнинги)
           -> MarkdownConfig
-            -> resolveConfiguredTheme(config, runtime) -> Theme
-               (готовая тема хоста > runtime-режим > режим файла > терминал > dark)
+             -> resolveConfiguredTheme(config, runtime) -> Theme
+                (готовая тема хоста > runtime-режим > режим файла > light)
             -> resolveConfiguredLayout(config, runtime) -> DocumentLayout
             -> resolveHeadingStyles(config.headings) -> HeadingStyles
 ```
@@ -249,7 +249,7 @@ type Theme = {
 
 `src/config/theme.ts` проверяет вложенные поля темы и отбрасывает некорректные цвета с предупреждениями. `src/config/resolve.ts` отдельно принимает конфиг и runtime-параметры хоста; разрешение темы и layout можно использовать без `CliRenderer` и без файловой системы.
 
-Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > режим терминала > dark. Для `frame` и `tables` явно заданные runtime-значения перекрывают настройки файла. `auto` разрешает выбор режиму файла или терминала, а не запрашивает отдельную цветовую схему.
+Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > light. Режим терминала не учитывается. Для `frame` и `tables` явно заданные runtime-значения перекрывают настройки файла. Демо позволяет менять эти параметры через панель по `c` без сохранения файла; statusline показывает только сведения.
 
 Оставшаяся задача — последовательно отделить загрузку/проверку статического файла от реактивных входов хоста во всех ветках рендера. В частности, нужно проверить изменение Mermaid-настроек при обновлении конфига.
 
@@ -376,7 +376,7 @@ function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]):
     "enabled": true,
     "style": "bar",
     "highlight": "title",
-    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position", "hint"],
+    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position"],
     "separator": " · ",
     "border": "top"
   },

@@ -57,6 +57,8 @@ export type MarkdownRendererProps = MarkdownRendererCommonProps & (
 
 // Keep the public host helper, but use the same config/runtime resolution as
 // the component. Loading the file remains an optional concern of this adapter.
+// The renderer argument stays for existing callers, but its terminal theme
+// does not determine the default palette.
 export function resolveRendererTheme(
   renderer: CliRenderer,
   options: {
@@ -72,7 +74,6 @@ export function resolveRendererTheme(
   const config = options.config ?? loadRendererConfig(options.configPath, options.cwd)
   return resolveConfiguredTheme(config, {
     themeMode: options.themeMode,
-    terminalThemeMode: renderer.themeMode,
   })
 }
 

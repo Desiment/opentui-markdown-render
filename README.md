@@ -84,12 +84,12 @@ include `source: null` when no range is known.
 ## Theming
 
 The component resolves its theme in priority order: a host-provided `theme`
-prop, then the config file, then a bundled light/dark default. The default
-follows the terminal's reported theme (`auto`), falling back to dark.
+prop, an explicit `themeMode`, the config file's theme mode, then the bundled
+light default. The terminal theme does not affect this choice.
 
 - `theme` accepts a resolved `Theme` (or an accessor) built with `resolveTheme`,
   `mergeTheme`, `defaultTheme`, and `type Theme`.
-- `themeMode` is `"light" | "dark" | "auto"` (or an accessor).
+- `themeMode` is `"light" | "dark"` (or an accessor).
 
 Math PNGs bake in the foreground/background, so they rerasterize when the theme
 or terminal cell size changes.
@@ -115,7 +115,7 @@ entirely.
     "enabled": true,
     "style": "bar",
     "highlight": "title",
-    "fields": ["title", "mode", "protocol", "cell", "position", "hint"],
+    "fields": ["title", "mode", "protocol", "cell", "position"],
     "separator": " · ",
     "border": "top"
   },
@@ -187,7 +187,7 @@ import { StatusLine } from "opentui-markdown-render"
 
 <StatusLine
   theme={theme}
-  state={() => ({ title: "notes.md", protocol: "kitty", hint: "[q] quit" })}
+  state={() => ({ title: "notes.md", protocol: "kitty", mode: "theme:light" })}
   fields={config.statusline?.fields}
   separator={config.statusline?.separator}
   border={config.statusline?.border}
@@ -200,6 +200,8 @@ Available fields are `title`, `mode`, `protocol`, `cell`, `mathScale`,
 `position`, `hint`, and `text` (a list of extra host strings). A field without
 a value is skipped. `formatStatusLine` and `statusLineSegments` expose the
 same formatting without rendering.
+The demo uses the status line only for information; its keyboard instructions
+are in the configuration panel opened with `c`.
 
 `style` picks how strongly the row is highlighted:
 

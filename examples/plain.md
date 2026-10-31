@@ -69,7 +69,7 @@ finds one:
 
 ```json
 {
-  "theme": { "mode": "auto" },
+  "theme": { "mode": "light" },
   "images": { "maxColumns": 80 }
 }
 ```
