@@ -412,6 +412,24 @@ mapped back to offsets in the original source.
 - The vendored Mermaid engine renders flowcharts, sequence, state, gantt,
   timeline, git graphs, and class diagrams as terminal diagrams; unsupported
   Mermaid syntax remains a normal source fence.
+  - Flowcharts support common node shapes (including circles, hexagons and
+    parallelograms), chained/grouped edges, subgraphs, semicolon-separated
+    statements and inline comments. Mermaid CSS styling is ignored in favour
+    of the terminal theme.
+  - Sequence diagrams support `alt`/`else`, `opt`, `loop`, `par`/`and`,
+    `critical`/`option`, `break`, notes, activations and participant boxes.
+  - State diagrams support choices, forks/joins, composite states, notes,
+    declarations and `State: description` labels.
+  - Gantt accepts clock dates (`HH:mm`, `HH:mm:ss`), dependencies, relative
+    durations and fixed-unit `tickInterval`; excluded days and today markers
+    are not yet rendered.
+  - Git graphs support commits, branches, merges, switching and simple
+    `cherry-pick id: "..."`. Class diagrams support class labels, relationships,
+    stereotypes and attached notes; standalone notes and namespaces remain
+    unsupported.
+
+  See the [Mermaid support matrix](MERMAID_SUPPORT.md) for rendered, ignored and
+  unsupported syntax. The list above is a summary, not the full Mermaid grammar.
 - Standalone local PNG, JPEG, WebP, and GIF images resolve below `assetBase`.
   Network URLs and path traversal are rejected.
 - Transparent images are composited against the configured background before
@@ -441,6 +459,7 @@ bun run build:native
 bun run demo:plain
 bun run demo:tables
 bun run demo:mermaid
+bun run demo:merman-ext
 bun run demo:math
 bun run demo:images
 bun run demo:mixed

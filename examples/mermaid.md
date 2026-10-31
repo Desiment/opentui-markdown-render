@@ -54,6 +54,14 @@ graph RL
   D ==> E
 ```
 
+### More flowchart syntax
+
+Multiple statements per line, a parallelogram and a hexagon:
+
+```mermaid
+flowchart LR; Input[/Telemetry/] --> Process{{Decode}}; Process --> Output[Report]
+```
+
 ## The launch
 
 What happens between the recorder and the downlink:
@@ -93,6 +101,22 @@ sequenceDiagram
   A-x B: Broken
   A->>B: Sync
   B-->>A: Async reply
+```
+
+### Parallel and optional messages
+
+```mermaid
+sequenceDiagram
+  participant A
+  participant B
+  opt data available
+    A->>B: Begin
+  end
+  par fetch
+    B-->>A: Cache
+  and compute
+    B-->>A: Result
+  end
 ```
 
 ## Vehicle states
@@ -156,6 +180,7 @@ Two tracks that overlap:
 gantt
   title Build Pipeline
   dateFormat HH:mm
+  tickInterval 1h
   section Core
   Scan :a1, 00:00, 2h
   Inline :after a1, 3h
@@ -222,6 +247,17 @@ gitGraph
   merge feature
   branch release
   commit tag: "v0.1.0"
+```
+
+### Cherry-picking a commit
+
+```mermaid
+gitGraph
+  commit id: "base"
+  branch patch
+  commit id: "fix" msg: "Fix the bug"
+  checkout main
+  cherry-pick id: "fix"
 ```
 
 ## Class diagrams
@@ -697,9 +733,9 @@ classDiagram
   Item "0..*" --> "1" Payment : billed
 ```
 
-### Invalid class syntax
+### A class note
 
-A note the renderer does not support falls back to the source fence:
+A note attached to a class appears in its box:
 
 ```mermaid
 classDiagram

@@ -23,6 +23,7 @@
     "demo:plain": "bun --preload @opentui/solid/preload examples/app.tsx plain.md",
     "demo:tables": "bun --preload @opentui/solid/preload examples/app.tsx tables.md",
     "demo:mermaid": "bun --preload @opentui/solid/preload examples/app.tsx mermaid.md",
+    "demo:merman-ext": "bun --preload @opentui/solid/preload examples/app.tsx merman-ext.md",
     "demo:math": "bun --preload @opentui/solid/preload examples/app.tsx math.md",
     "demo:images": "bun --preload @opentui/solid/preload examples/app.tsx images.md",
     "demo:mixed": "bun --preload @opentui/solid/preload examples/app.tsx rendered.md",

@@ -85,6 +85,7 @@ function drawBox(
   borderStyle: BorderStyle,
 ): void {
   if (isHiddenCompositeMarker(state)) return
+  if (state.kind === "fork" || state.kind === "join") return
 
   if (state.kind !== "state") {
     setCell(grid, bounds.left, bounds.top, state.label, state.kind)
@@ -195,8 +196,10 @@ function drawTransitionJunctionPlans(
   renderPlans: readonly StateTransitionRenderPlan[],
 ): void {
   for (const plan of createStateTransitionJunctionPlans(diagram, bounds, renderPlans)) {
+    const parallel = plan.kind === "fork" || plan.kind === "join"
     const style = plan.kind === "choice" ? "choice" : "transition"
-    const char = plan.kind === "choice" ? "◆" : diagramLineGlyph(plan.connections, "rounded")
+    const bar = diagram.direction === "LR" || diagram.direction === "RL" ? "┃" : "━"
+    const char = plan.kind === "choice" ? "◆" : parallel ? bar : diagramLineGlyph(plan.connections, "rounded")
     setCell(grid, plan.bounds.left, plan.bounds.top, char, style)
   }
 }

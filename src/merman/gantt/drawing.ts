@@ -52,7 +52,7 @@ export function drawGanttDiagramGrid(diagram: GanttDiagram, options: GanttDiagra
       diagram.title,
       "title",
     )
-  drawAxis(grid, chartX, titleHeight, chartWidth, minimum, span, diagram.axisFormat)
+  drawAxis(grid, chartX, titleHeight, chartWidth, minimum, span, diagram.axisFormat, diagram.tickInterval)
 
   diagram.entries.forEach((entry, index) => {
     const y = titleHeight + axisHeight + entryRows[index]!
@@ -76,9 +76,10 @@ function drawAxis(
   minimum: number,
   span: number,
   format: string,
+  interval?: number,
 ): void {
   for (let offset = 0; offset < width; offset++) grid.setCell(x + offset, y + 1, "─", "axis")
-  const step = tickStep(span)
+  const step = interval ? interval * Math.max(1, Math.ceil(span / (interval * 12))) : tickStep(span)
   const ticks: number[] = []
   for (let value = Math.ceil(minimum / step) * step; value <= minimum + span; value += step) ticks.push(value)
   if (ticks.length === 0) ticks.push(minimum, minimum + span)

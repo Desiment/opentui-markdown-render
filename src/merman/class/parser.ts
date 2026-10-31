@@ -15,6 +15,8 @@ const ACCESSIBILITY_RE = /^acc(?:Title|Descr)(?::|\s|$)/i
 const CLASS_NAME_RE = /^[A-Za-z0-9_][A-Za-z0-9_.\-~]*$/
 const ANNOTATION_RE = /^<<(.+?)>>\s+(.+)$/
 const STEREOTYPE_ONLY_RE = /^<<(.+?)>>$/
+const CLASS_LABEL_RE = /^([A-Za-z0-9_][A-Za-z0-9_.\-~]*)\s*\[(["'])(.+)\2\]$/
+const CLASS_NOTE_RE = /^note\s+for\s+(\S+)\s+(["'])(.+)\2$/i
 
 interface RelationshipOperator {
   token: string
@@ -111,6 +113,16 @@ export function parseMermaidClassDiagram(content: string): ClassDiagram {
       continue
     }
 
+    const noteMatch = line.match(CLASS_NOTE_RE)
+    if (noteMatch) {
+      const id = normalizeClassName(noteMatch[1]!)
+      if (!id) throw syntaxError(source.lineNumber, line, "Class note target is not a valid class name")
+      const definition = ensureClass(id)
+      definition.notes ??= []
+      definition.notes.push(stripMermaidQuotes(noteMatch[2]! + noteMatch[3]! + noteMatch[2]!))
+      continue
+    }
+
     const annotation = line.match(ANNOTATION_RE)
     if (annotation) {
       const id = normalizeClassName(annotation[2]!)
@@ -127,9 +139,11 @@ export function parseMermaidClassDiagram(content: string): ClassDiagram {
         openBody = true
         raw = raw.slice(0, -1).trim()
       }
-      const id = normalizeClassName(raw)
+      const labelMatch = raw.match(CLASS_LABEL_RE)
+      const id = normalizeClassName(labelMatch?.[1] ?? raw)
       if (!id) throw syntaxError(source.lineNumber, line, "Class name is not valid")
       const definition = ensureClass(id)
+      if (labelMatch) definition.label = stripMermaidQuotes(labelMatch[2]! + labelMatch[3]! + labelMatch[2]!)
       if (openBody) current = definition
       continue
     }
@@ -271,7 +285,7 @@ function unsupportedReason(line: string): string {
   const keyword = line.split(/[\s:{]/, 1)[0]?.toLowerCase() ?? ""
   switch (keyword) {
     case "note":
-      return "Class diagram notes are not supported"
+      return "Standalone class diagram notes are not supported"
     case "namespace":
       return "Class diagram namespaces are not supported"
     case "package":

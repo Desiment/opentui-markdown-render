@@ -198,7 +198,7 @@ describe("class diagram rendering", () => {
 
 describe("class diagram fallback", () => {
   test("throws a typed syntax error for unsupported syntax", () => {
-    const source = ["classDiagram", "  class A", "  note for A \"unsupported\""].join("\n")
+    const source = ["classDiagram", "  class A", "  note \"unattached\""].join("\n")
     expect(() => parseMermaidClassDiagram(source)).toThrow(MermaidSyntaxError)
     try {
       parseMermaidClassDiagram(source)
@@ -217,7 +217,7 @@ describe("class diagram fallback", () => {
   })
 
   test("measureMermaidDiagram propagates the syntax error so the fence stays source", () => {
-    const source = ["classDiagram", "  class A", "  note for A \"unsupported\""].join("\n")
+    const source = ["classDiagram", "  class A", "  note \"unattached\""].join("\n")
     expect(() => measureMermaidDiagram(source)).toThrow(MermaidSyntaxError)
   })
 

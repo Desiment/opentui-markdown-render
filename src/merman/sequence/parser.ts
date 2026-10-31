@@ -21,6 +21,8 @@ const BOX_RE = /^box(?:\s+(.+))?$/i
 const ALT_RE = /^alt\s+(.+)$/i
 const ELSE_RE = /^else(?:\s+(.+))?$/i
 const LOOP_RE = /^loop\s+(.+)$/i
+const FRAGMENT_START_RE = /^(opt|par|critical|break)(?:\s+(.+))?$/i
+const FRAGMENT_BRANCH_RE = /^(and|option)(?:\s+(.+))?$/i
 const AUTONUMBER_RE = /^autonumber(?:\s+(\d+)(?:\s+(\d+))?)?$/i
 const UNSUPPORTED_BIDIRECTIONAL_MESSAGE_RE = /<<-{1,2}>>/
 const MESSAGE_OPERATOR_RE = /-->>|->>|--x|-x|--\)|-\)|-->|->/
@@ -126,7 +128,7 @@ export function parseMermaidSequenceDiagram(content: string): SequenceDiagram {
   const messages: SequenceMessage[] = []
   const steps: SequenceStep[] = []
   const groups: SequenceParticipantGroup[] = []
-  const blockStack: Array<{ kind: "box" | "alt" | "loop"; lineNumber: number; sourceLine: string }> = []
+  const blockStack: Array<{ kind: "box" | "alt" | "loop" | "opt" | "par" | "critical" | "break"; lineNumber: number; sourceLine: string }> = []
   const groupStack: SequenceParticipantGroup[] = []
   let nextMessageNumber: number | undefined
   let messageNumberIncrement = 1
@@ -203,6 +205,25 @@ export function parseMermaidSequenceDiagram(content: string): SequenceDiagram {
     if (loopMatch) {
       blockStack.push({ kind: "loop", lineNumber: source.lineNumber, sourceLine: line })
       steps.push({ type: "fragment", fragment: { kind: "loop", label: stripQuotes(loopMatch[1]!) } })
+      continue
+    }
+
+    const fragmentStart = line.match(FRAGMENT_START_RE)
+    if (fragmentStart) {
+      const kind = fragmentStart[1]!.toLowerCase() as "opt" | "par" | "critical" | "break"
+      blockStack.push({ kind, lineNumber: source.lineNumber, sourceLine: line })
+      steps.push({ type: "fragment", fragment: { kind, label: stripQuotes(fragmentStart[2] ?? "") } })
+      continue
+    }
+
+    const branchMatch = line.match(FRAGMENT_BRANCH_RE)
+    if (branchMatch) {
+      const kind = branchMatch[1]!.toLowerCase() as "and" | "option"
+      const expected = kind === "and" ? "par" : "critical"
+      if (blockStack[blockStack.length - 1]?.kind !== expected) {
+        throw new MermaidSyntaxError("sequence", source.lineNumber, line, `Unexpected "${kind}" without an open "${expected}" block`)
+      }
+      steps.push({ type: "fragment", fragment: { kind, label: stripQuotes(branchMatch[2] ?? "") } })
       continue
     }
 

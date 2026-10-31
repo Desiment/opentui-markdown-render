@@ -18,8 +18,12 @@ export interface ClassMember {
 
 export interface ClassDefinition {
   id: string
+  /** Display label from `class Id["Readable label"]`. */
+  label?: string
   /** Annotation written between `<<` and `>>`, e.g. `interface`. */
   stereotype?: string
+  /** Notes attached with `note for Id "..."`. */
+  notes?: string[]
   members: ClassMember[]
 }
 

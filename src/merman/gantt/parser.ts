@@ -19,6 +19,8 @@ export function parseMermaidGanttDiagram(content: string): GanttDiagram {
   let title: string | undefined
   let dateFormat = "YYYY-MM-DD"
   let axisFormat = "%Y-%m-%d"
+  let explicitAxisFormat = false
+  let tickInterval: number | undefined
   let section: GanttSection | undefined
   let headerSeen = false
   let inAccessibilityDescription = false
@@ -55,9 +57,28 @@ export function parseMermaidGanttDiagram(content: string): GanttDiagram {
       const name = directive[1]!.toLowerCase()
       const value = directive[2]!.trim()
       if (name === "title") title = stripMermaidQuotes(value)
-      if (name === "dateformat") dateFormat = value
-      if (name === "axisformat") axisFormat = value
-      if (!["title", "dateformat", "axisformat"].includes(name)) {
+      if (name === "dateformat") {
+        dateFormat = value
+        if (!explicitAxisFormat && (value === "HH:mm" || value === "HH:mm:ss")) {
+          axisFormat = value === "HH:mm" ? "%H:%M" : "%H:%M:%S"
+        }
+      }
+      if (name === "axisformat") {
+        axisFormat = value
+        explicitAxisFormat = true
+      }
+      if (name === "tickinterval") {
+        const duration = value.match(/^(\d+)\s*(ms|s|m|h|d|w|seconds?|minutes?|hours?|days?|weeks?)$/i)
+        const units: Record<string, number> = {
+          ms: 1, s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000,
+          second: 1_000, minute: 60_000, hour: 3_600_000, day: 86_400_000, week: 604_800_000,
+        }
+        if (!duration || Number(duration[1]) <= 0) throw syntaxError(source.lineNumber, line, `Unsupported tick interval "${value}"`)
+        const unit = duration[2]!.toLowerCase()
+        tickInterval = Number(duration[1]) * (units[unit] ?? units[unit.slice(0, -1)]!)!
+        if (!Number.isSafeInteger(tickInterval)) throw syntaxError(source.lineNumber, line, `Unsupported tick interval "${value}"`)
+      }
+      if (!["title", "dateformat", "axisformat", "tickinterval"].includes(name)) {
         throw syntaxError(source.lineNumber, line, `${directive[1]} is not supported`)
       }
       continue
@@ -95,7 +116,8 @@ export function parseMermaidGanttDiagram(content: string): GanttDiagram {
   }
 
   if (!headerSeen) throw new MermaidSyntaxError("gantt", 1, "", "Gantt header is required")
-  return { ...(title === undefined ? {} : { title }), dateFormat, axisFormat, tasks, entries }
+  return { ...(title === undefined ? {} : { title }), dateFormat, axisFormat,
+    ...(tickInterval === undefined ? {} : { tickInterval }), tasks, entries }
 }
 
 function parseStart(
@@ -105,6 +127,11 @@ function parseStart(
   lineNumber: number,
   sourceLine: string,
 ): number {
+  const relative = value.match(/^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d|w)$/i)
+  if (relative && (format === "HH:mm" || format === "HH:mm:ss")) {
+    const units = { ms: 1, s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000, w: 604_800_000 }
+    return Date.UTC(1970, 0, 1) + Number(relative[1]) * units[relative[2]!.toLowerCase() as keyof typeof units]
+  }
   if (!/^after\s+/i.test(value)) return parseDate(value, format, lineNumber, sourceLine)
   const dependencies = value
     .replace(/^after\s+/i, "")
@@ -129,8 +156,18 @@ function parseDate(value: string, format: string, lineNumber: number, sourceLine
   if (format === "X" && Number.isFinite(numeric)) return numeric * 1_000
   if (format === "x" && Number.isFinite(numeric)) return numeric
 
+  const clock = value.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (clock && ["HH:mm", "HH:mm:ss"].includes(format)) {
+    const hours = Number(clock[1])
+    const minutes = Number(clock[2])
+    const seconds = Number(clock[3] ?? 0)
+    if (hours < 24 && minutes < 60 && seconds < 60 && (format === "HH:mm:ss") === (clock[3] !== undefined)) {
+      return Date.UTC(1970, 0, 1, hours, minutes, seconds)
+    }
+  }
+
   const calendar = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/)
-  if (calendar && ["YYYY-MM-DD", "YYYY-MM-DD HH:mm", "YYYY-MM-DD HH:mm:ss"].includes(format)) {
+  if (calendar && ["YYYY-MM-DD", "YYYY-MM-DD HH:mm", "YYYY-MM-DD HH:mm:ss", "YYYY-MM-DDTHH:mm", "YYYY-MM-DDTHH:mm:ss"].includes(format)) {
     return Date.UTC(
       Number(calendar[1]),
       Number(calendar[2]) - 1,

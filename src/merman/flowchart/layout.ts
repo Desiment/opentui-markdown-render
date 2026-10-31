@@ -121,6 +121,9 @@ function nodeSize(node: FlowchartNode): FlowchartNodeSize {
       lines,
     }
   }
+  if (node.shape === "circle") return { width: Math.max(9, innerWidth + 6), height: Math.max(5, lines.length + 4), lines }
+  if (node.shape === "hexagon") return { width: Math.max(9, innerWidth + 6), height: Math.max(5, lines.length + 4), lines }
+  if (node.shape === "parallelogram") return { width: innerWidth + 6, height: lines.length + 2, lines }
   if (node.shape === "database") return { width: innerWidth + 4, height: lines.length + 4, lines }
   if (node.shape === "subroutine") return { width: innerWidth + 6, height: lines.length + 2, lines }
   return { width: innerWidth + 4, height: lines.length + 2, lines }

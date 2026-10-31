@@ -4,6 +4,7 @@ import { diagramTextWidth } from "../core/text.js"
 import { DEFAULT_FRAGMENT_BORDER_STYLE } from "./options.js"
 import {
   createSequencePlacementPlan,
+  isFragmentStart,
   type SequenceGroupPlacement,
   type SequenceHorizontalBounds,
   type SequenceStepPlacement,
@@ -139,15 +140,15 @@ function renderFragment(
   const { leftX, rightX } = bounds
 
   const leftChar =
-    fragment.kind === "alt" || fragment.kind === "loop"
+    isFragmentStart(fragment.kind)
       ? border.topLeft
-      : fragment.kind === "else"
+      : fragment.kind !== "end"
         ? border.leftT
         : border.bottomLeft
   const rightChar =
-    fragment.kind === "alt" || fragment.kind === "loop"
+    isFragmentStart(fragment.kind)
       ? border.topRight
-      : fragment.kind === "else"
+      : fragment.kind !== "end"
         ? border.rightT
         : border.bottomRight
 

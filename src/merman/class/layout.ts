@@ -79,8 +79,12 @@ export function classBoxSectionLines(
   definition: ClassDefinition,
 ): Pick<BoxMetrics, "titleLines" | "attributeLines" | "methodLines"> {
   return {
-    titleLines: [...(definition.stereotype ? [`«${definition.stereotype}»`] : []), displayClassName(definition.id)],
-    attributeLines: definition.members.filter((member) => !member.method).map((member) => member.text),
+    titleLines: [...(definition.stereotype ? [`«${definition.stereotype}»`] : []),
+      displayClassName(definition.label ?? definition.id)],
+    attributeLines: [
+      ...definition.members.filter((member) => !member.method).map((member) => member.text),
+      ...(definition.notes ?? []).map((note) => `ⓘ ${note}`),
+    ],
     methodLines: definition.members.filter((member) => member.method).map((member) => member.text),
   }
 }

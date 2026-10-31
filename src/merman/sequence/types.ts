@@ -35,7 +35,7 @@ export interface SequenceActivation {
 }
 
 export interface SequenceFragment {
-  kind: "alt" | "else" | "loop" | "end"
+  kind: "alt" | "else" | "loop" | "opt" | "par" | "and" | "critical" | "option" | "break" | "end"
   label: string
 }
 

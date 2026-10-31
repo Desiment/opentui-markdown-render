@@ -19,6 +19,7 @@ export interface GanttDiagram {
   title?: string
   dateFormat: string
   axisFormat: string
+  tickInterval?: number
   tasks: GanttTask[]
   entries: GanttEntry[]
 }

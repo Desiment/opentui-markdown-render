@@ -12,6 +12,7 @@ import {
   firstMeaningfulMermaidLine,
   meaningfulNumberedMermaidLines,
   stripMermaidQuotes as stripQuotes,
+  type NumberedMermaidLine,
 } from "../core/mermaid.js"
 
 const DEFAULT_DIRECTION = "TD" satisfies FlowchartDirection
@@ -25,11 +26,13 @@ const DATABASE_NODE_RE = new RegExp(`^(${ID_RE})\\[\\((.+)\\)\\]$`)
 const SUBROUTINE_NODE_RE = new RegExp(`^(${ID_RE})\\[\\[(.+)\\]\\]$`)
 const ROUNDED_BRACKET_NODE_RE = new RegExp(`^(${ID_RE})\\(\\[(.+)\\]\\)$`)
 const ROUNDED_NODE_RE = new RegExp(`^(${ID_RE})\\((.+)\\)$`)
+const HEXAGON_NODE_RE = new RegExp(`^(${ID_RE})\\{\\{(.+)\\}\\}$`)
+const PARALLELOGRAM_NODE_RE = new RegExp(`^(${ID_RE})\\[/(.+)/\\]$`)
 const DECISION_NODE_RE = new RegExp(`^(${ID_RE})\\{(.+)\\}$`)
 const BOX_NODE_RE = new RegExp(`^(${ID_RE})\\[(.+)\\]$`)
 const ID_ONLY_RE = new RegExp(`^${ID_RE}$`)
 const EXPLICIT_NODE_SHAPE_RE = new RegExp(`^${ID_RE}(?:\\[|\\(|\\{)`)
-const CIRCLE_NODE_RE = new RegExp(`^${ID_RE}\\(\\(.+\\)\\)$`)
+const CIRCLE_NODE_RE = new RegExp(`^(${ID_RE})\\(\\((.+)\\)\\)$`)
 const MAX_FLOWCHART_LINE_LENGTH = 10_000
 const EDGE_OPERATOR_RE =
   /(-\.(?!->)(.+?)\.(?:->|-))|(--|==|-\.)\s+(.+?)\s+(-->|==>|\.->|-\.->|\.-)|(<-->|-->|==>|-\.->|---|~~~)\s*(?:\|([^|]*)\|\s*)?/dg
@@ -70,8 +73,17 @@ function parseNodeToken(token: string): FlowchartNode {
   const roundedBracket = trimmed.match(ROUNDED_BRACKET_NODE_RE)
   if (roundedBracket) return { id: roundedBracket[1]!, label: stripQuotes(roundedBracket[2]!), shape: "rounded" }
 
+  const circle = trimmed.match(CIRCLE_NODE_RE)
+  if (circle) return { id: circle[1]!, label: stripQuotes(circle[2]!), shape: "circle" }
+
   const rounded = trimmed.match(ROUNDED_NODE_RE)
   if (rounded) return { id: rounded[1]!, label: stripQuotes(rounded[2]!), shape: "rounded" }
+
+  const hexagon = trimmed.match(HEXAGON_NODE_RE)
+  if (hexagon) return { id: hexagon[1]!, label: stripQuotes(hexagon[2]!), shape: "hexagon" }
+
+  const parallelogram = trimmed.match(PARALLELOGRAM_NODE_RE)
+  if (parallelogram) return { id: parallelogram[1]!, label: stripQuotes(parallelogram[2]!), shape: "parallelogram" }
 
   const decision = trimmed.match(DECISION_NODE_RE)
   if (decision) return { id: decision[1]!, label: stripQuotes(decision[2]!), shape: "decision" }
@@ -84,13 +96,15 @@ function parseNodeToken(token: string): FlowchartNode {
 
 function isSupportedNodeToken(token: string): boolean {
   const trimmed = stripNodeToken(token)
-  if (CIRCLE_NODE_RE.test(trimmed)) return false
   return (
     ID_ONLY_RE.test(trimmed) ||
     DATABASE_NODE_RE.test(trimmed) ||
     SUBROUTINE_NODE_RE.test(trimmed) ||
     ROUNDED_BRACKET_NODE_RE.test(trimmed) ||
+    CIRCLE_NODE_RE.test(trimmed) ||
     ROUNDED_NODE_RE.test(trimmed) ||
+    HEXAGON_NODE_RE.test(trimmed) ||
+    PARALLELOGRAM_NODE_RE.test(trimmed) ||
     DECISION_NODE_RE.test(trimmed) ||
     BOX_NODE_RE.test(trimmed)
   )
@@ -241,12 +255,13 @@ function maskNodeLabelOperators(line: string): string {
   return characters.join("")
 }
 
-function hasInternalStatementSeparator(line: string): boolean {
+function splitStatements(line: string): string[] {
+  const statements: string[] = []
   const stack: string[] = []
   let quote: '"' | "'" | undefined
   let edgeLabel = false
   const closes: Record<string, string> = { "[": "]", "(": ")", "{": "}" }
-  const finalIndex = line.trimEnd().length - 1
+  let start = 0
 
   for (let index = 0; index < line.length; index++) {
     const character = line[index]!
@@ -270,13 +285,68 @@ function hasInternalStatementSeparator(line: string): boolean {
       edgeLabel = !edgeLabel
       continue
     }
-    if (character === ";" && index < finalIndex && stack.length === 0 && !edgeLabel) return true
+    if (character === ";" && stack.length === 0 && !edgeLabel) {
+      const statement = line.slice(start, index).trim()
+      if (statement) statements.push(statement)
+      start = index + 1
+    }
   }
-  return false
+  const last = line.slice(start).trim()
+  if (last) statements.push(last)
+  return statements
+}
+
+function stripInlineComment(line: string): string {
+  const stack: string[] = []
+  let quote: '"' | "'" | undefined
+  let edgeLabel = false
+  const closes: Record<string, string> = { "[": "]", "(": ")", "{": "}" }
+  for (let index = 0; index < line.length - 1; index++) {
+    const character = line[index]!
+    if (quote) {
+      if (character === quote && line[index - 1] !== "\\") quote = undefined
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (character in closes) {
+      stack.push(character)
+      continue
+    }
+    if (stack.length && character === closes[stack.at(-1)!]) {
+      stack.pop()
+      continue
+    }
+    if (character === "|" && stack.length === 0) {
+      edgeLabel = !edgeLabel
+      continue
+    }
+    if (character === "%" && line[index + 1] === "%" && stack.length === 0 && !edgeLabel) {
+      return line.slice(0, index).trimEnd()
+    }
+  }
+  return line
+}
+
+function* flowchartStatements(content: string): Generator<NumberedMermaidLine> {
+  for (const source of meaningfulNumberedMermaidLines(content)) {
+    if (source.text.length > MAX_FLOWCHART_LINE_LENGTH) {
+      throw new MermaidSyntaxError("flowchart", source.lineNumber, source.text, "Flowchart statement is too long")
+    }
+    for (const text of splitStatements(stripInlineComment(source.text))) {
+      // The rest of a presentation directive may contain CSS semicolons, not
+      // Mermaid statements. Terminal colours come from the theme instead.
+      if (IGNORED_PRESENTATION_RE.test(text)) break
+      yield { ...source, text }
+    }
+  }
 }
 
 export function isMermaidFlowchartDiagram(content: string): boolean {
-  return FLOWCHART_HEADER_RE.test(firstMeaningfulMermaidLine(content) ?? "")
+  const first = stripInlineComment(firstMeaningfulMermaidLine(content) ?? "").trim()
+  return FLOWCHART_HEADER_RE.test(first) || (first.includes(";") && FLOWCHART_HEADER_RE.test(splitStatements(first)[0] ?? ""))
 }
 
 export function parseMermaidFlowchartDiagram(content: string): FlowchartDiagram {
@@ -286,12 +356,8 @@ export function parseMermaidFlowchartDiagram(content: string): FlowchartDiagram 
   const subgraphStack: Array<{ subgraph: FlowchartSubgraph; lineNumber: number; sourceLine: string }> = []
   let direction: FlowchartDirection = DEFAULT_DIRECTION
 
-  for (const source of meaningfulNumberedMermaidLines(content)) {
+  for (const source of flowchartStatements(content)) {
     const line = source.text
-    if (line.length > MAX_FLOWCHART_LINE_LENGTH) {
-      throw new MermaidSyntaxError("flowchart", source.lineNumber, line, "Flowchart statement is too long")
-    }
-    if (hasInternalStatementSeparator(line)) throw new MermaidSyntaxError("flowchart", source.lineNumber, line)
     const header = line.match(FLOWCHART_HEADER_RE)
     if (header) {
       direction = normalizeDirection(header[2])

@@ -21,6 +21,10 @@ export function parseMermaidGitGraphDiagram(content: string): GitGraphDiagram {
   let generatedId = 1
   let inAccessibilityDescription = false
   let headerSeen = false
+  const nextId = (): string => {
+    while (ids.has(`commit-${generatedId}`)) generatedId++
+    return `commit-${generatedId++}`
+  }
 
   for (const source of meaningfulNumberedMermaidLines(content)) {
     const line = stripComment(source.text)
@@ -47,7 +51,7 @@ export function parseMermaidGitGraphDiagram(content: string): GitGraphDiagram {
     if (operation === "commit") {
       const shorthandMessage = rest[0]?.match(/^(["']).*\1$/) ? stripMermaidQuotes(rest.shift()!) : undefined
       const attributes = parseAttributes(rest, source.lineNumber, line, ["id", "msg", "tag", "type"])
-      const id = single(attributes, "id", source.lineNumber, line) ?? `commit-${generatedId++}`
+      const id = single(attributes, "id", source.lineNumber, line) ?? nextId()
       if (!id) throw syntaxError(source.lineNumber, line, "GitGraph commit id cannot be empty")
       if (ids.has(id)) throw syntaxError(source.lineNumber, line, `Duplicate commit id "${id}"`)
       const type = parseCommitType(single(attributes, "type", source.lineNumber, line), source.lineNumber, line)
@@ -106,7 +110,7 @@ export function parseMermaidGitGraphDiagram(content: string): GitGraphDiagram {
       if (currentHead === mergedHead)
         throw syntaxError(source.lineNumber, line, `Branches already share head "${mergedHead}"`)
       const attributes = parseAttributes(rest.slice(1), source.lineNumber, line, ["id", "tag", "type"])
-      const id = single(attributes, "id", source.lineNumber, line) ?? `commit-${generatedId++}`
+      const id = single(attributes, "id", source.lineNumber, line) ?? nextId()
       if (ids.has(id)) throw syntaxError(source.lineNumber, line, `Duplicate commit id "${id}"`)
       const commit: GitGraphCommit = {
         id,
@@ -122,7 +126,18 @@ export function parseMermaidGitGraphDiagram(content: string): GitGraphDiagram {
     }
 
     if (operation === "cherry-pick") {
-      throw syntaxError(source.lineNumber, line, "Cherry-pick is not supported")
+      const attributes = parseAttributes(rest, source.lineNumber, line, ["id"])
+      const sourceId = single(attributes, "id", source.lineNumber, line)
+      const picked = commits.find((commit) => commit.id === sourceId)
+      if (!picked) throw syntaxError(source.lineNumber, line, `Unknown cherry-pick commit "${sourceId ?? ""}"`)
+      const parent = heads.get(currentBranch)
+      if (!parent) throw syntaxError(source.lineNumber, line, `Branch "${currentBranch}" has no commits`)
+      const id = nextId()
+      commits.push({ id, message: picked.message ?? `cherry-pick ${picked.id}`, tags: [], type: "NORMAL",
+        branch: currentBranch, parents: [parent] })
+      ids.add(id)
+      heads.set(currentBranch, id)
+      continue
     }
     throw syntaxError(source.lineNumber, line)
   }

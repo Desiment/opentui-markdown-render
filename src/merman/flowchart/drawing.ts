@@ -84,6 +84,15 @@ function drawNode(
       (x, y, char) => grid.setCell(x, y, char, border),
       diagramDiamondCharactersFromBorder(chars),
     )
+  } else if (node.shape === "circle") {
+    fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
+    drawCircleNode(grid, bounds, chars, border)
+  } else if (node.shape === "hexagon") {
+    fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
+    drawCircleNode(grid, bounds, BorderChars.single, border)
+  } else if (node.shape === "parallelogram") {
+    fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
+    drawParallelogramNode(grid, bounds, chars, border)
   } else if (node.shape === "subroutine") {
     fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
     drawSubroutineNode(grid, bounds, chars, border)
@@ -96,7 +105,7 @@ function drawNode(
   }
 
   const textTop =
-    node.shape === "decision"
+    node.shape === "decision" || node.shape === "circle" || node.shape === "hexagon"
       ? bounds.top + Math.floor((bounds.height - bounds.lines.length) / 2)
       : node.shape === "database"
         ? bounds.top + 2
@@ -108,6 +117,45 @@ function drawNode(
         ? bounds.left + 3
         : bounds.left + Math.max(1, Math.floor((bounds.width - visualLength(line)) / 2))
     setRichText(grid, lineX, textTop + index, lines[index]!.runs, style)
+  }
+}
+
+function drawCircleNode(
+  grid: FlowchartGrid,
+  bounds: FlowchartNodeBounds,
+  chars: BorderCharacters,
+  style: FlowchartCellStyle,
+): void {
+  const right = bounds.left + bounds.width - 1
+  const bottom = bounds.top + bounds.height - 1
+  // Inset the caps while keeping the sides on the routing bounds.
+  for (const y of [bounds.top, bottom]) {
+    grid.setCell(bounds.left + 1, y, y === bounds.top ? chars.topLeft : chars.bottomLeft, style)
+    grid.setCell(right - 1, y, y === bounds.top ? chars.topRight : chars.bottomRight, style)
+    for (let x = bounds.left + 2; x < right - 1; x++) grid.setCell(x, y, chars.horizontal, style)
+  }
+  for (let y = bounds.top + 1; y < bottom; y++) {
+    grid.setCell(bounds.left, y, y === bounds.top + 1 ? "╱" : y === bottom - 1 ? "╲" : chars.vertical, style)
+    grid.setCell(right, y, y === bounds.top + 1 ? "╲" : y === bottom - 1 ? "╱" : chars.vertical, style)
+  }
+}
+
+function drawParallelogramNode(
+  grid: FlowchartGrid,
+  bounds: FlowchartNodeBounds,
+  chars: BorderCharacters,
+  style: FlowchartCellStyle,
+): void {
+  const right = bounds.left + bounds.width - 1
+  const bottom = bounds.top + bounds.height - 1
+  for (const y of [bounds.top, bottom]) {
+    grid.setCell(bounds.left + 1, y, "╱", style)
+    grid.setCell(right - 1, y, "╱", style)
+    for (let x = bounds.left + 2; x < right - 1; x++) grid.setCell(x, y, chars.horizontal, style)
+  }
+  for (let y = bounds.top + 1; y < bottom; y++) {
+    grid.setCell(bounds.left, y, "╱", style)
+    grid.setCell(right, y, "╱", style)
   }
 }
 

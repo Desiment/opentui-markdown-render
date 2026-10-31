@@ -13,7 +13,8 @@ reproduction case.
 | `images.md` | `bun run demo:images` | telemetry frames: five high resolution assets and the three sources that must be refused |
 | `rendered.md` | `bun run demo:mixed` | one flight summary that mixes prose, a table, a formula, a diagram and a frame |
 | `frame.md` | `bun run demo:frame` | the viewer window: frame alignment, left-aligned text, and a wide table that pans sideways |
-| `mermaid.md` | `bun run demo:mermaid` | the architecture reference: every diagram kind, plus the class diagram stress cases |
+| `mermaid.md` | `bun run demo:mermaid` | the architecture reference: every diagram kind, plus representative class diagram stress cases |
+| `merman-ext.md` | `bun run demo:merman-ext` | the combined stress suite: 35 class diagrams plus 60 edge cases for flowchart, sequence, state, Gantt, timeline and Git graph |
 | `all.md` | `bun run demo:all` | the documentation index: every rendering path in one document |
 
 Run `bun run generate:examples` before the image, mixed, or all examples. Math needs a

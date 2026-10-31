@@ -13,8 +13,11 @@ import type {
 
 const DEFAULT_DIRECTION = "LR" satisfies StateDiagramDirection
 const STATE_RE = /^state\s+"([^"]+)"\s+as\s+(\S+)$/i
+const STATE_DECLARE_RE = /^state\s+([A-Za-z_][A-Za-z0-9_.-]*)$/i
+const STATE_DESCRIPTION_RE = /^([A-Za-z_][A-Za-z0-9_.-]*)\s*:\s*(.+)$/
 const COMPOSITE_STATE_RE = /^state\s+(?:"([^"]+)"\s+as\s+)?(\S+)\s*\{$/i
 const CHOICE_STATE_RE = /^state\s+(\S+)\s+<<choice>>$/i
+const PARALLEL_STATE_RE = /^state\s+(\S+)\s+<<(fork|join)>>$/i
 const TRANSITION_RE = /^(\[\*\]|[^\s:]+)\s*-->\s*(\[\*\]|[^\s:]+)(?:\s*:\s*(.*))?$/
 const DIRECTION_RE = /^direction\s+(TB|TD|BT|LR|RL)$/i
 const NOTE_INLINE_RE = /^note\s+(left|right)\s+of\s+(\S+)\s*:\s*(.*)$/i
@@ -166,9 +169,27 @@ export function parseMermaidStateDiagram(content: string): StateDiagram {
       continue
     }
 
+    const declaration = line.match(STATE_DECLARE_RE)
+    if (declaration) {
+      ensureState(states, declaration[1]!, declaration[1]!, "state", parentId)
+      continue
+    }
+
+    const description = line.match(STATE_DESCRIPTION_RE)
+    if (description) {
+      ensureState(states, description[1]!, decodeMermaidText(description[2]!), "state", parentId)
+      continue
+    }
+
     const choiceMatch = line.match(CHOICE_STATE_RE)
     if (choiceMatch) {
       ensureState(states, choiceMatch[1]!, "", "choice", parentId)
+      continue
+    }
+
+    const parallelMatch = line.match(PARALLEL_STATE_RE)
+    if (parallelMatch) {
+      ensureState(states, parallelMatch[1]!, "", parallelMatch[2]!.toLowerCase() as "fork" | "join", parentId)
       continue
     }
 

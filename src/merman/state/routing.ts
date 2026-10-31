@@ -73,7 +73,7 @@ export interface StateTransitionJunctionPlan {
   bounds: BoxBounds
   connections: ReadonlySet<DiagramDirection>
   transitions: readonly StateVisibleTransition[]
-  kind: "choice" | "hidden-composite-marker"
+  kind: "choice" | "fork" | "join" | "hidden-composite-marker"
 }
 
 interface StateTransitionRenderBuilder {
@@ -1492,7 +1492,8 @@ export function createStateTransitionJunctionPlans(
   const renderPlanByTransition = new Map(renderPlans.map((plan) => [plan.route.transition, plan]))
   return diagram.states.flatMap((state): StateTransitionJunctionPlan[] => {
     const kind =
-      state.kind === "choice" ? "choice" : isHiddenCompositeMarker(state) ? "hidden-composite-marker" : undefined
+      state.kind === "choice" || state.kind === "fork" || state.kind === "join"
+        ? state.kind : isHiddenCompositeMarker(state) ? "hidden-composite-marker" : undefined
     if (!kind) return []
     const stateBounds = bounds.get(state.id)
     if (!stateBounds) return []

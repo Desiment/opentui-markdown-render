@@ -6,7 +6,7 @@ export type StateDiagramArrowHeadStyle = "filled" | "line"
 export interface StateDiagramState {
   id: string
   label: string
-  kind: "state" | "start" | "end" | "choice"
+  kind: "state" | "start" | "end" | "choice" | "fork" | "join"
   parentId?: string
 }
 

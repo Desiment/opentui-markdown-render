@@ -148,7 +148,11 @@ function participantHeaderWidth(label: string, compact: boolean): number {
 function fragmentLabelText(fragment: SequenceFragment): string {
   if (fragment.kind === "end") return ""
   const prefix = fragment.kind === "loop" ? "↻ loop" : fragment.kind
-  return ` ${prefix}: ${fragment.label} `
+  return fragment.label ? ` ${prefix}: ${fragment.label} ` : ` ${prefix} `
+}
+
+export function isFragmentStart(kind: SequenceFragment["kind"]): boolean {
+  return kind !== "else" && kind !== "and" && kind !== "option" && kind !== "end"
 }
 
 function messageLabelLines(label: string): string[] {
@@ -360,7 +364,7 @@ function getFragmentFrameBoundsByStep(
     }
     const bounds = getFragmentFrameBounds(centers, step.fragment, activeFrames.length)
     if (!bounds) continue
-    if (step.fragment.kind === "alt" || step.fragment.kind === "loop") {
+    if (isFragmentStart(step.fragment.kind)) {
       activeFrames.push({ startIndex: index, bounds: { ...bounds } })
       continue
     }
@@ -599,7 +603,7 @@ export function createSequencePlacementPlan(
     if (step.type === "fragment") {
       let bounds = frameBounds.get(stepIndex) ?? getFragmentFrameBounds(centers, step.fragment)
       let wallsBefore: SequenceWallPlacement | undefined
-      if (step.fragment.kind === "alt" || step.fragment.kind === "loop") {
+      if (isFragmentStart(step.fragment.kind)) {
         if (bounds) activeFrames.push({ bounds, boundaryY: stepY })
       } else {
         const frame = activeFrames[activeFrames.length - 1]
