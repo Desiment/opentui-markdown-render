@@ -178,6 +178,8 @@ describe("class diagram rendering", () => {
     ].join("\n")
     const layout = layoutClassDiagram(parseMermaidClassDiagram(source), "TB")
     expect(layout.edges).toHaveLength(8)
+    // Siblings share a horizontal bus instead of occupying eight separate rows.
+    expect(new Set(layout.edges.map((edge) => edge.path[1]!.y)).size).toBe(1)
     for (const edge of layout.edges) {
       const last = edge.path[edge.path.length - 1]!
       const previous = edge.path[edge.path.length - 2]!
@@ -185,6 +187,30 @@ describe("class diagram rendering", () => {
       expect(Math.abs(last.x - previous.x)).toBe(0)
       expect(Math.abs(last.y - previous.y)).toBeGreaterThan(0)
     }
+  })
+
+  test("long back edges do not expand every rank gap", () => {
+    const source = [
+      "classDiagram", "  A <|-- B", "  B <|-- C", "  C <|-- D",
+      "  D --> A", "  D --> B", "  C --> A",
+    ].join("\n")
+    const layout = layoutClassDiagram(parseMermaidClassDiagram(source), "TB")
+    const boxes = new Map(layout.boxes.map((box) => [box.definition.id, box.bounds]))
+    for (const [parent, child] of [["A", "B"], ["B", "C"], ["C", "D"]]) {
+      const upper = boxes.get(parent)!
+      const lower = boxes.get(child)!
+      expect(lower.top - (upper.top + upper.height)).toBe(4)
+    }
+    for (const edge of layout.edges.filter((entry) => entry.fromId === "D")) {
+      // Back edges leave via an offset port and travel outside the node column.
+      expect(edge.path[0]!.x).not.toBe(edge.from.centerX)
+      expect(edge.path.some((point) => point.x < boxes.get("A")!.left || point.x > boxes.get("A")!.left + boxes.get("A")!.width)).toBe(true)
+    }
+  })
+
+  test("marks independent crossings without marking shared fan-out junctions", () => {
+    expect(renderClassDiagram("classDiagram\n A --> B\n B --> C\n C --> A\n A --> C")).toContain("╳")
+    expect(renderClassDiagram("classDiagram\n A <|-- B\n A <|-- C\n A <|-- D")).not.toContain("╳")
   })
 
   test("folds a wide horizontal diagram to vertical when capped", () => {

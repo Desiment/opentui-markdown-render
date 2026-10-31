@@ -89,7 +89,7 @@ function drawNode(
     drawCircleNode(grid, bounds, chars, border)
   } else if (node.shape === "hexagon") {
     fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
-    drawCircleNode(grid, bounds, BorderChars.single, border)
+    drawHexagonNode(grid, bounds, chars, border)
   } else if (node.shape === "parallelogram") {
     fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
     drawParallelogramNode(grid, bounds, chars, border)
@@ -140,7 +140,7 @@ function drawCircleNode(
   }
 }
 
-function drawParallelogramNode(
+function drawHexagonNode(
   grid: FlowchartGrid,
   bounds: FlowchartNodeBounds,
   chars: BorderCharacters,
@@ -148,14 +148,43 @@ function drawParallelogramNode(
 ): void {
   const right = bounds.left + bounds.width - 1
   const bottom = bounds.top + bounds.height - 1
+  // A hexagon has slanted caps and straight sides, unlike the rounded caps of
+  // the circle shape.
   for (const y of [bounds.top, bottom]) {
-    grid.setCell(bounds.left + 1, y, "╱", style)
-    grid.setCell(right - 1, y, "╱", style)
+    const top = y === bounds.top
+    grid.setCell(bounds.left + 1, y, top ? "╱" : "╲", style)
+    grid.setCell(right - 1, y, top ? "╲" : "╱", style)
     for (let x = bounds.left + 2; x < right - 1; x++) grid.setCell(x, y, chars.horizontal, style)
   }
   for (let y = bounds.top + 1; y < bottom; y++) {
-    grid.setCell(bounds.left, y, "╱", style)
-    grid.setCell(right, y, "╱", style)
+    const topSide = y === bounds.top + 1
+    const bottomSide = y === bottom - 1
+    grid.setCell(bounds.left, y, topSide ? "╱" : bottomSide ? "╲" : chars.vertical, style)
+    grid.setCell(right, y, topSide ? "╲" : bottomSide ? "╱" : chars.vertical, style)
+  }
+}
+
+function drawParallelogramNode(
+  grid: FlowchartGrid,
+  bounds: FlowchartNodeBounds,
+  chars: BorderCharacters,
+  style: FlowchartCellStyle,
+): void {
+  const left = bounds.left
+  const right = bounds.left + bounds.width - 1
+  const top = bounds.top
+  const bottom = bounds.top + bounds.height - 1
+  const height = bottom - top
+  const slant = Math.max(1, Math.min(2, Math.floor((bounds.width - 3) / 4)))
+  for (let y = top; y <= bottom; y++) {
+    const progress = height === 0 ? 1 : (bottom - y) / height
+    const leftX = left + Math.round(slant * progress)
+    const rightX = right - Math.round(slant * (1 - progress))
+    grid.setCell(leftX, y, "╱", style)
+    grid.setCell(rightX, y, "╱", style)
+    if (y === top || y === bottom) {
+      for (let x = leftX + 1; x < rightX; x++) grid.setCell(x, y, chars.horizontal, style)
+    }
   }
 }
 

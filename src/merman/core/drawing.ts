@@ -107,6 +107,7 @@ function lineDirections(char: string): readonly DiagramDirection[] | undefined {
       return ["left", "right", "up"]
     case "┼":
     case "╋":
+    case "╳":
       return ["up", "down", "left", "right"]
     default:
       return undefined
@@ -276,9 +277,15 @@ export function drawOrthogonalPath(
     const direction = directionBetween(from, to)
     if (!direction) continue
     const glyph = segmentGlyph(direction, options.lineStyle)
+    const horizontal = direction === "left" || direction === "right"
+    // Terminal cells are about twice as tall as they are wide. A two-cell
+    // horizontal dash matches the visual length of a one-row vertical dash,
+    // and the same ratio keeps the gaps balanced.
+    const dashOn = horizontal ? 2 : 1
+    const dashPeriod = horizontal ? 4 : 2
     let step = index === 1 ? 0 : 1
     walkOrthogonalSegment(from, to, index === 1, (point) => {
-      if (options.lineStyle !== "dashed" || step % 2 === 0) setCell(point.x, point.y, glyph)
+      if (options.lineStyle !== "dashed" || step % dashPeriod < dashOn) setCell(point.x, point.y, glyph)
       step += 1
     })
   }

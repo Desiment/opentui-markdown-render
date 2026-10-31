@@ -65,6 +65,8 @@ interface EdgeRecord {
   toRank: number
 }
 
+type CorridorSide = "low" | "high"
+
 /** Convert `List~int~` generics into `List<int>` for display only. */
 export function displayClassName(id: string): string {
   let open = true
@@ -123,7 +125,7 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
     fromRank: rank.get(relationship.from) ?? 0,
     toRank: rank.get(relationship.to) ?? 0,
   }))
-  const { gap: gapSize, stride, laneBase } = computeSpacing(records, vertical)
+  const spacing = computeSpacing(records, vertical)
   const boxes: ClassBox[] = []
   const boxById = new Map<string, ClassBox>()
   const bands = new Map<number, RankBand>()
@@ -145,7 +147,7 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
         x += size.width + NODE_H_GAP
       }
       bands.set(key, { start: y, end: y + bandHeight - 1 })
-      y += bandHeight + gapSize
+      y += bandHeight + spacing.gapFor(key)
     })
     mainExtent = Math.max(0, ...boxes.map((box) => box.bounds.left + box.bounds.width))
   } else {
@@ -164,27 +166,26 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
         y += size.height + NODE_MIN_GAP
       }
       bands.set(key, { start: x, end: x + bandWidth - 1 })
-      x += bandWidth + gapSize
+      x += bandWidth + spacing.gapFor(key)
     })
     mainExtent = Math.max(0, ...boxes.map((box) => box.bounds.top + box.bounds.height))
   }
 
-  const slots = new Map<number, number>()
-  const takeSlot = (gap: number): number => {
-    const slot = slots.get(gap) ?? 0
-    slots.set(gap, slot + 1)
-    return slot
+  const corridors: Record<CorridorSide, number> = { low: 0, high: 0 }
+  const takeCorridor = (side: CorridorSide): number => {
+    const index = corridors[side]++
+    return side === "low" ? -3 - index : mainExtent + 3 + index
   }
-  let corridor = 0
-  const takeCorridor = (): number => corridor++
-
-  const edges = records.map((record) => {
+  const bandFor = (rank: number): RankBand => bands.get(rank)!
+  const edges = records.map((record, edgeIndex) => {
     const from = boxById.get(record.from.id)!
     const to = boxById.get(record.to.id)!
-    const lane = (gap: number): number => bands.get(gap)!.end + laneBase + takeSlot(gap) * stride
+    const lane = (gap: number): number =>
+      bands.get(gap)!.end + spacing.laneBase + spacing.laneFor(gap, edgeIndex) * spacing.stride
+    const tieBreak: CorridorSide = edgeIndex % 2 === 0 ? "low" : "high"
     const path = vertical
-      ? verticalRoute(record, from.bounds, to.bounds, lane, () => mainExtent + 3 + takeCorridor())
-      : horizontalRoute(record, from.bounds, to.bounds, lane, () => mainExtent + 3 + takeCorridor())
+      ? verticalRoute(record, from.bounds, to.bounds, lane, bandFor, mainExtent, tieBreak, takeCorridor)
+      : horizontalRoute(record, from.bounds, to.bounds, lane, bandFor, mainExtent, tieBreak, takeCorridor)
     return {
       relationship: record.relationship,
       fromId: record.from.id,
@@ -222,40 +223,86 @@ function laneHeight(nodes: readonly ClassDefinition[], metrics: Map<string, BoxM
 function gapIndices(record: EdgeRecord): number[] {
   const upper = Math.min(record.fromRank, record.toRank)
   const lower = Math.max(record.fromRank, record.toRank)
-  return lower - upper <= 1 ? [upper] : [upper, lower - 1]
+  // Long relationships use fixed rows next to their boxes and a side corridor.
+  // They do not reserve lanes in the rank gaps, so one back edge cannot inflate
+  // the spacing of the whole diagram.
+  return lower - upper <= 1 ? [upper] : []
 }
 
-function computeSpacing(
-  records: readonly EdgeRecord[],
-  vertical: boolean,
-): { gap: number; stride: number; laneBase: number } {
-  const counts = new Map<number, number>()
-  for (const record of records) {
-    for (const gap of new Set(gapIndices(record))) counts.set(gap, (counts.get(gap) ?? 0) + 1)
+interface SpacingPlan {
+  stride: number
+  laneBase: number
+  gapFor: (gap: number) => number
+  laneFor: (gap: number, edgeIndex: number) => number
+}
+
+function computeSpacing(records: readonly EdgeRecord[], vertical: boolean): SpacingPlan {
+  const groupsByGap = new Map<number, Map<string, number>>()
+  const laneByEdge = new Map<string, number>()
+  const labelWidthByGap = new Map<number, number>()
+  for (const [edgeIndex, record] of records.entries()) {
+    const label = record.relationship.label ?? ""
+    for (const gap of new Set(gapIndices(record))) {
+      const groups = groupsByGap.get(gap) ?? new Map<string, number>()
+      const groupKey = `${record.from.id}\u0000${label}`
+      let slot = groups.get(groupKey)
+      if (slot === undefined) {
+        slot = groups.size
+        groups.set(groupKey, slot)
+      }
+      groupsByGap.set(gap, groups)
+      laneByEdge.set(`${edgeIndex}:${gap}`, slot)
+      if (label) {
+        const labelWidth = Math.max(...splitDiagramLines(label).map(diagramTextWidth))
+        labelWidthByGap.set(gap, Math.max(labelWidthByGap.get(gap) ?? 0, labelWidth))
+      }
+    }
   }
-  const slotCount = Math.max(0, ...counts.values())
-  const maxLabelWidth = Math.max(
-    0,
-    ...records.map((record) =>
-      record.relationship.label ? Math.max(...splitDiagramLines(record.relationship.label).map(diagramTextWidth)) : 0,
-    ),
-  )
-  if (vertical) {
-    const stride = 2
-    const laneBase = 2
-    // Slot lanes occupy band.end + laneBase + slot*stride for slot 0..slotCount-1.
-    // Reserve one extra stride so the deepest lane never lands on `child.top - 1`,
-    // which would make the final vertical drop collapse to zero length (the branch
-    // line would sit directly on the box with no connector).
-    return { stride, laneBase, gap: Math.max(NODE_MIN_GAP, laneBase + slotCount * stride) }
+
+  const stride = vertical
+    ? 2
+    : Math.max(2, Math.max(0, ...labelWidthByGap.values()) + 2)
+  const laneBase = vertical ? 2 : 1
+  const gapSizes = new Map<number, number>()
+  for (const [gap, groups] of groupsByGap) {
+    // Slot lanes occupy band.end + laneBase + slot*stride. Reserve one extra
+    // stride so the deepest lane never lands on `child.top - 1`; that would
+    // collapse the final vertical drop onto the box border.
+    const gapSize = vertical
+      ? Math.max(NODE_MIN_GAP, laneBase + groups.size * stride)
+      : Math.max(NODE_MIN_GAP, Math.max(0, groups.size - 1) * stride + (labelWidthByGap.get(gap) ?? 0) + 3)
+    gapSizes.set(gap, gapSize)
   }
-  const stride = Math.max(2, maxLabelWidth + 2)
-  const laneBase = 1
+
   return {
     stride,
     laneBase,
-    gap: Math.max(NODE_MIN_GAP, Math.max(0, slotCount - 1) * stride + maxLabelWidth + 3),
+    gapFor: (gap) => gapSizes.get(gap) ?? NODE_MIN_GAP,
+    laneFor: (gap, edgeIndex) => laneByEdge.get(`${edgeIndex}:${gap}`) ?? 0,
   }
+}
+
+function chooseCorridorSide(from: number, to: number, extent: number, tieBreak: CorridorSide): CorridorSide {
+  const low = -3
+  const high = extent + 3
+  const lowCost = Math.abs(from - low) + Math.abs(to - low)
+  const highCost = Math.abs(from - high) + Math.abs(to - high)
+  if (lowCost === highCost) return tieBreak
+  return lowCost < highCost ? "low" : "high"
+}
+
+function sideInset(size: number): number {
+  return Math.max(1, Math.min(2, Math.floor((size - 2) / 2)))
+}
+
+function sidePortX(bounds: DiagramBounds, side: CorridorSide): number {
+  const inset = sideInset(bounds.width)
+  return side === "low" ? bounds.left + inset : bounds.left + bounds.width - 1 - inset
+}
+
+function sidePortY(bounds: DiagramBounds, side: CorridorSide): number {
+  const inset = sideInset(bounds.height)
+  return side === "low" ? bounds.top + inset : bounds.top + bounds.height - 1 - inset
 }
 
 function verticalRoute(
@@ -263,7 +310,10 @@ function verticalRoute(
   from: DiagramBounds,
   to: DiagramBounds,
   laneFor: (gap: number) => number,
-  takeCorridor: () => number,
+  bandFor: (rank: number) => RankBand,
+  mainExtent: number,
+  tieBreak: CorridorSide,
+  takeCorridor: (side: CorridorSide) => number,
 ): DiagramPoint[] {
   const { fromRank, toRank } = record
   if (fromRank === toRank) {
@@ -293,28 +343,31 @@ function verticalRoute(
           point(to.centerX, to.top + to.height),
         ]
   }
-  const corridorX = takeCorridor()
+  const side = chooseCorridorSide(from.centerX, to.centerX, mainExtent, tieBreak)
+  const corridorX = takeCorridor(side)
+  const sourceX = sidePortX(from, side)
+  const targetX = sidePortX(to, side)
   if (fromRank < toRank) {
-    const sourceLane = laneFor(fromRank)
-    const targetLane = laneFor(toRank - 1)
+    const sourceLane = bandFor(fromRank + 1).start - 1
+    const targetLane = to.top - 2
     return [
-      point(from.centerX, from.top + from.height),
-      point(from.centerX, sourceLane),
+      point(sourceX, from.top + from.height),
+      point(sourceX, sourceLane),
       point(corridorX, sourceLane),
       point(corridorX, targetLane),
-      point(to.centerX, targetLane),
-      point(to.centerX, to.top - 1),
+      point(targetX, targetLane),
+      point(targetX, to.top - 1),
     ]
   }
-  const targetLane = laneFor(toRank)
-  const sourceLane = laneFor(fromRank - 1)
+  const sourceLane = bandFor(fromRank).start - 1
+  const targetLane = bandFor(toRank + 1).start - 1
   return [
-    point(from.centerX, from.top - 1),
-    point(from.centerX, sourceLane),
+    point(sourceX, from.top - 1),
+    point(sourceX, sourceLane),
     point(corridorX, sourceLane),
     point(corridorX, targetLane),
-    point(to.centerX, targetLane),
-    point(to.centerX, to.top + to.height),
+    point(targetX, targetLane),
+    point(targetX, to.top + to.height),
   ]
 }
 
@@ -323,7 +376,10 @@ function horizontalRoute(
   from: DiagramBounds,
   to: DiagramBounds,
   laneFor: (gap: number) => number,
-  takeCorridor: () => number,
+  bandFor: (rank: number) => RankBand,
+  mainExtent: number,
+  tieBreak: CorridorSide,
+  takeCorridor: (side: CorridorSide) => number,
 ): DiagramPoint[] {
   const { fromRank, toRank } = record
   if (fromRank === toRank) {
@@ -353,28 +409,31 @@ function horizontalRoute(
           point(to.left + to.width, to.centerY),
         ]
   }
-  const corridorY = takeCorridor()
+  const side = chooseCorridorSide(from.centerY, to.centerY, mainExtent, tieBreak)
+  const corridorY = takeCorridor(side)
+  const sourceY = sidePortY(from, side)
+  const targetY = sidePortY(to, side)
   if (fromRank < toRank) {
-    const sourceLane = laneFor(fromRank)
-    const targetLane = laneFor(toRank - 1)
+    const sourceLane = bandFor(fromRank + 1).start - 1
+    const targetLane = to.left - 2
     return [
-      point(from.left + from.width, from.centerY),
-      point(sourceLane, from.centerY),
+      point(from.left + from.width, sourceY),
+      point(sourceLane, sourceY),
       point(sourceLane, corridorY),
       point(targetLane, corridorY),
-      point(targetLane, to.centerY),
-      point(to.left - 1, to.centerY),
+      point(targetLane, targetY),
+      point(to.left - 1, targetY),
     ]
   }
-  const targetLane = laneFor(toRank)
-  const sourceLane = laneFor(fromRank - 1)
+  const sourceLane = bandFor(fromRank).start - 1
+  const targetLane = bandFor(toRank + 1).start - 1
   return [
-    point(from.left - 1, from.centerY),
-    point(sourceLane, from.centerY),
+    point(from.left - 1, sourceY),
+    point(sourceLane, sourceY),
     point(sourceLane, corridorY),
     point(targetLane, corridorY),
-    point(targetLane, to.centerY),
-    point(to.left + to.width, to.centerY),
+    point(targetLane, targetY),
+    point(to.left + to.width, targetY),
   ]
 }
 

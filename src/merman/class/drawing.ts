@@ -52,22 +52,31 @@ export function createClassDiagramLayout(
 function drawClassDiagramLayout(layout: ClassDiagramLayout): ClassGrid {
   if (layout.boxes.length === 0) return new DiagramCanvas(0, 0)
   const grid = makeGrid(Math.max(1, layout.width), Math.max(1, layout.height))
+  const vertical = layout.direction === "TB" || layout.direction === "BT"
   for (const box of layout.boxes) drawBox(grid, box)
   for (const edge of layout.edges) drawEdgeLine(grid, edge)
   for (const edge of layout.edges) drawEdgeEndpoints(grid, edge)
-  for (const edge of layout.edges) drawEdgeLabels(grid, edge)
+  for (const edge of layout.edges) drawEdgeLabels(grid, edge, vertical)
   return grid
 }
 
 function makeGrid(width: number, height: number): ClassGrid {
   return new DiagramCanvas(width, height, {
-    mergeCell: (existing, incoming): ClassCell => ({
-      ...incoming,
-      char:
-        existing.style === "edge" && incoming.style === "edge"
-          ? (mergeDiagramLineGlyph(existing.char, incoming.char) ?? incoming.char)
-          : incoming.char,
-    }),
+    mergeCell: (existing, incoming): ClassCell => {
+      const edgesOverlap = existing.style === "edge" && incoming.style === "edge"
+      const merged = edgesOverlap
+        ? (mergeDiagramLineGlyph(existing.char, incoming.char) ?? incoming.char)
+        : incoming.char
+      const crossing = edgesOverlap && (
+        (existing.char === "│" && incoming.char === "─") ||
+        (existing.char === "─" && incoming.char === "│")
+      )
+      return {
+        ...incoming,
+        // Distinguish independent perpendicular edges from a shared bus junction.
+        char: crossing || (edgesOverlap && existing.char === "╳" && merged === "┼") ? "╳" : merged,
+      }
+    },
   })
 }
 
@@ -171,7 +180,7 @@ function opposite(direction: DiagramDirection): DiagramDirection {
   }
 }
 
-function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge): void {
+function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge, vertical: boolean): void {
   const { relationship, path } = edge
   let labelWidth = 0
   let labelHeight = 0
@@ -181,7 +190,7 @@ function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge): void {
     const lines = splitDiagramLines(relationship.label)
     labelWidth = Math.max(...lines.map(diagramTextWidth))
     labelHeight = lines.length
-    const anchor = labelAnchor(path, lines.length, labelWidth)
+    const anchor = labelAnchor(path, lines.length, labelWidth, vertical)
     labelX = anchor.x
     labelY = anchor.y
     drawTextTag(grid, anchor.x, anchor.y, lines)
@@ -198,18 +207,34 @@ function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge): void {
   }
 }
 
-function labelAnchor(path: DiagramPoint[], lineCount: number, width: number): DiagramPoint {
+function labelAnchor(path: DiagramPoint[], lineCount: number, width: number, vertical: boolean): DiagramPoint {
   let bestFrom = path[0]!
   let bestTo = path[path.length - 1]!
   let bestLength = -1
+  const preferredLength = (from: DiagramPoint, to: DiagramPoint): number => {
+    const horizontal = from.y === to.y
+    return horizontal === vertical ? Math.abs(from.x - to.x) + Math.abs(from.y - to.y) : -1
+  }
   for (let index = 1; index < path.length; index++) {
     const from = path[index - 1]!
     const to = path[index]!
-    const length = Math.abs(from.x - to.x) + Math.abs(from.y - to.y)
+    const length = preferredLength(from, to)
     if (length > bestLength) {
       bestLength = length
       bestFrom = from
       bestTo = to
+    }
+  }
+  if (bestLength < 0) {
+    for (let index = 1; index < path.length; index++) {
+      const from = path[index - 1]!
+      const to = path[index]!
+      const length = Math.abs(from.x - to.x) + Math.abs(from.y - to.y)
+      if (length > bestLength) {
+        bestLength = length
+        bestFrom = from
+        bestTo = to
+      }
     }
   }
   const midX = Math.floor((bestFrom.x + bestTo.x) / 2)

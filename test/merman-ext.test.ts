@@ -43,6 +43,30 @@ test("flowchart edge cases keep every node shape and link style", () => {
   }
 })
 
+test("circles, hexagons and parallelograms have distinct, aligned outlines", () => {
+  const circle = plainText("flowchart TD\n C((Circle))").split("\n")
+  const hexagon = plainText("flowchart TD\n H{{Hexagon}}").split("\n")
+  const parallelogram = plainText("flowchart TD\n P[/Parallelogram/]").split("\n")
+  expect(circle[0]).toContain("╭")
+  expect(circle.at(-1)).toContain("╰")
+  expect(hexagon[0]).toMatch(/╱─+╲/)
+  expect(hexagon.at(-1)).toMatch(/╲─+╱/)
+  expect(hexagon.join("\n")).not.toContain("╭")
+  expect(parallelogram[0]).toMatch(/^  ╱─+╱$/)
+  expect(parallelogram[1]).toMatch(/^ ╱ Parallelogram ╱$/)
+  expect(parallelogram[2]).toMatch(/^╱─+╱$/)
+})
+
+test("the self-loop fixture draws D, G and H while retaining disconnected and order-only nodes", () => {
+  const loops = sources.find((source) => source.includes("A -->|retry| A"))!
+  for (const id of ["D", "G", "H"]) expect(loops).toContain(`${id} --> ${id}`)
+  expect(loops).toContain("J ~~~ K")
+  const text = plainText(loops)
+  for (const id of ["D", "G", "H"]) expect(text).toContain(`│ ${id} ├`)
+  for (const id of ["I", "J", "K"]) expect(text).toContain(`│ ${id} │`)
+  expect(text.match(/╰─────╯/g)).toHaveLength(4)
+})
+
 test("nested sequence fragments and message kinds remain visible", () => {
   const nested = sources.find((source) => source.includes("loop retry"))
   const messages = sources.find((source) => source.includes("A-xB"))

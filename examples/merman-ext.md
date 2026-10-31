@@ -1262,9 +1262,12 @@ flowchart LR
   A --> B
   B <--> C
   C --> A
-  D
+  D --> D
   E --- F
-  G ~~~ H
+  G --> G
+  H --> H
+  I
+  J ~~~ K
 ```
 
 ## 41. Participant aliases, actors and boxes
