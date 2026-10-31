@@ -107,7 +107,6 @@ function lineDirections(char: string): readonly DiagramDirection[] | undefined {
       return ["left", "right", "up"]
     case "┼":
     case "╋":
-    case "╳":
       return ["up", "down", "left", "right"]
     default:
       return undefined

@@ -208,9 +208,15 @@ describe("class diagram rendering", () => {
     }
   })
 
-  test("marks independent crossings without marking shared fan-out junctions", () => {
-    expect(renderClassDiagram("classDiagram\n A --> B\n B --> C\n C --> A\n A --> C")).toContain("╳")
-    expect(renderClassDiagram("classDiagram\n A <|-- B\n A <|-- C\n A <|-- D")).not.toContain("╳")
+  test("renders crossings as linework without X markers", () => {
+    const output = renderClassDiagram("classDiagram\n A --> B\n B --> C\n C --> A\n A --> C")
+    expect(output).toContain("┼")
+    expect(output).not.toContain("╳")
+  })
+
+  test("preserves open association arrows and hollow inheritance heads", () => {
+    expect(renderClassDiagram("classDiagram\n A --> B")).toContain("↓")
+    expect(renderClassDiagram("classDiagram\n A <|-- B")).toContain("△")
   })
 
   test("folds a wide horizontal diagram to vertical when capped", () => {

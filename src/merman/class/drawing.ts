@@ -62,21 +62,13 @@ function drawClassDiagramLayout(layout: ClassDiagramLayout): ClassGrid {
 
 function makeGrid(width: number, height: number): ClassGrid {
   return new DiagramCanvas(width, height, {
-    mergeCell: (existing, incoming): ClassCell => {
-      const edgesOverlap = existing.style === "edge" && incoming.style === "edge"
-      const merged = edgesOverlap
-        ? (mergeDiagramLineGlyph(existing.char, incoming.char) ?? incoming.char)
-        : incoming.char
-      const crossing = edgesOverlap && (
-        (existing.char === "│" && incoming.char === "─") ||
-        (existing.char === "─" && incoming.char === "│")
-      )
-      return {
-        ...incoming,
-        // Distinguish independent perpendicular edges from a shared bus junction.
-        char: crossing || (edgesOverlap && existing.char === "╳" && merged === "┼") ? "╳" : merged,
-      }
-    },
+    mergeCell: (existing, incoming): ClassCell => ({
+      ...incoming,
+      char:
+        existing.style === "edge" && incoming.style === "edge"
+          ? (mergeDiagramLineGlyph(existing.char, incoming.char) ?? incoming.char)
+          : incoming.char,
+    }),
   })
 }
 
