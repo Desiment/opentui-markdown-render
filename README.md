@@ -3,6 +3,26 @@
 `opentui-markdown-render` is a Bun/OpenTUI component for rendering Markdown with
 real LaTeX-style mathematics in Kitty-compatible terminals.
 
+## Getting started
+
+Requires Bun 1.4+, OpenTUI 0.5.12+, Solid 1.9+, and a Rust 1.92+ toolchain
+to build the native addon. The current build target is Linux x64 glibc;
+other platforms can still display Markdown and formula source as text.
+
+```sh
+bun install
+bun run build:native
+bun run demo:all
+```
+
+For an embedding project, install `opentui-markdown-render`, `@opentui/core`,
+`@opentui/solid`, and `solid-js`; the latter three are peer dependencies.
+See [examples](examples/README.md) for the standalone viewer and
+[architecture](docs/architecture.md) for the integration boundary.
+
+Documentation: [configuration](docs/CONFIGURATION.md) ·
+[Mermaid support](docs/MERMAID_SUPPORT.md) · [architecture](docs/architecture.md).
+
 ```text
 raw Markdown -> math extraction -> MiTeX -> Typst -> in-memory PNG -> OpenTUI image
 ```
@@ -89,7 +109,9 @@ light default. The terminal theme does not affect this choice.
 
 - `theme` accepts a resolved `Theme` (or an accessor) built with `resolveTheme`,
   `mergeTheme`, `defaultTheme`, and `type Theme`.
-- `themeMode` is `"light" | "dark"` (or an accessor).
+- `themeMode` is `"light" | "dark" | "solarized-light" | "solarized-dark"`
+  (or an accessor). The two Solarized presets use their canonical palette;
+  the resolved theme's `mode` remains `"light"` or `"dark"`.
 
 Math PNGs bake in the foreground/background, so they rerasterize when the theme
 or terminal cell size changes.
@@ -105,7 +127,7 @@ entirely.
 {
   // $schema is reserved; the package does not currently publish a JSON schema.
   "theme": {
-    "mode": "dark",
+    "mode": "solarized-dark",
     "accent": "#7dd3fc",
     "markdown": { "heading": "#e2e8f0", "heading3": "#94a3b8" },
     // Colours of the status line bar.
@@ -431,7 +453,7 @@ mapped back to offsets in the original source.
     unsupported. Set `mermaid.classLayout` to `"dagre"` to use Dagre's layered
     class layout, or `"builtin"` (the default) for the terminal-optimized layout.
 
-  See the [Mermaid support matrix](MERMAID_SUPPORT.md) for rendered, ignored and
+   See the [Mermaid support matrix](docs/MERMAID_SUPPORT.md) for rendered, ignored and
   unsupported syntax. The list above is a summary, not the full Mermaid grammar.
 - Standalone local PNG, JPEG, WebP, and GIF images resolve below `assetBase`.
   Network URLs and path traversal are rejected.

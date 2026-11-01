@@ -44,7 +44,7 @@ export function changeSetting(settings: DemoSettings, key: SettingKey, direction
   const { frame, tables } = settings
   switch (key) {
     case "mode":
-      return { ...settings, mode: cycle(["light", "dark"] as const, settings.mode, direction) }
+      return { ...settings, mode: cycle(["light", "dark", "solarized-light", "solarized-dark"] as const, settings.mode, direction) }
     case "classLayout":
       return { ...settings, classLayout: cycle(["builtin", "dagre"] as const, settings.classLayout, direction) }
     case "frameEnabled":

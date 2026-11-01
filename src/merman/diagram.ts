@@ -1,8 +1,8 @@
 import {
   parseColor,
+  StyledText,
   type ColorInput,
   type RGBA,
-  type StyledText,
 } from "@opentui/core"
 import type { OpenCodeDiagramPalette } from "./palette.js"
 import { drawClassDiagramGrid } from "./class/drawing.js"
@@ -55,6 +55,8 @@ export interface MermaidDiagramOptions {
   /** Gantt-specific terminal rendering options. */
   gantt?: Omit<GanttDiagramRenderOptions, "layoutMaxWidth">
   colors?: Partial<Record<keyof OpenCodeDiagramPalette, ColorInput>>
+  /** Restrict generated diagram colours to a fixed palette (e.g. Solarized). */
+  palette?: readonly RGBA[]
 }
 
 function color(value: ColorInput | undefined): RGBA | undefined {
@@ -239,5 +241,28 @@ export function measureMermaidDiagram(
   if (!kind) return undefined
   const configuredMaxWidth =
     options.layoutMaxWidth === undefined ? 120 : Math.max(1, Math.trunc(options.layoutMaxWidth))
-  return prepareDiagram(kind, source, options, configuredMaxWidth)
+  const prepared = prepareDiagram(kind, source, options, configuredMaxWidth)
+  const palette = options.palette
+  if (!palette?.length) return prepared
+  const nearest = (color: RGBA): RGBA => {
+    const [r, g, b] = color.toInts()
+    let closest = palette[0]!
+    let distance = Number.POSITIVE_INFINITY
+    for (const candidate of palette) {
+      const [cr, cg, cb] = candidate.toInts()
+      const difference = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2
+      if (difference < distance) { distance = difference; closest = candidate }
+    }
+    return closest
+  }
+  return {
+    ...prepared,
+    text: new StyledText(prepared.text.chunks.map((chunk) => ({
+      ...chunk,
+      fg: chunk.fg ? nearest(chunk.fg) : undefined,
+      // Transparent label overlays should remain transparent, not turn into
+      // opaque blocks when snapped to one of the 16 palette swatches.
+      bg: chunk.bg && chunk.bg.a >= 1 ? nearest(chunk.bg) : undefined,
+    }))),
+  }
 }

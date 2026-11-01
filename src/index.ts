@@ -87,6 +87,7 @@ export {
   mixColors,
   type Theme,
   type ThemeMode,
+  type ThemePreset,
   type ThemeOverride,
   type StatusLineTheme,
   type StatusLineThemeOverride,

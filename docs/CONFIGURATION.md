@@ -1,6 +1,8 @@
 # Конфигурация opentui-markdown-render
 
-Схема существующего конфига и предварительные идеи расширения. Секция 6 — эскиз, а не поддерживаемый формат.
+Справочник по JSON/JSONC-конфигурации. Рабочий пример: [`examples/opentui-markdown-render.jsonc`](../examples/opentui-markdown-render.jsonc). [Начало работы](../README.md#getting-started) · [Архитектура](architecture.md).
+
+Без `configPath` рендерер ищет `opentui-markdown-render.jsonc`, затем `.json`, начиная с текущего каталога и поднимаясь к корню. `config` отключает поиск файла; `discoverConfig={false}` отключает автоматический поиск при встраивании. Отсутствующие секции используют значения по умолчанию. Ошибки чтения/парсинга передаются через `onDiagnostic` (по умолчанию — предупреждение в stderr), и рендерер использует значения по умолчанию.
 
 ## 1. Путь конфигурации (pipeline)
 
@@ -42,11 +44,11 @@ type MarkdownConfig = {
 ```
 
 ### theme (ThemeOverride)
-См. `src/theme/types.ts`. JSONC-тема проверяется по известным ключам в `src/config/theme.ts`. Готовая тема, переданная хостом через `theme`, не проходит через этот валидатор.
+См. [`src/theme/types.ts`](../src/theme/types.ts). JSONC-тема проверяется по известным ключам в [`src/config/theme.ts`](../src/config/theme.ts). Готовая тема, переданная хостом через `theme`, не проходит через этот валидатор.
 
 ```ts
 type ThemeOverride = {
-  mode?: "light" | "dark"
+  mode?: "light" | "dark" | "solarized-light" | "solarized-dark"
   accent?: ColorInput
   categorical?: readonly ColorInput[]
   text?: {
@@ -67,6 +69,8 @@ type ThemeOverride = {
   }
 }
 ```
+
+Например, `{ "theme": { "mode": "solarized-light" } }` выбирает встроенную палитру Solarized Light; `solarized-dark` — тёмную. Остальные поля `theme` переопределяют выбранную палитру. То же значение можно передать в runtime `themeMode` (он имеет приоритет над режимом файла). Готовый `Theme.mode` остаётся `"light"` или `"dark"`; для Solarized поле `Theme.palette` содержит 16 канонических цветов, к которым привязываются цвета диаграмм.
 
 ```ts
 type MarkdownThemeOverride = {
@@ -115,6 +119,7 @@ type ImagesConfig = {
 type MermaidConfig = {
   compact?: boolean
   layoutMaxWidth?: number // положительный integer
+  classLayout?: "builtin" | "dagre" // только classDiagram; по умолчанию builtin
 }
 ```
 
@@ -140,7 +145,7 @@ type HeadingLevelConfig = {
 ```ts
 1: { bold: true,  italic:false, underline:true,  dim:false, uppercase:false, marginTop:2, marginBottom:1 }
 2: { bold: true,  italic:false, underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
-3: { bold: true,  italic:false, underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
+3: { bold: true,  italic:false, underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
 4: { bold: false, italic:true,  underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
 5: { bold: false, italic:true,  underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
 6: { bold: false, italic:false, underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
@@ -149,8 +154,9 @@ type HeadingLevelConfig = {
 Цвет заголовка берётся из темы: `headingColor(theme, level) = theme.markdown.headingLevels[level-1] ?? theme.markdown.heading`
 
 Дефолты `headingLevels`:
-- light: `[h("#0969da"), h("#8250df"), h("#8250df"), h("#59636e"), h("#59636e"), h("#59636e")]`
+- light: `[h("#0969da"), h("#8250df"), h("#8250df"), h("#6f42c1"), h("#3d444d"), h("#3d444d")]`
 - dark:  `[h("#58a6ff"), h("#d2a8ff"), h("#d2a8ff"), h("#8b949e"), h("#8b949e"), h("#8b949e")]`
+- solarized-light и solarized-dark: все уровни используют Solarized blue `#268bd2`, без цветового градиента. Встроенные цвета и цвета Mermaid ограничены каноническими 16 цветами Solarized.
 
 ### frame
 ```ts
@@ -177,14 +183,16 @@ type TablesConfig = {
 }
 ```
 Резолв: `src/core/tables.ts:48-58`. Дефолт: `widthMode:content`, `overflow:scroll`, `columnFitter:balanced`, `cellPaddingX:1`, `wrapMode: none|word` зависит от пары
+Цвет линий таблицы берётся из `theme.border.base` (его можно переопределить в конфиге).
 
 ## 3. Полная схема темы (фактическая)
 
-`src/theme/types.ts` + `src/theme/defaults.ts`
+[`src/theme/types.ts`](../src/theme/types.ts) + [`src/theme/defaults.ts`](../src/theme/defaults.ts)
 
 ```ts
 type Theme = {
   mode: ThemeMode // "light"|"dark"
+  palette?: readonly RGBA[] // Solarized: 16 базовых цветов для диаграмм
   accent: RGBA
   categorical: readonly RGBA[]
   text: {
@@ -243,7 +251,7 @@ type Theme = {
 | frame | все опции + типы | много (6 в тесте) | хорошо |
 | tables | все опции + типы | много (4 в тесте) | хорошо |
 
-## 5. План до максимально конфигурируемого
+## 5. Заметки для разработчиков (не часть формата конфига)
 
 ### Реализовано: валидация темы и разделение источников
 
@@ -311,19 +319,19 @@ function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]):
 
 Использовать во всех `validate*` функциях.
 
-### Шаг 5. Вынос хардкода
+### Возможное направление: вынести фиксированные параметры
 Найти и вынести:
 - `src/app.tsx` - отступы display-math (`marginTop:1, marginBottom:1`), прочий хардкод
 - `src/view/frame.tsx` - бордеры
 - `src/view/table.ts` - скролл поведение
-- `src/inline.tsx` / `src/media.tsx` - отступы списков/блоков/картинок
+- `src/view/inline-flow.tsx` / `src/media.tsx` - отступы списков/блоков/картинок
 - `src/core/*` - дефолты
 
 Варианты: расширить `theme` (новые секции) или добавить `spacing/lists/blocks` в корень конфига.
 
 ## 6. Черновой пример будущего конфига (содержит неподдерживаемые поля)
 
-**Не копируйте этот пример как рабочий JSONC.** `theme.markdown.headingLevels` и `headings.levels[N].color` сейчас не поддерживаются, `$schema` здесь не указывает на опубликованный файл. Структура будущего конфига ещё не утверждена.
+**Не копируйте этот пример как рабочий JSONC.** `theme.markdown.headingLevels` и `headings.levels[N].color` сейчас не поддерживаются, `$schema` здесь не указывает на опубликованный файл. Для рабочего конфига используйте [пример из `examples/`](../examples/opentui-markdown-render.jsonc). Структура будущего конфига ещё не утверждена.
 ```jsonc
 {
   "$schema": "./node_modules/opentui-markdown-render/schema.json",

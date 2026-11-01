@@ -25,7 +25,7 @@ export const headingLevels: readonly HeadingLevel[] = [1, 2, 3, 4, 5, 6]
 export const defaultHeadingStyles: HeadingStyles = {
   1: { bold: true, italic: false, underline: true, dim: false, uppercase: false, marginTop: 2, marginBottom: 1 },
   2: { bold: true, italic: false, underline: false, dim: false, uppercase: false, marginTop: 1, marginBottom: 0 },
-  3: { bold: true, italic: false, underline: false, dim: true, uppercase: false, marginTop: 1, marginBottom: 0 },
+  3: { bold: true, italic: false, underline: false, dim: false, uppercase: false, marginTop: 1, marginBottom: 0 },
   4: { bold: false, italic: true, underline: false, dim: false, uppercase: false, marginTop: 1, marginBottom: 0 },
   5: { bold: false, italic: true, underline: false, dim: true, uppercase: false, marginTop: 1, marginBottom: 0 },
   6: { bold: false, italic: false, underline: false, dim: true, uppercase: false, marginTop: 1, marginBottom: 0 },

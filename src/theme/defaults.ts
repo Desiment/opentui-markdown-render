@@ -1,7 +1,14 @@
 import { RGBA } from "@opentui/core"
-import type { Theme, ThemeMode } from "./types"
+import type { Theme, ThemePreset } from "./types"
 
 const h = (hex: string) => RGBA.fromHex(hex)
+
+// The canonical Solarized base tones and accents (8 + 8), without interpolated
+// shades. Both presets share these swatches and differ only in how they use them.
+const solarizedPalette = [
+  "#002b36", "#073642", "#586e75", "#657b83", "#839496", "#93a1a1", "#eee8d5", "#fdf6e3",
+  "#b58900", "#cb4b16", "#dc322f", "#d33682", "#6c71c4", "#268bd2", "#2aa198", "#859900",
+].map(h)
 
 const light: Theme = {
   mode: "light",
@@ -19,14 +26,14 @@ const light: Theme = {
     action: { primary: { focused: h("#0969da") } },
   },
   background: { base: h("#ffffff") },
-  border: { base: h("#d1d9e0") },
-  frame: { border: h("#d1d9e0"), title: h("#59636e") },
+  border: { base: h("#8c959f") },
+  frame: { border: h("#8c959f"), title: h("#59636e") },
   markdown: {
     text: h("#1f2328"),
     heading: h("#8250df"),
     // The ramp of the heading levels: the top level takes the accent, the
-    // middle levels the heading colour, the lowest ones the muted text colour.
-    headingLevels: [h("#0969da"), h("#8250df"), h("#8250df"), h("#59636e"), h("#59636e"), h("#59636e")],
+    // middle levels the heading colour, the lowest ones a readable text colour.
+    headingLevels: [h("#0969da"), h("#8250df"), h("#8250df"), h("#6f42c1"), h("#3d444d"), h("#3d444d")],
     link: h("#0969da"),
     linkText: h("#0969da"),
     code: h("#953800"),
@@ -109,6 +116,75 @@ const dark: Theme = {
   },
 }
 
-export function defaultTheme(mode: ThemeMode): Theme {
-  return mode === "light" ? light : dark
+const solarizedLight: Theme = {
+  mode: "light",
+  palette: solarizedPalette,
+  accent: h("#268bd2"),
+  categorical: [h("#268bd2"), h("#6c71c4"), h("#859900"), h("#b58900"), h("#dc322f"), h("#cb4b16")],
+  text: {
+    base: h("#586e75"), muted: h("#657b83"),
+    feedback: { error: h("#dc322f"), warning: h("#b58900"), success: h("#859900"), info: h("#268bd2") },
+    action: { primary: { focused: h("#268bd2") } },
+  },
+  background: { base: h("#fdf6e3") },
+  border: { base: h("#657b83") },
+  frame: { border: h("#657b83"), title: h("#586e75") },
+  markdown: {
+    text: h("#586e75"), heading: h("#268bd2"),
+    headingLevels: [h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2")],
+    link: h("#268bd2"), linkText: h("#268bd2"), code: h("#cb4b16"), blockQuote: h("#657b83"),
+    emphasis: h("#586e75"), strong: h("#586e75"), horizontalRule: h("#657b83"),
+    listItem: h("#586e75"), listEnumeration: h("#586e75"), image: h("#268bd2"),
+    imageText: h("#268bd2"), codeBlock: h("#586e75"),
+  },
+  syntax: {
+    comment: h("#657b83"), keyword: h("#dc322f"), function: h("#6c71c4"), variable: h("#586e75"),
+    string: h("#2aa198"), number: h("#d33682"), type: h("#b58900"), operator: h("#268bd2"),
+    punctuation: h("#586e75"),
+  },
+  diff: {
+    text: { added: h("#859900"), removed: h("#dc322f"), context: h("#657b83") },
+    background: { added: h("#eee8d5"), removed: h("#eee8d5"), context: h("#eee8d5") },
+  },
+}
+
+const solarizedDark: Theme = {
+  mode: "dark",
+  palette: solarizedPalette,
+  accent: h("#268bd2"),
+  categorical: [h("#268bd2"), h("#6c71c4"), h("#859900"), h("#b58900"), h("#dc322f"), h("#cb4b16")],
+  text: {
+    base: h("#93a1a1"), muted: h("#839496"),
+    feedback: { error: h("#dc322f"), warning: h("#b58900"), success: h("#859900"), info: h("#268bd2") },
+    action: { primary: { focused: h("#268bd2") } },
+  },
+  background: { base: h("#002b36") },
+  border: { base: h("#586e75") },
+  frame: { border: h("#586e75"), title: h("#93a1a1") },
+  markdown: {
+    text: h("#93a1a1"), heading: h("#268bd2"),
+    headingLevels: [h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2"), h("#268bd2")],
+    link: h("#268bd2"), linkText: h("#268bd2"), code: h("#cb4b16"), blockQuote: h("#839496"),
+    emphasis: h("#93a1a1"), strong: h("#93a1a1"), horizontalRule: h("#586e75"),
+    listItem: h("#93a1a1"), listEnumeration: h("#93a1a1"), image: h("#268bd2"),
+    imageText: h("#268bd2"), codeBlock: h("#93a1a1"),
+  },
+  syntax: {
+    comment: h("#839496"), keyword: h("#dc322f"), function: h("#6c71c4"), variable: h("#93a1a1"),
+    string: h("#2aa198"), number: h("#d33682"), type: h("#b58900"), operator: h("#268bd2"),
+    punctuation: h("#93a1a1"),
+  },
+  diff: {
+    text: { added: h("#859900"), removed: h("#dc322f"), context: h("#839496") },
+    background: { added: h("#073642"), removed: h("#073642"), context: h("#073642") },
+  },
+}
+
+export function defaultTheme(preset: ThemePreset): Theme {
+  switch (preset) {
+    case "light": return light
+    case "dark": return dark
+    case "solarized-light": return solarizedLight
+    case "solarized-dark": return solarizedDark
+  }
 }

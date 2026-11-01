@@ -69,7 +69,7 @@ export function validateTheme(value: Record<string, unknown>, file: string, repo
         continue
       }
       if (field === "color" && isColor(entry)) result[key] = entry
-      else if (field === "mode" && (entry === "light" || entry === "dark")) result[key] = entry
+      else if (field === "mode" && (entry === "light" || entry === "dark" || entry === "solarized-light" || entry === "solarized-dark")) result[key] = entry
       else if (field === "colors" && Array.isArray(entry)) {
         result[key] = entry.filter((color, index) => {
           if (isColor(color)) return true

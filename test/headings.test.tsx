@@ -54,7 +54,7 @@ describe("heading levels", () => {
     const setup = await renderDocument("# One\n\n## Two\n\n### Three\n\n#### Four\n\n###### Six\n")
     expect(spanWithText(setup, "One")?.attributes).toBe(TextAttributes.BOLD | TextAttributes.UNDERLINE)
     expect(spanWithText(setup, "Two")?.attributes).toBe(TextAttributes.BOLD)
-    expect(spanWithText(setup, "Three")?.attributes).toBe(TextAttributes.BOLD | TextAttributes.DIM)
+    expect(spanWithText(setup, "Three")?.attributes).toBe(TextAttributes.BOLD)
     expect(spanWithText(setup, "Four")?.attributes).toBe(TextAttributes.ITALIC)
     expect(spanWithText(setup, "Six")?.attributes).toBe(TextAttributes.DIM)
   })

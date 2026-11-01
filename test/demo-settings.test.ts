@@ -17,7 +17,9 @@ describe("demo configuration panel", () => {
 
   test("cycles the theme and enum settings in either direction", () => {
     expect(changeSetting(initial, "mode", 1).mode).toBe("dark")
-    expect(changeSetting(initial, "mode", -1).mode).toBe("dark")
+    expect(changeSetting(initial, "mode", -1).mode).toBe("solarized-dark")
+    expect(changeSetting({ ...initial, mode: "dark" }, "mode", 1).mode).toBe("solarized-light")
+    expect(changeSetting({ ...initial, mode: "solarized-light" }, "mode", 1).mode).toBe("solarized-dark")
     expect(changeSetting(initial, "classLayout", 1).classLayout).toBe("dagre")
     expect(changeSetting(initial, "classLayout", -1).classLayout).toBe("dagre")
     expect(changeSetting({ ...initial, classLayout: "dagre" }, "classLayout", 1).classLayout).toBe("builtin")

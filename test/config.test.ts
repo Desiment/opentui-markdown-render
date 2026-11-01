@@ -41,6 +41,14 @@ describe("config parsing", () => {
     expect(messages).toHaveLength(1)
   })
 
+  test("accepts both solarized presets in the config file", () => {
+    for (const mode of ["solarized-light", "solarized-dark"] as const) {
+      const config = parseConfig(`{ "theme": { "mode": "${mode}" } }`)
+      expect(config.theme?.mode).toBe(mode)
+      expect(resolveConfiguredTheme(config).background.base).toEqual(defaultTheme(mode).background.base)
+    }
+  })
+
   test("accepts JSONC comments and trailing commas", () => {
     const config = parseConfig(`{
       // a comment

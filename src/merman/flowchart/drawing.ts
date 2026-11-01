@@ -99,6 +99,9 @@ function drawNode(
   } else if (node.shape === "database") {
     fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
     drawDatabaseNode(grid, bounds, chars, border)
+  } else if (node.shape === "rounded") {
+    fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
+    drawRoundedNode(grid, bounds, border)
   } else {
     fillDiagramFrameInterior(bounds, (x, y) => grid.setCell(x, y, " ", style))
     drawDiagramFrame(bounds, chars, (x, y, char) => grid.setCell(x, y, char, border))
@@ -117,6 +120,23 @@ function drawNode(
         ? bounds.left + 3
         : bounds.left + Math.max(1, Math.floor((bounds.width - visualLength(line)) / 2))
     setRichText(grid, lineX, textTop + index, lines[index]!.runs, style)
+  }
+}
+
+function drawRoundedNode(grid: FlowchartGrid, bounds: FlowchartNodeBounds, style: FlowchartCellStyle): void {
+  const { left, top, width, height } = bounds
+  const right = left + width - 1
+  const bottom = top + height - 1
+  const chars = BorderChars.rounded
+  // Inset the caps to distinguish the pill from an ordinary rounded frame.
+  for (const y of [top, bottom]) {
+    grid.setCell(left + 1, y, y === top ? chars.topLeft : chars.bottomLeft, style)
+    grid.setCell(right - 1, y, y === top ? chars.topRight : chars.bottomRight, style)
+    for (let x = left + 2; x < right - 1; x++) grid.setCell(x, y, chars.horizontal, style)
+  }
+  for (let y = top + 1; y < bottom; y++) {
+    grid.setCell(left, y, chars.vertical, style)
+    grid.setCell(right, y, chars.vertical, style)
   }
 }
 
@@ -148,8 +168,8 @@ function drawHexagonNode(
 ): void {
   const right = bounds.left + bounds.width - 1
   const bottom = bounds.top + bounds.height - 1
-  // A hexagon has slanted caps and straight sides, unlike the rounded caps of
-  // the circle shape.
+  // One bevel at each end and straight sides between them: extra slashes on
+  // the rows beside the caps make the outline zigzag instead of hexagonal.
   for (const y of [bounds.top, bottom]) {
     const top = y === bounds.top
     grid.setCell(bounds.left + 1, y, top ? "╱" : "╲", style)
@@ -157,10 +177,8 @@ function drawHexagonNode(
     for (let x = bounds.left + 2; x < right - 1; x++) grid.setCell(x, y, chars.horizontal, style)
   }
   for (let y = bounds.top + 1; y < bottom; y++) {
-    const topSide = y === bounds.top + 1
-    const bottomSide = y === bottom - 1
-    grid.setCell(bounds.left, y, topSide ? "╱" : bottomSide ? "╲" : chars.vertical, style)
-    grid.setCell(right, y, topSide ? "╲" : bottomSide ? "╱" : chars.vertical, style)
+    grid.setCell(bounds.left, y, chars.vertical, style)
+    grid.setCell(right, y, chars.vertical, style)
   }
 }
 

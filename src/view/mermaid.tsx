@@ -72,6 +72,7 @@ export function MermaidDiagramView(props: MermaidDiagramViewProps) {
       classLayout: props.mermaidOptions?.classLayout,
       layoutMaxWidth: Math.min(props.mermaidOptions?.layoutMaxWidth ?? 120, Math.max(1, props.columns)),
       colors: resolveOpenCodeDiagramPalette(props.theme),
+      palette: props.theme.palette,
     }
     const restore = () => {
       if (!lastGood) return undefined

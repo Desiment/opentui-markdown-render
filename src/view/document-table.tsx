@@ -12,6 +12,7 @@ export type DocumentTableOptions = {
   resolved: ResolvedTableOptions
   foreground: RGBA
   background: RGBA
+  tableBorderColor: RGBA
 }
 
 export class MarkdownTableRenderable extends ScrollableTableRenderable {
@@ -57,6 +58,8 @@ export class MarkdownTableRenderable extends ScrollableTableRenderable {
 
   get foreground(): RGBA { return this.table.fg }
   set foreground(value: RGBA) { this.table.fg = value; this.syncOverflowState() }
+  get tableBorderColor(): RGBA { return this.table.borderColor }
+  set tableBorderColor(value: RGBA) { this.table.borderColor = value }
   get background(): RGBA { return this.backgroundColor }
   set background(value: RGBA) {
     this.backgroundColor = value
@@ -90,5 +93,6 @@ export function TableBlock(props: {
     ...props.block.rows.map((row) => row.map((value) => cell(value.children, false))),
   ]
   return <md_text_table tableData={content()} resolved={props.options}
-    foreground={props.theme.markdown.text} background={props.theme.background.base} />
+    foreground={props.theme.markdown.text} background={props.theme.background.base}
+    tableBorderColor={props.theme.border.base} />
 }

@@ -1,10 +1,10 @@
 import { parseColor, type ColorInput, type RGBA } from "@opentui/core"
 import { defaultTheme } from "./defaults"
 import { mixColors } from "./colors"
-import type { StatusLineTheme, StatusLineThemeOverride, Theme, ThemeMode, ThemeOverride, MarkdownThemeOverride } from "./types"
+import type { StatusLineTheme, StatusLineThemeOverride, Theme, ThemeMode, ThemePreset, ThemeOverride, MarkdownThemeOverride } from "./types"
 
 export function resolveTheme(options: {
-  mode: ThemeMode | null | undefined
+  mode: ThemePreset | null | undefined
   override?: ThemeOverride
 }): Theme {
   const override = options.override
@@ -16,6 +16,7 @@ export function resolveTheme(options: {
 // so the strip separates from the page without a loud block of colour.
 export function deriveStatusLineTheme(theme: {
   readonly mode: ThemeMode
+  readonly palette?: readonly RGBA[]
   readonly accent: RGBA
   readonly background: { readonly base: RGBA }
   readonly text: { readonly base: RGBA; readonly muted: RGBA }
@@ -24,7 +25,7 @@ export function deriveStatusLineTheme(theme: {
   // stronger one in dark mode.
   const ratio = theme.mode === "light" ? 0.12 : 0.14
   return {
-    background: mixColors(theme.accent, theme.background.base, ratio),
+    background: theme.palette?.[theme.mode === "light" ? 6 : 1] ?? mixColors(theme.accent, theme.background.base, ratio),
     foreground: theme.text.base,
     title: theme.accent,
     muted: theme.text.muted,
@@ -54,9 +55,11 @@ export function mergeTheme(base: Theme, override: ThemeOverride | undefined): Th
       override.text?.muted !== undefined ? text.muted : (base.frame?.title ?? text.muted),
     ),
   }
-  const derived = deriveStatusLineTheme({ mode: override.mode ?? base.mode, accent, background, text })
+  const mode = override.mode ? (override.mode.endsWith("light") ? "light" : "dark") : base.mode
+  const derived = deriveStatusLineTheme({ mode, accent, background, text, palette: base.palette })
   return {
-    mode: override.mode ?? base.mode,
+    mode,
+    palette: base.palette,
     accent,
     categorical: override.categorical ? override.categorical.map((entry) => parseColor(entry)) : base.categorical,
     text: {

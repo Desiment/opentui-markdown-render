@@ -1,12 +1,17 @@
 import type { ColorInput, RGBA } from "@opentui/core"
 
 export type ThemeMode = "light" | "dark"
+// A palette selects the colours; mode on the resolved Theme remains the
+// light/dark semantic used by components such as the status line.
+export type ThemePreset = ThemeMode | "solarized-light" | "solarized-dark"
 
 // The six heading levels a Markdown document can have.
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
 
 export type Theme = {
   readonly mode: ThemeMode
+  // When present, generated diagram colours are snapped to these fixed swatches.
+  readonly palette?: readonly RGBA[]
   readonly accent: RGBA
   readonly categorical: readonly RGBA[]
   readonly text: {
@@ -118,7 +123,7 @@ export type MarkdownThemeOverride = {
 // Host themes and the config file provide a partial, color-input override that
 // is merged over the bundled default for the selected mode.
 export type ThemeOverride = {
-  readonly mode?: ThemeMode
+  readonly mode?: ThemePreset
   readonly accent?: ColorInput
   readonly categorical?: readonly ColorInput[]
   readonly text?: {

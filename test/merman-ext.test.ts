@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { parseDocument } from "../src/core/parse"
 import { measureMermaidDiagram } from "../src/merman/diagram"
+import { resolveOpenCodeDiagramPalette } from "../src/merman/palette"
+import { defaultTheme } from "../src/theme/defaults"
 
 const markdown = readFileSync(
   fileURLToPath(new URL("../examples/merman-ext.md", import.meta.url)),
@@ -52,9 +54,45 @@ test("circles, hexagons and parallelograms have distinct, aligned outlines", () 
   expect(hexagon[0]).toMatch(/╱─+╲/)
   expect(hexagon.at(-1)).toMatch(/╲─+╱/)
   expect(hexagon.join("\n")).not.toContain("╭")
+  expect(hexagon[1]).toMatch(/^│ +│$/)
+  expect(hexagon.at(-2)).toMatch(/^│ +│$/)
   expect(parallelogram[0]).toMatch(/^  ╱─+╱$/)
   expect(parallelogram[1]).toMatch(/^ ╱ Parallelogram ╱$/)
   expect(parallelogram[2]).toMatch(/^╱─+╱$/)
+})
+
+test("square and rounded flowchart nodes keep distinct outlines in the same diagram", () => {
+  const square = plainText("flowchart TD\n A[Box]").split("\n")
+  const rounded = plainText("flowchart TD\n A(Rounded)").split("\n")
+  expect(square[0]).toMatch(/^╭─+╮$/)
+  expect(square.at(-1)).toMatch(/^╰─+╯$/)
+  expect(rounded[0]).toMatch(/^ ╭─+╮$/)
+  expect(rounded.at(-1)).toMatch(/^ ╰─+╯$/)
+  expect(rounded[1]).toMatch(/^│ Rounded │$/)
+  const connected = plainText("flowchart LR\n A[Box] --> R(Rounded) --> H{{Hexagon}}")
+  expect(connected).toContain("╭─────╮")
+  expect(connected).toContain("╭")
+  expect(connected).toContain("╱")
+  expect(connected).toContain("Hexagon")
+})
+
+test("Solarized diagram colors stay in the fixed 16-color palette", () => {
+  for (const preset of ["solarized-light", "solarized-dark"] as const) {
+    const theme = defaultTheme(preset)
+    const swatches = new Set(theme.palette!.map((color) => color.toInts().join(",")))
+    for (const source of [
+      "flowchart LR\n A(Round) --> H{{Hex}}",
+      "sequenceDiagram\n Alice->>Bob: Hello",
+      "stateDiagram-v2\n [*] --> Ready",
+    ]) {
+      const diagram = measureMermaidDiagram(source, { palette: theme.palette, colors: resolveOpenCodeDiagramPalette(theme) })
+      expect(diagram).toBeDefined()
+      for (const chunk of diagram!.text.chunks) {
+        if (chunk.fg) expect(swatches.has(chunk.fg.toInts().join(","))).toBe(true)
+        if (chunk.bg) expect(swatches.has(chunk.bg.toInts().join(","))).toBe(true)
+      }
+    }
+  }
 })
 
 test("the self-loop fixture draws D, G and H while retaining disconnected and order-only nodes", () => {

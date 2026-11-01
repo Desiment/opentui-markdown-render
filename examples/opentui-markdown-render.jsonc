@@ -14,7 +14,7 @@
     "levels": {
       "1": { "bold": true, "underline": true, "marginTop": 2 },
       "2": { "bold": true },
-      "3": { "bold": true, "dim": true }
+      "3": { "bold": true }
     }
   },
   // The window around the whole document. The width is the outer width; the

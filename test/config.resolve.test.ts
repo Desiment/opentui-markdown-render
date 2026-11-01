@@ -20,6 +20,13 @@ describe("static config and runtime settings", () => {
     expect(config.theme.mode).toBe("light")
   })
 
+  test("runtime solarized preset wins over the configured palette, keeping color overrides", () => {
+    const theme = resolveConfiguredTheme({ theme: { mode: "dark", accent: "#123456" } }, { themeMode: "solarized-light" })
+    expect(theme.mode).toBe("light")
+    expect(theme.background.base).toEqual(defaultTheme("solarized-light").background.base)
+    expect(theme.accent.toInts()).toEqual([18, 52, 86, 255])
+  })
+
   test("the public renderer helper shares the same mode precedence", () => {
     const renderer = { themeMode: "light" } as CliRenderer
     const theme = resolveRendererTheme(renderer, { config: { theme: { mode: "light" } }, themeMode: "dark" })

@@ -1,9 +1,9 @@
-import type { Theme, ThemeMode } from "../theme/types"
+import type { Theme, ThemePreset } from "../theme/types"
 import { resolveTheme } from "../theme/resolve"
 import { createDocumentLayout, type DocumentLayout, type FrameConfig, type TablesConfig } from "../core"
 import type { MarkdownConfig } from "./types"
 
-export type ThemeModeSetting = ThemeMode
+export type ThemeModeSetting = ThemePreset
 
 // The configuration describes the document's defaults. The host supplies live
 // values separately; a ready-made theme is never merged with the file theme.

@@ -26,7 +26,7 @@ diagram family's directives work in another.
 
 Other diagram families, such as `erDiagram`, `pie`, `journey`, `mindmap`,
 `sankey` and `xychart`, are **not detected** and remain readable code fences.
-See [`src/merman/detect.ts`](src/merman/detect.ts) for the actual family list.
+See [`src/merman/detect.ts`](../src/merman/detect.ts) for the actual family list.
 
 For an unsupported statement in a detected family, the parser raises a
 `MermaidSyntaxError`. The view uses a code-fence fallback; while an existing
@@ -40,9 +40,9 @@ contain at most **10,000 characters**; exceeding these limits does not produce
 a partial drawing.
 
 The status examples are checked in
-[`test/mermaid-support.test.ts`](test/mermaid-support.test.ts); additional
-rendering fixtures are in [`test/mermaid-extended.test.ts`](test/mermaid-extended.test.ts),
-[`test/merman-ext.test.ts`](test/merman-ext.test.ts),
-[`test/mermaid-view.render.test.tsx`](test/mermaid-view.render.test.tsx),
-[`examples/mermaid.md`](examples/mermaid.md) and the 95-diagram
-[`examples/merman-ext.md`](examples/merman-ext.md) stress suite.
+[`test/mermaid-support.test.ts`](../test/mermaid-support.test.ts); additional
+rendering fixtures are in [`test/mermaid-extended.test.ts`](../test/mermaid-extended.test.ts),
+[`test/merman-ext.test.ts`](../test/merman-ext.test.ts),
+[`test/mermaid-view.render.test.tsx`](../test/mermaid-view.render.test.tsx),
+[`examples/mermaid.md`](../examples/mermaid.md) and the 95-diagram
+[`examples/merman-ext.md`](../examples/merman-ext.md) stress suite.
