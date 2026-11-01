@@ -43,7 +43,7 @@ const MARGIN_TOP = 2
 const MARGIN_RIGHT = 4
 const MARGIN_BOTTOM = 2
 
-interface BoxMetrics {
+export interface BoxMetrics {
   titleLines: string[]
   attributeLines: string[]
   methodLines: string[]
@@ -91,7 +91,7 @@ export function classBoxSectionLines(
   }
 }
 
-function measureBox(definition: ClassDefinition): BoxMetrics {
+export function measureClassBox(definition: ClassDefinition): BoxMetrics {
   const { titleLines, attributeLines, methodLines } = classBoxSectionLines(definition)
   const contentWidth = Math.max(
     1,
@@ -107,7 +107,7 @@ function measureBox(definition: ClassDefinition): BoxMetrics {
 
 export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagramDirection): ClassDiagramLayout {
   const vertical = direction === "TB" || direction === "BT"
-  const metrics = new Map(diagram.classes.map((definition) => [definition.id, measureBox(definition)]))
+  const metrics = new Map(diagram.classes.map((definition) => [definition.id, measureClassBox(definition)]))
   const rank = computeRanks(diagram, direction)
   const byId = new Map(diagram.classes.map((definition) => [definition.id, definition]))
   const groups = new Map<number, ClassDefinition[]>()
@@ -141,7 +141,7 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
       let x = Math.floor((totalWidth - laneWidths[index]!) / 2)
       for (const definition of nodes) {
         const size = metrics.get(definition.id)!
-        const box = makeBox(definition, x, y, size)
+        const box = makeClassBox(definition, x, y, size)
         boxes.push(box)
         boxById.set(definition.id, box)
         x += size.width + NODE_H_GAP
@@ -160,7 +160,7 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
       let y = Math.floor((totalHeight - laneHeights[index]!) / 2)
       for (const definition of nodes) {
         const size = metrics.get(definition.id)!
-        const box = makeBox(definition, x, y, size)
+        const box = makeClassBox(definition, x, y, size)
         boxes.push(box)
         boxById.set(definition.id, box)
         y += size.height + NODE_MIN_GAP
@@ -196,10 +196,10 @@ export function layoutClassDiagram(diagram: ClassDiagram, direction: ClassDiagra
     }
   })
 
-  return finalize(boxes, edges, direction)
+  return finalizeClassDiagramLayout(boxes, edges, direction)
 }
 
-function makeBox(definition: ClassDefinition, x: number, y: number, size: BoxMetrics): ClassBox {
+export function makeClassBox(definition: ClassDefinition, x: number, y: number, size: BoxMetrics): ClassBox {
   return {
     definition,
     bounds: diagramBoundsFromRect(x, y, size.width, size.height),
@@ -495,7 +495,7 @@ function computeRanks(diagram: ClassDiagram, direction: ClassDiagramDirection): 
   return rank
 }
 
-function finalize(boxes: ClassBox[], edges: ClassEdge[], direction: ClassDiagramDirection): ClassDiagramLayout {
+export function finalizeClassDiagramLayout(boxes: ClassBox[], edges: ClassEdge[], direction: ClassDiagramDirection): ClassDiagramLayout {
   const points: DiagramPoint[] = [
     ...boxes.flatMap((box) => [
       { x: box.bounds.left, y: box.bounds.top },

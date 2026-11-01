@@ -85,7 +85,7 @@ function validateConfig(value: Record<string, unknown>, file: string, report?: C
     theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
     statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,
-    mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid) : undefined,
+    mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid, file, report) : undefined,
     headings: isRecord(value.headings) ? validateHeadings(value.headings, file, report) : undefined,
     frame: isRecord(value.frame) ? validateFrame(value.frame, file, report) : undefined,
     tables: isRecord(value.tables) ? validateTables(value.tables, file, report) : undefined,
@@ -123,10 +123,14 @@ function validateImages(value: Record<string, unknown>): MarkdownConfig["images"
   }
 }
 
-function validateMermaid(value: Record<string, unknown>): MarkdownConfig["mermaid"] {
+function validateMermaid(value: Record<string, unknown>, file: string, report?: ConfigReporter): MarkdownConfig["mermaid"] {
+  if (value.classLayout !== undefined && value.classLayout !== "builtin" && value.classLayout !== "dagre") {
+    warn(report, `Unknown Mermaid class layout "${String(value.classLayout)}" in ${file}`)
+  }
   return {
     compact: typeof value.compact === "boolean" ? value.compact : undefined,
     layoutMaxWidth: positiveInteger(value.layoutMaxWidth),
+    classLayout: value.classLayout === "dagre" || value.classLayout === "builtin" ? value.classLayout : undefined,
   }
 }
 

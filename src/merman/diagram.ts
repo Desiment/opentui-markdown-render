@@ -6,6 +6,7 @@ import {
 } from "@opentui/core"
 import type { OpenCodeDiagramPalette } from "./palette.js"
 import { drawClassDiagramGrid } from "./class/drawing.js"
+import type { ClassLayoutEngine } from "./class/types.js"
 import { parseMermaidClassDiagram } from "./class/parser.js"
 import { renderClassGridStyledText } from "./class/render-grid.js"
 import { resolveClassStyleColors } from "./class/style.js"
@@ -49,6 +50,8 @@ export interface MermaidDiagramOptions {
   compact?: boolean
   /** Fold responsive horizontal diagrams that exceed this width. Defaults to 120 columns. */
   layoutMaxWidth?: number
+  /** Class diagram layout engine. Defaults to builtin. */
+  classLayout?: ClassLayoutEngine
   /** Gantt-specific terminal rendering options. */
   gantt?: Omit<GanttDiagramRenderOptions, "layoutMaxWidth">
   colors?: Partial<Record<keyof OpenCodeDiagramPalette, ColorInput>>
@@ -68,7 +71,7 @@ function prepareDiagram(
   const compact = options.compact ?? true
   switch (kind) {
     case "classDiagram": {
-      const grid = drawClassDiagramGrid(parseMermaidClassDiagram(source), { layoutMaxWidth })
+      const grid = drawClassDiagramGrid(parseMermaidClassDiagram(source), { layoutMaxWidth, classLayout: options.classLayout })
       const size = grid.getTextSize({ trimTop: true, trimBottom: true })
       return {
         kind,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { MermaidSyntaxError } from "../src/merman"
 import { renderClassDiagram } from "../src/merman/class/diagram"
+import { createClassDiagramLayout } from "../src/merman/class/drawing"
 import { layoutClassDiagram } from "../src/merman/class/layout"
 import { isMermaidClassDiagram, parseMermaidClassDiagram } from "../src/merman/class/parser"
 import { measureMermaidDiagram } from "../src/merman/diagram"
@@ -226,6 +227,47 @@ describe("class diagram rendering", () => {
     const width = (text: string) => Math.max(...text.split("\n").map((line) => line.length))
     expect(width(folded)).toBeLessThan(width(wide))
   })
+
+  test("selects Dagre without changing the builtin default", () => {
+    const source = "classDiagram\n A --> B\n A --> C\n B ..> D : uses\n C --> D"
+    const diagram = parseMermaidClassDiagram(source)
+    expect(renderClassDiagram(source)).toBe(renderClassDiagram(source, { classLayout: "builtin" }))
+    const dagre = createClassDiagramLayout(diagram, { classLayout: "dagre" })
+    expect(dagre.boxes).toHaveLength(4)
+    expect(dagre.edges).toHaveLength(4)
+    expect(dagre.edges[2]?.relationship.dashed).toBe(true)
+    for (const edge of dagre.edges) {
+      for (let index = 1; index < edge.path.length; index++) {
+        const from = edge.path[index - 1]!
+        const to = edge.path[index]!
+        expect(from.x === to.x || from.y === to.y).toBe(true)
+      }
+    }
+    const output = renderClassDiagram(source, { classLayout: "dagre" })
+    for (const label of ["A", "B", "C", "D", "uses"]) expect(output).toContain(label)
+    expect(measureMermaidDiagram(source, { classLayout: "dagre" })?.kind).toBe("classDiagram")
+  })
+
+  test("Dagre renders cycles, self loops and all four directions", () => {
+    for (const direction of ["TB", "BT", "LR", "RL"] as const) {
+      const source = `classDiagram\n direction ${direction}\n A --> A : retry\n A --> B\n B --> C\n C --> A`
+      const loop = createClassDiagramLayout(parseMermaidClassDiagram(source), { classLayout: "dagre" }).edges[0]!.path
+      expect(loop.length).toBeGreaterThan(2)
+      expect(new Set(loop.map((point) => `${point.x}:${point.y}`)).size).toBeGreaterThan(2)
+      const output = renderClassDiagram(source, { classLayout: "dagre" })
+      for (const label of ["A", "B", "C", "retry"]) expect(output).toContain(label)
+    }
+  })
+
+  test("Dagre preserves straight horizontal arrows and responsive folding", () => {
+    const source = "classDiagram\n direction LR\n A --> B\n B --> C\n C --> D"
+    const wide = renderClassDiagram(source, { classLayout: "dagre", layoutMaxWidth: 1000 })
+    const folded = renderClassDiagram(source, { classLayout: "dagre", layoutMaxWidth: 24 })
+    expect(wide).toContain("─────────→")
+    expect(Math.max(...folded.split("\n").map((line) => line.length))).toBeLessThan(
+      Math.max(...wide.split("\n").map((line) => line.length)),
+    )
+  })
 })
 
 describe("class diagram fallback", () => {
@@ -251,6 +293,7 @@ describe("class diagram fallback", () => {
   test("measureMermaidDiagram propagates the syntax error so the fence stays source", () => {
     const source = ["classDiagram", "  class A", "  note \"unattached\""].join("\n")
     expect(() => measureMermaidDiagram(source)).toThrow(MermaidSyntaxError)
+    expect(() => measureMermaidDiagram(source, { classLayout: "dagre" })).toThrow(MermaidSyntaxError)
   })
 
   test("measureMermaidDiagram prepares a supported class diagram", () => {

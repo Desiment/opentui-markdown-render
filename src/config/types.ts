@@ -53,6 +53,8 @@ export type ImagesConfig = {
 export type MermaidConfig = {
   readonly compact?: boolean
   readonly layoutMaxWidth?: number
+  /** Class diagrams only; defaults to the built-in layout. */
+  readonly classLayout?: "builtin" | "dagre"
 }
 
 // The heading levels are addressed by their number, the way Markdown writes

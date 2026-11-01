@@ -120,7 +120,7 @@ entirely.
     "border": "top"
   },
   "images": { "maxColumns": 80, "maxRows": 32 },
-  "mermaid": { "compact": false, "layoutMaxWidth": 120 },
+  "mermaid": { "compact": false, "layoutMaxWidth": 120, "classLayout": "builtin" },
   "headings": { "levels": { "1": { "underline": false } } },
   "frame": { "enabled": true, "width": 100, "align": "center", "style": "rounded" },
   "tables": { "widthMode": "content", "overflow": "scroll" }
@@ -426,7 +426,8 @@ mapped back to offsets in the original source.
   - Git graphs support commits, branches, merges, switching and simple
     `cherry-pick id: "..."`. Class diagrams support class labels, relationships,
     stereotypes and attached notes; standalone notes and namespaces remain
-    unsupported.
+    unsupported. Set `mermaid.classLayout` to `"dagre"` to use Dagre's layered
+    class layout, or `"builtin"` (the default) for the terminal-optimized layout.
 
   See the [Mermaid support matrix](MERMAID_SUPPORT.md) for rendered, ignored and
   unsupported syntax. The list above is a summary, not the full Mermaid grammar.

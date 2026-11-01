@@ -129,6 +129,29 @@ test("the restored class diagram stress suite prepares at every supported width"
   }
 })
 
+test("Dagre prepares every class diagram fixture", () => {
+  for (const source of exampleMermaidSources("merman-ext").slice(0, 35)) {
+    expect(measureMermaidDiagram(source, { classLayout: "dagre", layoutMaxWidth: 100 })?.height).toBeGreaterThan(0)
+  }
+})
+
+test("Dagre separates dashed and solid horizontal relationships in example 24", () => {
+  const source = exampleMermaidSources("merman-ext")[23]!
+  const layout = createClassDiagramLayout(parseMermaidClassDiagram(source), { classLayout: "dagre" })
+  const horizontal = (edge: (typeof layout.edges)[number]) => edge.path.slice(1).flatMap((to, index) => {
+    const from = edge.path[index]!
+    return from.y === to.y ? [{ y: from.y, left: Math.min(from.x, to.x), right: Math.max(from.x, to.x) }] : []
+  })
+  for (const dashed of layout.edges.filter((edge) => edge.relationship.dashed)) {
+    for (const solid of layout.edges.filter((edge) => !edge.relationship.dashed)) {
+      for (const a of horizontal(dashed)) for (const b of horizontal(solid)) {
+        if (a.y !== b.y) continue
+        expect(Math.min(a.right, b.right) - Math.max(a.left, b.left)).toBeLessThan(2)
+      }
+    }
+  }
+})
+
 test("the extended class diagram fixture renders labels and attached notes", () => {
   const sources = exampleMermaidSources("merman-ext")
     .filter((source) => measureMermaidDiagram(source)?.kind === "classDiagram")

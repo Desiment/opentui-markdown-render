@@ -56,11 +56,19 @@ describe("config parsing", () => {
       "theme": { "accent": "#ff0000" },
       "statusline": { "enabled": false, "separator": " | ", "border": "top" },
       "images": { "maxColumns": 40, "maxRows": 12 },
-      "mermaid": { "compact": true, "layoutMaxWidth": 90 }
+      "mermaid": { "compact": true, "layoutMaxWidth": 90, "classLayout": "dagre" }
     }`)
     expect(config.statusline).toEqual({ enabled: false, separator: " | ", border: "top" })
     expect(config.images).toEqual({ maxColumns: 40, maxRows: 12 })
-    expect(config.mermaid).toEqual({ compact: true, layoutMaxWidth: 90 })
+    expect(config.mermaid).toEqual({ compact: true, layoutMaxWidth: 90, classLayout: "dagre" })
+  })
+
+  test("accepts only builtin and dagre as Mermaid class layout engines", () => {
+    expect(parseConfig('{ "mermaid": { "classLayout": "builtin" } }').mermaid?.classLayout).toBe("builtin")
+    const warnings: string[] = []
+    const config = parseConfig('{ "mermaid": { "classLayout": "custom" } }', "config", (message) => warnings.push(message))
+    expect(config.mermaid?.classLayout).toBeUndefined()
+    expect(warnings[0]).toContain("Unknown Mermaid class layout")
   })
 
   test("reports invalid config with the file name", () => {

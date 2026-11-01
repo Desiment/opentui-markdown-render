@@ -1,4 +1,5 @@
 export type ClassDiagramDirection = "TB" | "BT" | "LR" | "RL"
+export type ClassLayoutEngine = "builtin" | "dagre"
 
 export type ClassRelationshipKind =
   | "inheritance"
@@ -49,6 +50,8 @@ export interface ClassDiagram {
 export interface ClassDiagramRenderOptions {
   /** Fold horizontally over this many columns. Defaults to 120. */
   layoutMaxWidth?: number
+  /** Choose the built-in terminal layout or Dagre's layered layout. */
+  classLayout?: ClassLayoutEngine
 }
 
 export type ClassCellStyle = "border" | "title" | "stereotype" | "member" | "edge" | "label"

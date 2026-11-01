@@ -3,6 +3,8 @@ import { DiagramCanvas, type DiagramCanvasCell } from "../core/canvas.js"
 import { diagramLineGlyph, drawDiagramFrame, drawOrthogonalPath, mergeDiagramLineGlyph } from "../core/drawing.js"
 import { directionBetween, type DiagramDirection, type DiagramPoint } from "../core/geometry.js"
 import { diagramTextWidth, splitDiagramLines } from "../core/text.js"
+import { layoutDagreClassDiagram } from "./dagre-layout.js"
+import { classLabelAnchor } from "./labels.js"
 import {
   CLASS_CONTENT_OFFSET_X,
   layoutClassDiagram,
@@ -34,18 +36,19 @@ export function createClassDiagramLayout(
   diagram: ClassDiagram,
   options: ClassDiagramRenderOptions = {},
 ): ClassDiagramLayout {
+  const place = options.classLayout === "dagre" ? layoutDagreClassDiagram : layoutClassDiagram
   const requested = diagram.direction
   const maxWidth =
     options.layoutMaxWidth !== undefined && Number.isFinite(options.layoutMaxWidth)
       ? Math.max(1, Math.trunc(options.layoutMaxWidth))
       : undefined
   if (maxWidth === undefined || (requested !== "LR" && requested !== "RL")) {
-    return layoutClassDiagram(diagram, requested)
+    return place(diagram, requested)
   }
-  const wide = layoutClassDiagram(diagram, requested)
+  const wide = place(diagram, requested)
   if (wide.width <= maxWidth) return wide
   const fallbackDirection: ClassDiagramDirection = requested === "RL" ? "BT" : "TB"
-  const fallback = layoutClassDiagram(diagram, fallbackDirection)
+  const fallback = place(diagram, fallbackDirection)
   return fallback.width < wide.width ? fallback : wide
 }
 
@@ -253,7 +256,7 @@ function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge, vertical: boolean): vo
     const lines = splitDiagramLines(relationship.label)
     labelWidth = Math.max(...lines.map(diagramTextWidth))
     labelHeight = lines.length
-    const anchor = labelAnchor(path, lines.length, labelWidth, vertical)
+    const anchor = classLabelAnchor(path, lines.length, labelWidth, vertical)
     labelX = anchor.x
     labelY = anchor.y
     drawTextTag(grid, anchor.x, anchor.y, lines)
@@ -268,43 +271,6 @@ function drawEdgeLabels(grid: ClassGrid, edge: ClassEdge, vertical: boolean): vo
     const anchor = cardinalityAnchor(path, width, false, labelX, labelY, labelWidth, labelHeight)
     drawTextTag(grid, anchor.x, anchor.y, [relationship.toCardinality])
   }
-}
-
-function labelAnchor(path: DiagramPoint[], lineCount: number, width: number, vertical: boolean): DiagramPoint {
-  let bestFrom = path[0]!
-  let bestTo = path[path.length - 1]!
-  let bestLength = -1
-  const preferredLength = (from: DiagramPoint, to: DiagramPoint): number => {
-    const horizontal = from.y === to.y
-    return horizontal === vertical ? Math.abs(from.x - to.x) + Math.abs(from.y - to.y) : -1
-  }
-  for (let index = 1; index < path.length; index++) {
-    const from = path[index - 1]!
-    const to = path[index]!
-    const length = preferredLength(from, to)
-    if (length > bestLength) {
-      bestLength = length
-      bestFrom = from
-      bestTo = to
-    }
-  }
-  if (bestLength < 0) {
-    for (let index = 1; index < path.length; index++) {
-      const from = path[index - 1]!
-      const to = path[index]!
-      const length = Math.abs(from.x - to.x) + Math.abs(from.y - to.y)
-      if (length > bestLength) {
-        bestLength = length
-        bestFrom = from
-        bestTo = to
-      }
-    }
-  }
-  const midX = Math.floor((bestFrom.x + bestTo.x) / 2)
-  const midY = Math.floor((bestFrom.y + bestTo.y) / 2)
-  if (bestFrom.y === bestTo.y) return { x: midX - Math.floor(width / 2), y: bestFrom.y - lineCount }
-  if (bestFrom.x === bestTo.x) return { x: bestFrom.x + 2, y: midY - Math.floor(lineCount / 2) }
-  return { x: midX, y: midY }
 }
 
 function cardinalityAnchor(
