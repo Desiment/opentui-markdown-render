@@ -41,6 +41,7 @@ const frame: FrameConfig | undefined =
 function Demo() {
   const [settings, setSettings] = createSignal<DemoSettings>({
     mode: config.theme?.mode ?? "light",
+    classLayout: config.mermaid?.classLayout ?? "builtin",
     frame: frame ?? {},
     tables: config.tables ?? {},
   })
@@ -135,7 +136,7 @@ function Demo() {
               renderer={renderer}
               assetBase={() => import.meta.dir}
               themeMode={() => settings().mode}
-              config={config}
+              config={() => ({ ...config, mermaid: { ...config.mermaid, classLayout: settings().classLayout } })}
               frame={() => settings().frame}
               tables={() => settings().tables}
               cwd={import.meta.dir}

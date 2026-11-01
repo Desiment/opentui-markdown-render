@@ -3,12 +3,13 @@ import type { ThemeModeSetting } from "../src"
 
 export type DemoSettings = {
   readonly mode: ThemeModeSetting
+  readonly classLayout: "builtin" | "dagre"
   readonly frame: FrameConfig
   readonly tables: TablesConfig
 }
 
 export const settingKeys = [
-  "mode", "frameEnabled", "frameStyle", "frameAlign", "frameWidth", "framePadding",
+  "mode", "classLayout", "frameEnabled", "frameStyle", "frameAlign", "frameWidth", "framePadding",
   "tableWidth", "tableOverflow", "tableFitter", "tablePadding",
 ] as const
 
@@ -17,6 +18,7 @@ type SettingKey = (typeof settingKeys)[number]
 export function settingRows(settings: DemoSettings): { key: SettingKey; label: string; value: string }[] {
   return [
     { key: "mode", label: "Theme", value: settings.mode },
+    { key: "classLayout", label: "Class layout", value: settings.classLayout },
     { key: "frameEnabled", label: "Frame", value: settings.frame.enabled ? "on" : "off" },
     { key: "frameStyle", label: "Frame style", value: settings.frame.style ?? "box" },
     { key: "frameAlign", label: "Frame align", value: settings.frame.align ?? "left" },
@@ -43,6 +45,8 @@ export function changeSetting(settings: DemoSettings, key: SettingKey, direction
   switch (key) {
     case "mode":
       return { ...settings, mode: cycle(["light", "dark"] as const, settings.mode, direction) }
+    case "classLayout":
+      return { ...settings, classLayout: cycle(["builtin", "dagre"] as const, settings.classLayout, direction) }
     case "frameEnabled":
       return { ...settings, frame: { ...frame, enabled: !frame.enabled } }
     case "frameStyle":

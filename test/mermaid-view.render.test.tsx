@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test"
-import { testRender } from "@opentui/solid"
+import { testRender, useRenderer } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { MermaidDiagramView } from "../src/view/mermaid"
+import { MarkdownRenderer } from "../src/app"
 import { defaultTheme } from "../src/theme/defaults"
 import { parseDocument } from "../src/core/parse"
 import { parseMermaidFlowchartDiagram } from "../src/merman/flowchart/parser"
@@ -89,6 +90,28 @@ test("Mermaid keeps the last good diagram while a fence is incomplete", async ()
   update("flowchart LR\n A[Alpha] --> C[Gamma]")
   await setup.renderOnce()
   expect(setup.captureCharFrame()).toContain("Gamma")
+})
+
+test("changing class layout config redraws a mounted Markdown diagram", async () => {
+  let setLayout!: (value: "builtin" | "dagre") => void
+  const source = "```mermaid\nclassDiagram\n direction LR\n A --> B\n B --> C\n C --> D\n```"
+  const setup = await testRender(() => {
+    const [layout, update] = createSignal<"builtin" | "dagre">("builtin")
+    setLayout = update
+    return <MarkdownRenderer content={() => source} renderer={useRenderer()} theme={defaultTheme("dark")}
+      config={() => ({ mermaid: { classLayout: layout(), layoutMaxWidth: 200 } })} />
+  }, { width: 80, height: 55 })
+  await setup.renderOnce()
+  const builtin = setup.captureCharFrame()
+  expect(builtin).toContain("A")
+  setLayout("dagre")
+  await setup.renderOnce()
+  const dagre = setup.captureCharFrame()
+  expect(dagre).toContain("A")
+  expect(dagre).not.toBe(builtin)
+  setLayout("builtin")
+  await setup.renderOnce()
+  expect(setup.captureCharFrame()).toBe(builtin)
 })
 
 test("unrecognized first Mermaid fence remains readable code", async () => {

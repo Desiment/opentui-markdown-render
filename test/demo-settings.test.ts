@@ -3,6 +3,7 @@ import { changeSetting, settingKeys, settingRows, type DemoSettings } from "../e
 
 const initial: DemoSettings = {
   mode: "light",
+  classLayout: "builtin",
   frame: { enabled: true, width: 100, style: "rounded", align: "center", paddingX: 1 },
   tables: { widthMode: "content", overflow: "scroll", columnFitter: "balanced", cellPaddingX: 1 },
 }
@@ -11,11 +12,15 @@ describe("demo configuration panel", () => {
   test("every selectable setting has a displayed value", () => {
     expect(settingRows(initial).map((row) => row.key)).toEqual([...settingKeys])
     expect(settingRows(initial)[0]).toEqual({ key: "mode", label: "Theme", value: "light" })
+    expect(settingRows(initial)[1]).toEqual({ key: "classLayout", label: "Class layout", value: "builtin" })
   })
 
   test("cycles the theme and enum settings in either direction", () => {
     expect(changeSetting(initial, "mode", 1).mode).toBe("dark")
     expect(changeSetting(initial, "mode", -1).mode).toBe("dark")
+    expect(changeSetting(initial, "classLayout", 1).classLayout).toBe("dagre")
+    expect(changeSetting(initial, "classLayout", -1).classLayout).toBe("dagre")
+    expect(changeSetting({ ...initial, classLayout: "dagre" }, "classLayout", 1).classLayout).toBe("builtin")
     expect(changeSetting(initial, "frameStyle", 1).frame.style).toBe("heavy")
     expect(changeSetting(initial, "frameAlign", 1).frame.align).toBe("right")
     expect(changeSetting(initial, "tableWidth", 1).tables.widthMode).toBe("full")
@@ -30,6 +35,7 @@ describe("demo configuration panel", () => {
     expect(changeSetting({ ...initial, tables: { cellPaddingX: 0 } }, "tablePadding", -1).tables.cellPaddingX).toBe(0)
     expect(changeSetting(initial, "framePadding", 1).frame.paddingX).toBe(2)
     expect(initial.frame).toEqual({ enabled: true, width: 100, style: "rounded", align: "center", paddingX: 1 })
+    expect(initial.classLayout).toBe("builtin")
     expect(initial.tables).toEqual({ widthMode: "content", overflow: "scroll", columnFitter: "balanced", cellPaddingX: 1 })
   })
 })

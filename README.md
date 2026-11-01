@@ -202,6 +202,8 @@ a value is skipped. `formatStatusLine` and `statusLineSegments` expose the
 same formatting without rendering.
 The demo uses the status line only for information; its keyboard instructions
 are in the configuration panel opened with `c`.
+The panel's **Class layout** row switches class diagrams between `builtin` and
+`dagre` for the current demo session; Left/Right changes the selection.
 
 `style` picks how strongly the row is highlighted:
 
