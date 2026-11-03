@@ -1,50 +1,102 @@
-# Конфигурация opentui-markdown-render
+# Configuration
 
-Справочник по JSON/JSONC-конфигурации. Рабочий пример: [`examples/opentui-markdown-render.jsonc`](../examples/opentui-markdown-render.jsonc). [Начало работы](../README.md#getting-started) · [Архитектура](architecture.md).
+`opentui-markdown-render` accepts a JSON or JSONC configuration object. Every section is optional. Missing values keep the bundled defaults.
 
-Без `configPath` рендерер ищет `opentui-markdown-render.jsonc`, затем `.json`, начиная с текущего каталога и поднимаясь к корню. `config` отключает поиск файла; `discoverConfig={false}` отключает автоматический поиск при встраивании. Отсутствующие секции используют значения по умолчанию. Ошибки чтения/парсинга передаются через `onDiagnostic` (по умолчанию — предупреждение в stderr), и рендерер использует значения по умолчанию.
+The repository's working example is [`examples/opentui-markdown-render.jsonc`](../examples/opentui-markdown-render.jsonc).
 
-## 1. Путь конфигурации (pipeline)
+## Configuration sources and precedence
 
+The standalone component can receive configuration from a prop or from a file:
+
+1. A `config` prop, when present, replaces file lookup entirely.
+2. Otherwise `configPath` names the file to load.
+3. Without `configPath`, discovery starts at `cwd` (or the process working directory) and walks upward. **At each directory**, `opentui-markdown-render.jsonc` wins over `opentui-markdown-render.json`; a config in the nearest directory wins over one in a parent.
+4. `discoverConfig={false}` disables automatic discovery for an embedded renderer, but does not cancel an explicit `configPath`.
+5. Missing sections use bundled defaults.
+
+Runtime layout props override their file sections:
+
+```text
+MarkdownRenderer frame/tables props -> config.frame/config.tables -> defaults
 ```
-opentui-markdown-render.jsonc | .json
-  -> discoverConfig() (вверх по дереву)
-    -> loadConfig()
-      -> parseConfig()  (strip comments + trailing commas, JSON.parse)
-        -> validateConfig() (мягкая валидация + варнинги)
-          -> MarkdownConfig
-             -> resolveConfiguredTheme(config, runtime) -> Theme
-                (готовая тема хоста > runtime-режим > режим файла > light)
-            -> resolveConfiguredLayout(config, runtime) -> DocumentLayout
-            -> resolveHeadingStyles(config.headings) -> HeadingStyles
+
+Theme mode follows a separate precedence:
+
+```text
+host-provided resolved Theme -> runtime themeMode -> config.theme.mode -> light
 ```
 
-Код:
-- `src/config/load.ts` - поиск/парсинг/валидация
-- `src/config/theme.ts` - проверка тематических override
-- `src/config/resolve.ts` - объединение конфигурации с runtime-входами хоста
-- `src/config/types.ts` - типы конфига
-- `src/theme/*` - тема и мердж
-- `src/headings.ts` - стили заголовков
-- `src/app.tsx` - связка
+The terminal's current colour theme does not select the renderer mode. The host can pass a fully resolved `Theme` when it needs complete control. A runtime `frame` or `tables` object replaces that entire config section; it is **not** merged field by field with the file section.
 
-## 2. Полная схема конфига (текущая)
+### JSONC parsing and `$schema`
 
-### Корень
-```ts
-type MarkdownConfig = {
-  theme?: ThemeOverride        // проверяется рекурсивно при загрузке файла
-  statusline?: StatusLineConfig
-  images?: ImagesConfig
-  mermaid?: MermaidConfig
-  headings?: HeadingsConfig
-  frame?: FrameConfig
-  tables?: TablesConfig
+The file loader accepts `//` and `/* ... */` comments and trailing commas, then parses the remaining text as JSON. Use double-quoted JSON keys and strings. `$schema` is reserved/ignored, but the package does not currently publish a JSON schema file; do not point it at a nonexistent package schema.
+
+File loading and validation are not the same as a ready TypeScript `config` prop. The latter bypasses discovery, JSONC parsing, and file validation; callers must construct valid values themselves.
+
+## Complete practical example
+
+```jsonc
+{
+  "theme": {
+    "mode": "solarized-dark",
+    "accent": "#7dd3fc",
+    "markdown": {
+      "heading": "#e2e8f0",
+      "heading3": "#94a3b8"
+    },
+    "statusline": {
+      "background": "#162333",
+      "title": "#7dd3fc",
+      "border": "#7dd3fc"
+    }
+  },
+  "statusline": {
+    "enabled": true,
+    "style": "bar",
+    "highlight": "title",
+    "fields": ["title", "mode", "protocol", "cell", "position"],
+    "separator": " · ",
+    "border": "top"
+  },
+  "images": {
+    "maxColumns": 80,
+    "maxRows": 32
+  },
+  "mermaid": {
+    "compact": false,
+    "layoutMaxWidth": 120,
+    "classLayout": "builtin"
+  },
+  "headings": {
+    "levels": {
+      "1": { "underline": false },
+      "2": { "bold": true, "marginTop": 1 },
+      "3": { "bold": true, "dim": true }
+    }
+  },
+  "frame": {
+    "enabled": true,
+    "width": 100,
+    "align": "center",
+    "style": "rounded",
+    "paddingX": 1,
+    "paddingY": 0,
+    "title": "notes.md",
+    "titleAlign": "center"
+  },
+  "tables": {
+    "widthMode": "content",
+    "overflow": "scroll",
+    "columnFitter": "balanced",
+    "cellPaddingX": 1
+  }
 }
 ```
 
-### theme (ThemeOverride)
-См. [`src/theme/types.ts`](../src/theme/types.ts). JSONC-тема проверяется по известным ключам в [`src/config/theme.ts`](../src/config/theme.ts). Готовая тема, переданная хостом через `theme`, не проходит через этот валидатор.
+Unknown sections, unknown nested theme keys, unknown status fields, invalid colours, and many invalid enum values produce diagnostics and are ignored. Not every section reports every unknown or mistyped field; see [Validation and diagnostics](#validation-and-diagnostics). A file that is not valid JSON/JSONC falls back to bundled defaults *when loaded by the component adapter*. Use `onDiagnostic` to collect these messages in an embedding application's own UI.
+
+## `theme`
 
 ```ts
 type ThemeOverride = {
@@ -54,15 +106,26 @@ type ThemeOverride = {
   text?: {
     base?: ColorInput
     muted?: ColorInput
-    feedback?: { error?: ColorInput; warning?: ColorInput; success?: ColorInput; info?: ColorInput }
+    feedback?: {
+      error?: ColorInput
+      warning?: ColorInput
+      success?: ColorInput
+      info?: ColorInput
+    }
     action?: { primary?: { focused?: ColorInput } }
   }
   background?: { base?: ColorInput }
   border?: { base?: ColorInput }
-  frame?: FrameThemeOverride      // { border?, title? }
-  statusline?: StatusLineThemeOverride // { background?, foreground?, title?, muted?, border? }
+  frame?: { border?: ColorInput; title?: ColorInput }
+  statusline?: {
+    background?: ColorInput
+    foreground?: ColorInput
+    title?: ColorInput
+    muted?: ColorInput
+    border?: ColorInput
+  }
   markdown?: MarkdownThemeOverride
-  syntax?: { [K in keyof Theme["syntax"]]?: ColorInput }
+  syntax?: Record<string, ColorInput>
   diff?: {
     text?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
     background?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
@@ -70,333 +133,175 @@ type ThemeOverride = {
 }
 ```
 
-Например, `{ "theme": { "mode": "solarized-light" } }` выбирает встроенную палитру Solarized Light; `solarized-dark` — тёмную. Остальные поля `theme` переопределяют выбранную палитру. То же значение можно передать в runtime `themeMode` (он имеет приоритет над режимом файла). Готовый `Theme.mode` остаётся `"light"` или `"dark"`; для Solarized поле `Theme.palette` содержит 16 канонических цветов, к которым привязываются цвета диаграмм.
+Supported `markdown` colour keys are `text`, `heading`, `heading1` through `heading6`, `link`, `linkText`, `code`, `blockQuote`, `emphasis`, `strong`, `horizontalRule`, `listItem`, `listEnumeration`, `image`, `imageText`, and `codeBlock`.
 
-```ts
-type MarkdownThemeOverride = {
-  [K in Exclude<keyof Theme["markdown"], "headingLevels">]?: ColorInput
-} & {
-  heading1?: ColorInput
-  heading2?: ColorInput
-  heading3?: ColorInput
-  heading4?: ColorInput
-  heading5?: ColorInput
-  heading6?: ColorInput
-}
-// + отсутствует в типе: headingLevels?: readonly ColorInput[] (длина 6)
-```
+Notable colour behaviour:
 
-Ключи `Theme["markdown"]`: `text`, `heading`, `headingLevels`, `link`, `linkText`, `code`, `blockQuote`, `emphasis`, `strong`, `horizontalRule`, `listItem`, `listEnumeration`, `image`, `imageText`, `codeBlock`
+- `listItem` and `listEnumeration` colour list markers.
+- `code` colours inline code; `codeBlock` is the base colour for unhighlighted fenced code.
+- `horizontalRule` colours the rule border.
+- `image` colours loading/error labels; `imageText` colours alt text and diagnostics.
+- Loaded image pixels are not recoloured.
+- `statusline` colours are used by the `bar` status-line style and otherwise fall back to colours derived from the accent.
 
-`listItem` и `listEnumeration` окрашивают маркеры списков; `code` — inline-код, `codeBlock` — базовый цвет текста блочного кода, `horizontalRule` — границу разделителя. У отдельного локального изображения `image` окрашивает подпись состояния загрузки/ошибки, `imageText` — alt-текст и сообщение об ошибке. Цвет `image` не меняет пиксели картинки; inline-картинки OpenTUI используют стиль ссылок.
+Solarized modes use canonical Solarized colours for the preset and diagram palette. Individual overrides can still adjust the resolved theme.
 
-### statusline
+Heading colours have a specific precedence within `theme.markdown`: a `headingN` colour sets level N; otherwise an explicit `heading` colour applies to that level; otherwise the selected preset's per-level colour is kept. The internal resolved theme contains a `headingLevels` array, but `theme.markdown.headingLevels` is **not** a supported JSONC field: use `heading1` through `heading6` instead. `headings.levels[N].color` is also not a supported field.
+
+File colours accept named colours from the validator (such as `red` or `brightblue`) and hex strings in 3-, 4-, 6-, or 8-digit forms, with or without `#`. Invalid colours are ignored so an accidental typo does not turn the interface an unexpected colour.
+
+## `statusline`
+
 ```ts
 type StatusLineConfig = {
   enabled?: boolean
-  fields?: StatusLineField[]  // валидируются по allowlist
+  fields?: StatusLineField[]
   separator?: string
   border?: "none" | "top" | "bottom"
-  style?: StatusLineStyle     // валидируется isStatusLineStyle
-  highlight?: StatusLineField // валидируется isStatusLineField
+  style?: "plain" | "bar"
+  highlight?: StatusLineField
 }
-statusLineFields = ["title","mode","protocol","cell","mathScale","position","hint","text"]
-statusLineStyles  = ["bar","plain"]
 ```
 
-Масштаб математических формул не настраивается из файла: пиксельный размер вычисляется из размера ячейки терминала. Секция `math` теперь считается неизвестной и выдаёт предупреждение. Внутренние коэффициенты растеризации в `src/math/` — не пользовательские настройки.
+Available fields are `title`, `mode`, `protocol`, `cell`, `mathScale`, `position`, `hint`, and `text`. Fields without values are skipped. `text` expands a list of host-provided strings.
 
-### images
+- `bar` gives the row its own background, border, and accent treatment.
+- `plain` keeps the row in the page's normal colours.
+- `highlight` defaults to `title`; the separator immediately after the highlighted field uses the border colour.
+- `enabled` defaults to true in the standalone viewer unless the host omits the component entirely.
+
+The status line does not read the document parser or calculate scroll position. The host supplies all values.
+
+## `images`
+
 ```ts
 type ImagesConfig = {
-  maxColumns?: number // положительный integer
-  maxRows?: number    // положительный integer
+  maxColumns?: number
+  maxRows?: number
 }
 ```
 
-### mermaid
+Both values must be positive integers. Their defaults are 80 columns and 32 rows. They limit standalone rendered images in terminal columns and rows and do not change the source image on disk. See [Features](features.md#images-and-gifs) for path security and GIF behaviour.
+
+## `mermaid`
+
 ```ts
 type MermaidConfig = {
   compact?: boolean
-  layoutMaxWidth?: number // положительный integer
-  classLayout?: "builtin" | "dagre" // только classDiagram; по умолчанию builtin
+  layoutMaxWidth?: number
+  classLayout?: "builtin" | "dagre"
 }
 ```
 
-### headings
+`compact` requests a more compact diagram layout. `layoutMaxWidth` limits the width used during layout and defaults to 120; the component also caps it to its actual content width. `classLayout` affects class diagrams only: `builtin` is the terminal-optimized default, while `dagre` uses Dagre's layered layout.
+
+The configuration does not turn unsupported Mermaid families into supported ones. See the [Mermaid support matrix](MERMAID_SUPPORT.md).
+
+## `headings`
+
 ```ts
 type HeadingsConfig = {
-  levels?: Partial<Record<HeadingLevelKey, HeadingLevelConfig>>
-}
-type HeadingLevelKey = "1"|"2"|"3"|"4"|"5"|"6"
-type HeadingLevelConfig = {
-  bold?: boolean
-  italic?: boolean
-  underline?: boolean
-  dim?: boolean
-  uppercase?: boolean
-  marginTop?: number      // неотрицательный integer
-  marginBottom?: number   // неотрицательный integer
-  // НЕТ color
+  levels?: Partial<Record<"1" | "2" | "3" | "4" | "5" | "6", {
+    bold?: boolean
+    italic?: boolean
+    underline?: boolean
+    dim?: boolean
+    uppercase?: boolean
+    marginTop?: number
+    marginBottom?: number
+  }>>
 }
 ```
 
-Дефолты стилей: `src/headings.ts:25-32`
-```ts
-1: { bold: true,  italic:false, underline:true,  dim:false, uppercase:false, marginTop:2, marginBottom:1 }
-2: { bold: true,  italic:false, underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
-3: { bold: true,  italic:false, underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
-4: { bold: false, italic:true,  underline:false, dim:false, uppercase:false, marginTop:1, marginBottom:0 }
-5: { bold: false, italic:true,  underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
-6: { bold: false, italic:false, underline:false, dim:true,  uppercase:false, marginTop:1, marginBottom:0 }
-```
+Each option is optional. An omitted option keeps the bundled style for that level. Margins are non-negative integer row counts. Heading colours are configured under `theme.markdown`; `headings.levels` controls attributes, case, and spacing only.
 
-Цвет заголовка берётся из темы: `headingColor(theme, level) = theme.markdown.headingLevels[level-1] ?? theme.markdown.heading`
+Bundled styles are:
 
-Дефолты `headingLevels`:
-- light: `[h("#0969da"), h("#8250df"), h("#8250df"), h("#6f42c1"), h("#3d444d"), h("#3d444d")]`
-- dark:  `[h("#58a6ff"), h("#d2a8ff"), h("#d2a8ff"), h("#8b949e"), h("#8b949e"), h("#8b949e")]`
-- solarized-light и solarized-dark: все уровни используют Solarized blue `#268bd2`, без цветового градиента. Встроенные цвета и цвета Mermaid ограничены каноническими 16 цветами Solarized.
+| Level | Default attributes | Top | Bottom |
+| --- | --- | ---: | ---: |
+| H1 | bold, underline | 2 | 1 |
+| H2 | bold | 1 | 0 |
+| H3 | bold | 1 | 0 |
+| H4 | italic | 1 | 0 |
+| H5 | italic, dim | 1 | 0 |
+| H6 | dim | 1 | 0 |
 
-### frame
+## `frame`
+
 ```ts
 type FrameConfig = {
   enabled?: boolean
-  width?: number        // > 0 integer
-  align?: FrameAlign    // "left"|"center"|"right"
-  style?: FrameStyle    // "box"|"ascii"|"rounded"|"heavy"|"double"
-  paddingX?: number     // >= 0 integer
-  paddingY?: number     // >= 0 integer
+  width?: number
+  align?: "left" | "center" | "right"
+  style?: "box" | "ascii" | "rounded" | "heavy" | "double"
+  paddingX?: number
+  paddingY?: number
   title?: string
-  titleAlign?: FrameAlign
+  titleAlign?: "left" | "center" | "right"
 }
 ```
-Резолв: `src/core/frame.ts:99-144`. Дефолт: `enabled:false`, `align:left`, `style:box`, `titleAlign:left`, `paddingX:1`, `paddingY:0` (когда enabled)
 
-### tables
+The frame is off by default. When enabled, the default alignment is `left`, style is `box`, title alignment is `left`, horizontal padding is 1, and vertical padding is 0. `width` includes border and padding and is clamped to the available viewport.
+
+For a fixed frame around a scrolling view, render `MarkdownFrame` outside the scrollbox and disable the renderer's own frame. See [Getting started](getting-started.md#keep-the-frame-fixed-while-content-scrolls).
+
+## `tables`
+
 ```ts
 type TablesConfig = {
-  widthMode?: TableWidthMode   // "content"|"full"
-  overflow?: TableOverflow     // "scroll"|"wrap"
-  columnFitter?: TableColumnFitter // "proportional"|"balanced"
-  cellPaddingX?: number       // >= 0 integer
-}
-```
-Резолв: `src/core/tables.ts:48-58`. Дефолт: `widthMode:content`, `overflow:scroll`, `columnFitter:balanced`, `cellPaddingX:1`, `wrapMode: none|word` зависит от пары
-Цвет линий таблицы берётся из `theme.border.base` (его можно переопределить в конфиге).
-
-## 3. Полная схема темы (фактическая)
-
-[`src/theme/types.ts`](../src/theme/types.ts) + [`src/theme/defaults.ts`](../src/theme/defaults.ts)
-
-```ts
-type Theme = {
-  mode: ThemeMode // "light"|"dark"
-  palette?: readonly RGBA[] // Solarized: 16 базовых цветов для диаграмм
-  accent: RGBA
-  categorical: readonly RGBA[]
-  text: {
-    base: RGBA
-    muted: RGBA
-    feedback: { error: RGBA; warning: RGBA; success: RGBA; info: RGBA }
-    action: { primary: { focused: RGBA } }
-  }
-  background: { base: RGBA }
-  border: { base: RGBA }
-  frame?: FrameTheme  // { border: RGBA; title: RGBA }
-  statusline?: StatusLineTheme // { background: RGBA; foreground: RGBA; title: RGBA; muted: RGBA; border: RGBA }
-  markdown: {
-    text: RGBA
-    heading: RGBA
-    headingLevels: readonly [RGBA,RGBA,RGBA,RGBA,RGBA,RGBA] // H1..H6
-    link: RGBA
-    linkText: RGBA
-    code: RGBA
-    blockQuote: RGBA
-    emphasis: RGBA
-    strong: RGBA
-    horizontalRule: RGBA
-    listItem: RGBA
-    listEnumeration: RGBA
-    image: RGBA
-    imageText: RGBA
-    codeBlock: RGBA
-  }
-  syntax: {
-    comment: RGBA
-    keyword: RGBA
-    function: RGBA
-    variable: RGBA
-    string: RGBA
-    number: RGBA
-    type: RGBA
-    operator: RGBA
-    punctuation: RGBA
-  }
-  diff: {
-    text: { added: RGBA; removed: RGBA; context: RGBA }
-    background: { added: RGBA; removed: RGBA; context: RGBA }
-  }
+  widthMode?: "content" | "full"
+  overflow?: "scroll" | "wrap"
+  columnFitter?: "proportional" | "balanced"
+  cellPaddingX?: number
 }
 ```
 
-## 4. Карта валидации (текущая)
-| Секция | Валидируется | Варнинги | Примечание
-|---|---|---|---|
-| root | allowlist + `$schema` игнор | `Unknown config section` | |
-| theme | вложенные ключи, mode, hex/имена цветов, categorical | неизвестные и неверные поля | `src/config/theme.ts`; некорректный цвет не попадает в рендер |
-| statusline | поля, стили, highlight, border | много | неплохо |
-| images/mermaid | типы + положительные числа | нет явных варнингов (просто дроп) | |
-| headings | уровни 1-6, опции, типы | много | хорошо |
-| frame | все опции + типы | много (6 в тесте) | хорошо |
-| tables | все опции + типы | много (4 в тесте) | хорошо |
+Defaults are content-sized, scrollable, balanced columns, and one cell-padding column. The host's vertical scrollbox remains responsible for vertical movement; the table view takes horizontal movement only when its content actually overflows.
 
-## 5. Заметки для разработчиков (не часть формата конфига)
+## Runtime-only configuration
 
-### Реализовано: валидация темы и разделение источников
+All file sections can be represented by a TypeScript `MarkdownConfig` object, but some values are more naturally supplied at runtime:
 
-`src/config/theme.ts` проверяет вложенные поля темы и отбрасывает некорректные цвета с предупреждениями. `src/config/resolve.ts` отдельно принимает конфиг и runtime-параметры хоста; разрешение темы и layout можно использовать без `CliRenderer` и без файловой системы.
-
-Порядок режимов темы: готовая тема хоста > явный runtime `themeMode` > `config.theme.mode` > light. Режим терминала не учитывается. Для `frame` и `tables` явно заданные runtime-значения перекрывают настройки файла. Демо позволяет менять эти параметры через панель по `c` без сохранения файла; statusline показывает только сведения.
-
-Оставшаяся задача — последовательно отделить загрузку/проверку статического файла от реактивных входов хоста во всех ветках рендера. В частности, нужно проверить изменение Mermaid-настроек при обновлении конфига.
-
-### Идея, не утверждённая схема: расширить ThemeOverride
-Файл: `src/theme/types.ts`
-```ts
-export type MarkdownThemeOverride = {
-  readonly [K in Exclude<keyof Theme["markdown"], "headingLevels">]?: ColorInput
-} & {
-  readonly heading1?: ColorInput
-  readonly heading2?: ColorInput
-  readonly heading3?: ColorInput
-  readonly heading4?: ColorInput
-  readonly heading5?: ColorInput
-  readonly heading6?: ColorInput
-  readonly headingLevels?: readonly ColorInput[]  // добавить
-}
+```tsx
+<MarkdownRenderer
+  content={content}
+  renderer={renderer}
+  themeMode={() => currentThemeMode()}
+  frame={() => currentFrameConfig()}
+  tables={() => currentTableConfig()}
+  config={() => currentConfig()}
+  discoverConfig={false}
+/>
 ```
 
-Файл: `src/theme/resolve.ts` `mergeMarkdownTheme()` - добавить поддержку массива (приоритет выше `heading1..heading6` или наоборот? Лучше зафиксировать: `headingLevels` массив целиком перезаписывает, либо `headingN` приоритетнее массива. Нужно продумать, но явно добавить обработку)
+Use accessors for values that change during the session. The standalone demo uses this mechanism for its configuration panel and does not rewrite the JSONC file.
 
-### Идея, не утверждённая схема: цвет в headings.levels
-Файлы: `src/config/types.ts`, `src/config/load.ts`, `src/headings.ts`, `src/theme/resolve.ts` или `src/app.tsx`
+## Validation and diagnostics
 
-1. `src/config/types.ts`
-```ts
-export type HeadingLevelConfig = {
-  bold?: boolean
-  italic?: boolean
-  underline?: boolean
-  dim?: boolean
-  uppercase?: boolean
-  marginTop?: number
-  marginBottom?: number
-  color?: string  // новый
-}
+File validation is intentionally soft. Recognized invalid values are ignored, valid sibling values are retained, and defaults fill omitted values. Reporting is section-dependent:
+
+| Section / value | Invalid value | Unknown keys |
+| --- | --- | --- |
+| Root | Unknown sections are reported and ignored; `$schema` is ignored. | Reported. |
+| `theme` | Invalid colours, preset modes, and nested types are reported. Invalid entries in `categorical` are reported individually and dropped. | Nested theme keys are reported. |
+| `statusline` | Unknown field names, `style`, and `highlight` are reported. Other invalid fields are silently omitted. | Extra object keys are not reported. |
+| `images` | Non-positive or non-integer limits are silently omitted. | Extra object keys are not reported. |
+| `mermaid` | Invalid `classLayout` is reported; invalid `compact` or `layoutMaxWidth` is silently omitted. | Extra object keys are not reported. |
+| `headings` | Invalid levels, level styles, properties, and values are reported. | Unknown level/style keys are reported. |
+| `frame` and `tables` | Invalid values for known fields are reported. | Extra object keys are not reported. |
+
+Unknown top-level sections are reported, but mistyped *section values* (for example `"images": []`) are currently ignored without a dedicated warning. Do not rely on warnings alone as a complete schema validator.
+
+`parseConfig` and `loadConfig` throw on malformed JSON or an invalid top-level value; `loadConfig` also throws if an **explicit** path does not exist. `loadRendererConfig` catches these failures, reports a warning, and returns `{}` so the component can render with defaults. See [Configuration helpers](api.md#configuration-helpers) for signatures and examples.
+
+```tsx
+<MarkdownRenderer
+  content={content}
+  renderer={renderer}
+  onDiagnostic={({ level, message }) => {
+    logToHostPanel(level, message)
+  }}
+/>
 ```
 
-2. `src/config/load.ts` `validateHeadingLevel()` добавить case `color` с проверкой допустимого цвета.
-
-3. Склейка: нужно применить `config.headings.levels[N].color` к теме. Самый чистый вариант - в `resolveTheme` или отдельная функция `applyHeadingColors(theme, headings)` вызываемая в `app.tsx` после `resolveRendererTheme()`. Альтернатива - расширить `mergeTheme` чтобы принимать `headings`.
-
-Приоритет (предлагаемый):
-`headings.levels[N].color` > `theme.markdown.headingN` > `theme.markdown.heading` > `theme.markdown.headingLevels` дефолт
-
-### Шаг 4. Единые хелперы валидации
-`src/config/load.ts` добавить:
-```ts
-function warn(report: ConfigReporter | undefined, message: string) { ... }
-function isRecord(v: unknown): v is Record<string,unknown> { ... }
-function isString(v:unknown): v is string { return typeof v === 'string' }
-function isBoolean(v:unknown): v is boolean { return typeof v === 'boolean' }
-function isNonNegativeInteger(v:unknown): v is number { ... }
-function positiveInteger(v:unknown): number|undefined { ... }
-function positiveNumber(v:unknown): number|undefined { ... }
-function validateUnknownKeys(obj: Record<string,unknown>, allowed: readonly string[], file: string, report?: ConfigReporter, prefix = '') { ... }
-function validateStringEnum<T extends string>(v:unknown, allowed: readonly T[]): v is T { ... }
-```
-
-Использовать во всех `validate*` функциях.
-
-### Возможное направление: вынести фиксированные параметры
-Найти и вынести:
-- `src/app.tsx` - отступы display-math (`marginTop:1, marginBottom:1`), прочий хардкод
-- `src/view/frame.tsx` - бордеры
-- `src/view/table.ts` - скролл поведение
-- `src/view/inline-flow.tsx` / `src/media.tsx` - отступы списков/блоков/картинок
-- `src/core/*` - дефолты
-
-Варианты: расширить `theme` (новые секции) или добавить `spacing/lists/blocks` в корень конфига.
-
-## 6. Черновой пример будущего конфига (содержит неподдерживаемые поля)
-
-**Не копируйте этот пример как рабочий JSONC.** `theme.markdown.headingLevels` и `headings.levels[N].color` сейчас не поддерживаются, `$schema` здесь не указывает на опубликованный файл. Для рабочего конфига используйте [пример из `examples/`](../examples/opentui-markdown-render.jsonc). Структура будущего конфига ещё не утверждена.
-```jsonc
-{
-  "$schema": "./node_modules/opentui-markdown-render/schema.json",
-  "theme": {
-    "mode": "dark",
-    "accent": "#7dd3fc",
-    "categorical": ["#7dd3fc", "#a78bfa", "#34d399"],
-    "text": { "base": "#e2e8f0", "muted": "#94a3b8", "feedback": { "error": "#f87171", "warning": "#fbbf24", "success": "#34d399", "info": "#7dd3fc" } },
-    "background": { "base": "#0f172a" },
-    "border": { "base": "#334155" },
-    "frame": { "border": "#475569", "title": "#94a3b8" },
-    "statusline": { "background": "#162333", "foreground": "#e2e8f0", "title": "#7dd3fc", "muted": "#94a3b8", "border": "#7dd3fc" },
-    "markdown": {
-      "text": "#e2e8f0",
-      "heading": "#e2e8f0",
-      "heading1": "#7dd3fc",
-      "heading2": "#a78bfa",
-      "heading3": "#94a3b8",
-      "headingLevels": ["#7dd3fc", "#a78bfa", "#94a3b8", "#64748b", "#64748b", "#64748b"],
-      "link": "#7dd3fc",
-      "linkText": "#7dd3fc",
-      "code": "#f59e0b",
-      "blockQuote": "#94a3b8",
-      "emphasis": "#e2e8f0",
-      "strong": "#e2e8f0",
-      "horizontalRule": "#334155",
-      "listItem": "#e2e8f0",
-      "listEnumeration": "#e2e8f0",
-      "image": "#7dd3fc",
-      "imageText": "#7dd3fc",
-      "codeBlock": "#e2e8f0"
-    },
-    "syntax": {
-      "comment": "#64748b",
-      "keyword": "#f87171",
-      "function": "#a78bfa",
-      "variable": "#f59e0b",
-      "string": "#34d399",
-      "number": "#7dd3fc",
-      "type": "#fbbf24",
-      "operator": "#f87171",
-      "punctuation": "#cbd5e1"
-    },
-    "diff": {
-      "text": { "added": "#34d399", "removed": "#f87171", "context": "#94a3b8" },
-      "background": { "added": "#064e3b", "removed": "#7f1d1d", "context": "#1e293b" }
-    }
-  },
-  "statusline": {
-    "enabled": true,
-    "style": "bar",
-    "highlight": "title",
-    "fields": ["title", "mode", "protocol", "cell", "mathScale", "position"],
-    "separator": " · ",
-    "border": "top"
-  },
-  "images": { "maxColumns": 80, "maxRows": 32 },
-  "mermaid": { "compact": false, "layoutMaxWidth": 120 },
-  "headings": {
-    "levels": {
-      "1": { "bold": true, "underline": true, "color": "#7dd3fc", "marginTop": 2, "marginBottom": 1 },
-      "2": { "bold": true, "color": "#a78bfa", "marginTop": 1 },
-      "3": { "bold": true, "dim": true, "color": "#94a3b8" }
-    }
-  },
-  "frame": { "enabled": true, "width": 100, "align": "center", "style": "rounded", "paddingX": 2, "paddingY": 1, "title": "notes.md", "titleAlign": "right" },
-  "tables": { "widthMode": "content", "overflow": "scroll", "columnFitter": "balanced", "cellPaddingX": 1 }
-}
+Without `onDiagnostic`, the component reports file/config warnings through its default console/stderr path. Unexpected Mermaid preparation errors can also reach the host as diagnostics; normal unsupported Mermaid syntax uses a code-fence fallback instead.

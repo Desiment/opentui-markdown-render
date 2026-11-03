@@ -50,8 +50,8 @@ export type FrameInsets = {
 
 export type ResolvedFrame = {
   readonly enabled: boolean
-  // The width every block of the document is laid out for. This is the one
-  // number the two rendering engines have to agree on.
+  // The width every block of the document is laid out for. This is the single
+  // content width shared across the document.
   readonly contentWidth: number
   // The outer width, border and padding included.
   readonly width: number

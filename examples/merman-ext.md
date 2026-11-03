@@ -1,14 +1,18 @@
-# Merman Extension Stress Suite
+# KST-118 diagram stress archive
 
-Ninety-five large Mermaid fixtures for the vendored Merman renderer. The suite
-is split into the class diagram stress cases and the edge cases for the other
-six families. Scroll to compare; `c` opens the settings panel and `q` confirms
-exit.
+Ninety-five synthetic diagrams generated for the KST-118 mission brief. They
+exercise the bundled terminal-oriented Mermaid layout engine with crowded
+relationships, long labels and recovery paths. Some fixtures use generic
+software names on purpose: the suite is a layout stress test, not a literal
+vehicle specification. It is split into vehicle-model cases and edge cases for
+the other six diagram families. Scroll to compare; `c` opens the settings panel
+and `q` confirms exit.
 
-## Part I: Class diagram stress suite
+## Part I: Vehicle-model stress cases
 
-Thirty-five `classDiagram` fixtures covering hierarchy, fan-out, directions,
-routing, multiplicities, labels and notes.
+Thirty-five `classDiagram` fixtures cover component hierarchy, fan-out,
+directions, routing, multiplicities, labels and notes. Each one isolates a
+layout problem the flight team could plausibly encounter in a system model.
 
 ## 1. Deep single-inheritance chain
 
@@ -1201,11 +1205,12 @@ classDiagram
   Warehouse "1" o-- "0..*" Shipment : fulfills
 ```
 
-## Part II: Non-class edge cases
+## Part II: Operations edge cases
 
-Sixty diagrams for flowchart, sequence, state, Gantt, timeline and Git graph.
-The first thirty cover the common grammar and the second thirty push nesting,
-punctuation, long labels and less common link styles.
+Sixty diagrams cover flowchart, sequence, state, Gantt, timeline and Git graph
+syntax. The first thirty model common ground operations; the second thirty push
+nesting, punctuation, long labels and less common link styles until the layout
+has nowhere left to hide.
 
 ## 36. Every flowchart node shape
 

@@ -1,31 +1,38 @@
 # Renderer Examples
 
-The examples are the documentation pages of a fictional terminal tool, so the
-renderer is exercised with content that reads like a real report. Each fixture
-still isolates one area, so a rendering regression has a small, obvious
-reproduction case.
+The examples form a small mission-control archive for the fictional Kestrel
+flight console. The prose is written as material an operator might actually
+read: a watch-book page, a telemetry reference, a trajectory note, and a signed
+flight summary. Each fixture still isolates one area, so a rendering regression
+has a small, obvious reproduction case.
+
+Kestrel and the KST-118 mission are fictional. The operational language is only
+the scenario used to make the renderer fixtures readable; it is not a separate
+CLI or flight-control product. Code and configuration snippets in the fixtures
+are illustrative unless they are explicitly described as demo commands.
 
 | Fixture | Command | Content |
 | --- | --- | --- |
-| `plain.md` | `bun run demo:plain` | the project README: headings of every level, formatting, lists, a quote, a rule, TypeScript and JSON blocks |
-| `tables.md` | `bun run demo:tables` | the telemetry reference: channel, recorder and decoding tables with left, center and right alignment |
-| `math.md` | `bun run demo:math` | orbital mechanics: inline, parenthesised and display formulas, the display style, the MiTeX scope commands, plus the source fallbacks |
-| `images.md` | `bun run demo:images` | telemetry frames: five high resolution assets and the three sources that must be refused |
-| `rendered.md` | `bun run demo:mixed` | one flight summary that mixes prose, a table, a formula, a diagram and a frame |
-| `frame.md` | `bun run demo:frame` | the viewer window: frame alignment, left-aligned text, and a wide table that pans sideways |
-| `mermaid.md` | `bun run demo:mermaid` | the architecture reference: every diagram kind, plus representative class diagram stress cases |
-| `merman-ext.md` | `bun run demo:merman-ext` | the combined stress suite: 35 class diagrams plus 60 edge cases for flowchart, sequence, state, Gantt, timeline and Git graph |
-| `all.md` | `bun run demo:all` | the documentation index: every rendering path in one document |
+| `plain.md` | `bun run demo:plain` | the Kestrel watch book: mission brief, formatting, lists, fallback policy, TypeScript and JSON blocks |
+| `tables.md` | `bun run demo:tables` | the telemetry handbook: channel ranges, recorder modes, decoder statuses and alignment |
+| `math.md` | `bun run demo:math` | the KST-118 trajectory note: inline/display formulas, orbital checks, renderer-specific math constructs and source fallbacks |
+| `images.md` | `bun run demo:images` | the flight image archive: ascent, coverage, plume and calibration frames plus refused sources |
+| `rendered.md` | `bun run demo:mixed` | the signed flight summary: timeline, evidence path, trajectory equation and handover frame |
+| `frame.md` | `bun run demo:frame` | the operator window: alignment rules, a wide ground-station table and consistent list alignment |
+| `mermaid.md` | `bun run demo:mermaid` | the mission architecture reference: every diagram family in a ground-operations scenario |
+| `merman-ext.md` | `bun run demo:merman-ext` | the KST-118 diagram archive: 35 vehicle models plus 60 operational edge cases |
+| `all.md` | `bun run demo:all` | the complete mission dossier: every rendering path in one report |
 
-Run `bun run generate:examples` before the image, mixed, or all examples. Math needs a
-Kitty-compatible terminal with reported pixel dimensions; source LaTeX is the
-expected fallback otherwise.
+Run `bun run generate:examples` before the image, mixed, or all examples. Kitty
+graphics gives the sharpest math and image output; OpenTUI also supports Sixel
+or block-character rendering depending on terminal capabilities. A missing
+native math addon or invalid formula keeps the original LaTeX source readable.
 
 The demo app shows an informational status line at the bottom with the file
 name, theme mode, graphics protocol, cell pixel size, and scroll position.
 Press `c` to open the configuration panel: Up/Down selects a setting,
 Left/Right changes it, and `c` or Esc closes the panel. The panel offers
-light/dark and Solarized themes, frame, and table settings. Changes take effect immediately
+light/dark and Solarized themes, Mermaid class layout, frame, and table settings. Changes take effect immediately
 and are not saved to JSONC. Press `q` to request exit, then Enter or `y` to confirm
 or `n`/Esc to stay. `Ctrl+C` exits immediately; closing the configuration
 panel does not require confirmation.
@@ -36,4 +43,5 @@ as its own strip with an accent border and highlights the file name. The same
 file configures the heading levels, so the fixture shows the hierarchy the
 bundled styles produce. It also turns on the document frame (a 100-column
 window, centered, with rounded corners) and keeps tables content-sized and
-pannable, so every demo exercises the width the frame leaves to the document.
+horizontally scrollable, so every demo exercises the width the frame leaves to
+the document.

@@ -1,55 +1,129 @@
-# Архитектура opentui-markdown-render
+# Architecture
 
-`opentui-markdown-render` — встраиваемая библиотека для отображения Markdown в терминале через OpenTUI и Solid. Хост создаёт `CliRenderer`, передаёт содержимое в `MarkdownRenderer` и сам управляет прокруткой и `StatusLine`. [Начало работы](../README.md#getting-started) · [Конфигурация](CONFIGURATION.md) · [Поддержка Mermaid](MERMAID_SUPPORT.md).
+`opentui-markdown-render` is split into a renderer-free core, OpenTUI/Solid orchestration, terminal views, and specialised pipelines for math, media, and Mermaid. This separation lets a host choose where parsing and layout happen without forcing the host to adopt the standalone viewer's scrolling or status line.
 
-## Слои
+## Layers
 
-| Слой | Код | Ответственность |
+| Layer | Main code | Responsibility |
 | --- | --- | --- |
-| Чистое ядро | `src/core/parse.ts`, `src/core/math.ts`, `src/core/document.ts`, `src/core/{frame,layout,tables,image}.ts` | Один вызов `Marked.lexer` с локальными math-расширениями; AST-lite, source ranges и параметры layout. Не импортирует OpenTUI или Solid. |
-| Оркестрация | `src/app.tsx` | Разрешение конфигурации/темы, измерение доступной ширины и передача документа в `DocumentView`. Наличие формулы не меняет путь рендеринга. |
-| Отображение | `src/view/document.tsx`, `src/view/inline-{style,layout,math,flow}.*`, `src/view/{document-table,code,mermaid,math,frame}.tsx` | Рекурсивное отображение блоков, единая раскладка текста и формул, таблицы, код и диаграммы на низкоуровневых примитивах OpenTUI. |
-| Специализированные возможности | `src/math/`, `native/`, `src/media.tsx`, `src/merman/` | Растеризация TeX, локальные изображения и разбор Mermaid. |
+| Pure core | `src/core/parse.ts`, `src/core/document.ts`, `src/core/{frame,layout,tables,image,math}.ts` | Parse Markdown into an AST-lite document, preserve source information, and resolve pure layout policies. It does not import OpenTUI or Solid. |
+| Configuration and orchestration | `src/config/*`, `src/app.tsx` | Discover/validate config, resolve theme and layout, measure the assigned width, and choose `content` versus ready `document`. |
+| Document view | `src/view/document.tsx`, `src/view/inline-*`, `src/view/document-table.tsx` | Render blocks recursively, lay out text and inline math together, and map document nodes to OpenTUI primitives. |
+| Specialised renderers | `src/math/*`, `native/*`, `src/media.tsx`, `src/merman/*` | Rasterize math, decode local images/GIFs, parse Mermaid, and prepare terminal drawing grids. |
+| Standalone host | `examples/app.tsx` | Own the `CliRenderer`, file loading, scrollbox, demo controls, config panel, and status values. |
 
-`./core` экспортирует парсер и модель без UI. `src/index.ts` экспортирует их вместе с `MarkdownRenderer` и самостоятельными хостовыми helpers.
+The `opentui-markdown-render/core` entry point exports the parser, document model, frame/layout/table helpers, and other renderer-free utilities. The package root exports those pieces plus the OpenTUI/Solid view and host helpers.
 
-## Поток данных
+## Data flow
 
-```mermaid
-sequenceDiagram
-    participant Host as Хост
-    participant App as MarkdownRenderer
-    participant Core as parseDocument
-    participant View as DocumentView
-    participant OpenTUI as Примитивы OpenTUI
-
-    Host->>App: content | document, renderer, config
-    App->>App: разрешить ширину/фрейм/тему
-    alt content
-        App->>Core: parseDocument(content)
-        Core->>Core: Marked.lexer + inline/display math extensions
-        Core-->>App: Document { source, blocks: Block[] }
-    end
-    App-->>View: Document { source, blocks: Block[] }
-    loop каждый блок (вложенные рекурсивно)
-        View->>View: InlineFlow / CodeBlock / TableBlock / MermaidDiagramView / LocalImage / DisplayMath
-        View->>OpenTUI: text / image / code / TextTableRenderable / box
-    end
+```text
+host
+  -> MarkdownRenderer(content | document, config, theme, width)
+  -> resolve config/theme/frame/table policy
+  -> parseDocument(content)  [only for content input]
+  -> DocumentView(Document, layout, theme)
+  -> text / code / table / image / Mermaid / math OpenTUI primitives
 ```
 
-`MarkdownRenderer` принимает ровно один вход: `content: () => string` или готовый `document: () => Document`. Готовый документ пропускает `parseDocument` и используется как есть; остальные props, тема и фрейм работают одинаково.
+The component measures its own assigned box. The terminal width is only the initial fallback before the box has been measured. A positive `columns` prop overrides measurement and is useful when the host has already resolved layout.
 
-Парсер сохраняет `Document.source`, `raw` блоков, ссылочные `href` и исходные разделители формул. Точный `SourceRange` даётся там, где исходный текст совпадает с последовательными токенами Marked; для нормализованных вложенных блоков стоит `null`. Верхнеуровневый `ListItem` получает `source`, только если его `raw` точно совпадает с очередным срезом `list.raw`; хвостовой перевод строки может остаться вне последнего пункта. Это временная модель для текущего текста, а не persistent ID или review-модель. Незакрытые формулы остаются исходным текстом; специального сигнала о границе незакрытой формулы нет.
+## Parsing boundary
 
-Опциональный `renderUnit` оборачивает не перекрывающиеся единицы документа. Вне верхнеуровневого списка единица — каждый верхнеуровневый блок, кроме самого списка; внутри верхнеуровневого списка единица — весь пункт целиком, включая вложенные списки, таблицы, изображения и формулы. Дети пункта отдельных единиц не образуют. `UnitInfo` содержит либо `block` (тип `Block` без `list`), либо `item`, и `source: SourceRange | null`; при `null` единица всё равно рисуется и передаётся в обёртку. Без `renderUnit` возвращается исходный `content` без дополнительной обёртки. Хост сам хранит выделение, комментарии и постоянные идентификаторы.
+`parseDocument` performs one Marked lexing pass with local extensions for `$...$`, `$$...$$`, `\(...\)`, and `\[...\]`. It creates the AST-lite model in `src/core/document.ts` rather than forwarding Marked tokens directly into the view.
 
-`DocumentView` сопоставляет блоки по префиксу/суффиксу и однозначной правке в середине. Слот сохраняет идентичность, но обновляет `block`, если изменились поля AST или `source`; это важно, например, когда меняется только ссылочное определение, а `raw` абзаца остаётся прежним. Однозначная правка Mermaid сохраняет локальный last-good. Это не общий diff AST. Внутри `InlineFlow` обычный текст и `$...$` проходят через одну раскладку; формула может быть растровой, а в неподдерживаемой среде остаётся исходным текстом. У `DisplayMath` отдельный компонент, использующий тот же `renderMathImage` и нативный растр MiTeX → Typst → PNG. Цвет, фон и размер ячейки входят в ключ ресурса; внутренний масштаб не является настройкой хоста.
+The model preserves:
 
-Для таблиц `TextTableRenderable` создаётся через публичное расширение Solid `extend`; нестандартный prop `tableData` нужен потому, что reconciler Solid приводит любой prop с именем `content` к строке. Скроллер оставляет мышиное горизонтальное перемещение лишь для переполненного режима `content+scroll`; вертикальную прокрутку отдаёт хосту. `src/view/table.ts` содержит общий скроллер для таблиц, а `src/merman/diagram.ts` готовит диаграммы для `MermaidDiagramView`; адаптеров к OpenTUI `<markdown>` больше нет.
+- `Document.source`;
+- raw source text on blocks;
+- link destinations and titles;
+- original math delimiters;
+- exact `SourceRange` values where token text matches the original source;
+- task-list state and list structure.
 
-`src/graphics.ts` следит за возможностями терминала и размером ячейки: от них зависит размер растра и протокол изображения. Локальные изображения разрешаются под корнем ресурсов; URL/выход за корень не загружаются. `StatusLine` никак не зависит от парсера документа.
+Normalized nested tokens can have `source: null`. This is deliberate: a false exact range is worse than an unknown range for selection and review tools. Newline normalization is mapped back to offsets in the original source.
 
-## Граница ответственности хоста
+## Layout boundary
 
-Хост управляет жизненным циклом `CliRenderer`, содержимым документа, доступной областью и прокруткой, а также передаёт путь к локальным ресурсам. Он может передать готовую тему или конфиг. `StatusLine` — отдельный экспорт: библиотека предоставляет её отрисовку, но хост сам решает, показывать ли строку состояния и какие значения в неё передать. Пример интеграции находится в [`examples/app.tsx`](../examples/app.tsx).
-Текущая библиотека рассчитана на OpenTUI 0.5.12. При переходе на новые версии необходимо отдельно проверить жизненный цикл ресурсов рендерера и совместимость интерфейса темы.
+The document is laid out against the content width, not the full terminal width. `createDocumentLayout` resolves:
+
+- viewport width;
+- frame outer width, alignment, title, and insets;
+- the single content width shared by every block;
+- table sizing, fitter, padding, and overflow policy.
+
+The same resolved content width is passed to paragraphs, tables, formulas, images, and diagrams. This prevents each renderer from inventing a different right edge.
+
+`resolveConfiguredLayout` combines config-file values with runtime frame/table overrides. It is pure, so hosts can use it before mounting a component and can recompute it on resize.
+
+## View boundary
+
+`DocumentView` maps block kinds to dedicated views:
+
+- paragraphs and headings use the shared inline layout;
+- quotes and lists recurse through blocks;
+- code uses OpenTUI's code primitive;
+- tables use a custom `TextTableRenderable` and horizontal scroller;
+- Mermaid sources are prepared by `src/merman/diagram.ts` and displayed by the Mermaid view;
+- display math uses the native math pipeline;
+- standalone images use the local media resolver and terminal image primitive.
+
+The inline flow keeps ordinary text and inline math in one layout pass. The formula may become a terminal image, but it still participates in the surrounding row and width calculation.
+
+## Math pipeline
+
+```text
+inline/display source
+  -> math cache key (source, mode, colour, background, cell size, options)
+  -> native N-API addon
+  -> MiTeX conversion
+  -> Typst typesetting
+  -> in-memory PNG
+  -> OpenTUI image
+```
+
+The cell pixel dimensions are part of the raster resource key because a formula rasterized for one terminal cell size cannot be reused safely at another size. The terminal image protocol changes the displayed cell footprint (not the raster itself); in `blocks` mode the layout scales the image box for legibility. Theme changes cause rerasterization because math pixels contain foreground and background colours.
+
+The native addon is in-process Rust. It does not spawn system tools. OpenTUI chooses Kitty, Sixel, or block-character image output according to terminal capabilities. A missing native build, an unrenderable formula, or an image error leaves readable formula source.
+
+## Media boundary
+
+`assetBase` is a security and ownership boundary. The resolver accepts only local paths below that root; URL schemes and traversal outside it are rejected before decoding. `src/media.tsx` identifies image formats, scales them to terminal dimensions, composites transparency against the theme background, and schedules GIF frames using their embedded delays.
+
+Image limits are resolved from config. The Markdown theme colours the loading/error labels and alt text, not the pixels of a successfully decoded image.
+
+## Mermaid boundary
+
+Mermaid is implemented as a vendored terminal-oriented engine under `src/merman`. Detection first identifies one of the supported families. The family parser then builds a diagram model, layout calculates terminal coordinates, and drawing writes a bounded cell grid.
+
+The engine intentionally does not implement the full Mermaid grammar or browser SVG/CSS semantics. The terminal theme wins over Mermaid CSS styling in supported cases. Unsupported statements produce a syntax error and the view falls back to a source fence; during editing, a last-good diagram may remain visible.
+
+See [Mermaid support](MERMAID_SUPPORT.md) for the family-by-family contract.
+
+## Streaming and identity
+
+The view retains unchanged prefix/suffix slots and can keep the identity of an edited block when the update is unambiguous. A changed AST field or source range updates the existing slot. Mermaid views can keep their last-good state while input is temporarily invalid.
+
+These are rendering optimizations, not stable document IDs. Hosts that need selections, comments, review annotations, or persistent identity must use `renderUnit`, source ranges, and host-owned keys.
+
+## Host responsibility
+
+The host owns:
+
+- the `CliRenderer` lifecycle;
+- the document source or ready document;
+- the scrollbox and vertical scroll position;
+- the measured/inset layout when it knows more than the component;
+- the asset root;
+- persistent interaction state such as selection and comments;
+- status-line values.
+
+The renderer owns:
+
+- parsing when `content` is supplied;
+- config validation and theme/layout resolution;
+- block and inline rendering;
+- local media validation and decoding;
+- math and Mermaid fallback decisions;
+- the visual layout of its own content.
+
+`StatusLine` is intentionally separate from document parsing. A host can use it, replace it, or omit it.

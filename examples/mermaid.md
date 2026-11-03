@@ -1,11 +1,13 @@
-# Architecture reference
+# Mission architecture and syntax reference
 
-Every diagram kind Kestrel can draw, each with the scenario it describes.
-Scroll to compare; `t` cycles the theme and `q` quits.
+Every diagram family Kestrel can draw, presented through the KST-118 scenario.
+The operational examples are mixed with a few deliberately generic syntax
+fixtures, because this page is also a renderer reference. Scroll to compare;
+`c` opens the configuration panel to switch themes and `q` asks to quit.
 
-## The pipeline
+## The evidence pipeline
 
-How a raw log becomes a report:
+How a raw log becomes a report that can be signed:
 
 ```mermaid
 flowchart LR
@@ -16,22 +18,22 @@ flowchart LR
   Decode --> Output
 ```
 
-### Node shapes
+### Node shapes in the console
 
-The same pipeline drawn with every shape the renderer knows:
+The same handoff drawn with every shape the console knows:
 
 ```mermaid
 flowchart TD
-  A[Rectangle] --> B((Rounded))
-  B --> C{Decision}
-  C -->|Yes| D[(Database)]
-  C -->|No| E[[Subroutine]]
+  A[Recorder] --> B((Relay))
+  B --> C{Accepted?}
+  C -->|Yes| D[(Archive)]
+  C -->|No| E[[Review queue]]
   E --> F
 ```
 
 ### Layout direction
 
-`BT` lays a group out from the bottom, which is how the vehicle stacks:
+`BT` lays a group out from the bottom, matching the vehicle's stacked stages:
 
 ```mermaid
 flowchart BT
@@ -42,9 +44,11 @@ flowchart BT
   C --> D
 ```
 
-### Link kinds
+### Link kinds on the downlink
 
-Solid, arrowed, dotted and thick links, in one graph:
+Solid, arrowed, dotted and thick links exercise different Mermaid link styles.
+They do not imply confidence levels unless the host application assigns that
+meaning:
 
 ```mermaid
 graph RL
@@ -62,45 +66,45 @@ Multiple statements per line, a parallelogram and a hexagon:
 flowchart LR; Input[/Telemetry/] --> Process{{Decode}}; Process --> Output[Report]
 ```
 
-## The launch
+## The launch handoff
 
-What happens between the recorder and the downlink:
+What happens between the recorder and the ground console:
 
 ```mermaid
 sequenceDiagram
-  participant User
-  participant Renderer
-  User->>Renderer: Open example
-  Renderer-->>User: Draw terminal diagram
+  participant Director
+  participant Console
+  Director->>Console: Open KST-118
+  Console-->>Director: Show telemetry diagram
 ```
 
-### A full handoff
+### A full shift handoff
 
-From the command line through the renderer and back:
+From the command line through the decoder and back to the operator:
 
 ```mermaid
 sequenceDiagram
-  actor Dev
+  actor Director
   participant CLI
-  participant Renderer
-  Dev->>+CLI: Run demo
-  CLI->>+Renderer: Render document
-  Renderer-->>-CLI: Output
-  CLI-->>-Dev: Done
+  participant Decoder
+  Director->>+CLI: Open flight log
+  CLI->>+Decoder: Decode KST-118
+  Decoder-->>-CLI: Verified blocks
+  CLI-->>-Director: Ready for sign-off
 ```
 
-### Message kinds
+### Message kinds during recovery
 
-Lost, broken, synchronous and asynchronous messages:
+Lost, broken, synchronous and asynchronous messages model a noisy radio pass:
 
 ```mermaid
 sequenceDiagram
   participant A
   participant B
-  A--x B: Lost
-  A-x B: Broken
-  A->>B: Sync
-  B-->>A: Async reply
+  A--x B: Lost packet
+  A-x B: Corrupt packet
+  A->>B: Synchronous ack
+  B-->>A: Delayed reply
 ```
 
 ### Parallel and optional messages
@@ -121,7 +125,7 @@ sequenceDiagram
 
 ## Vehicle states
 
-The state a vehicle passes through during a flight:
+The states a vehicle passes through from pad release to archive:
 
 ```mermaid
 stateDiagram-v2
@@ -130,21 +134,21 @@ stateDiagram-v2
   Ready --> [*]
 ```
 
-### A flight with a failure path
+### A flight with a recovery path
 
 ```mermaid
 stateDiagram-v2
   [*] --> Idle
-  Idle --> Processing: Start
-  Processing --> Success: Complete
-  Processing --> Failure: Error
+  Idle --> Processing: Begin burn
+  Processing --> Success: Telemetry valid
+  Processing --> Failure: Range alarm
   Success --> [*]
-  Failure --> Idle: Retry
+  Failure --> Idle: Safing reset
 ```
 
-### Fork and join
+### Parallel ground checks
 
-Parallel stages that have to meet again:
+Parallel checks that have to meet before sign-off:
 
 ```mermaid
 stateDiagram-v2
@@ -161,32 +165,32 @@ stateDiagram-v2
 
 ## Countdown
 
-The schedule of a launch window:
+The short schedule for assembling a launch-window report:
 
 ```mermaid
 gantt
   dateFormat s
-  section Render
-  Parse Markdown :0, 2
-  Typeset math :active, 2, 5
-  Draw media :3, 7
+  section Mission review
+  Decode recorder :0, 2
+  Check trajectory :active, 2, 5
+  Attach frames :3, 7
 ```
 
-### A build pipeline
+### A ground-station pipeline
 
-Two tracks that overlap:
+Two tracks that overlap while the vehicle is in view:
 
 ```mermaid
 gantt
-  title Build Pipeline
+  title Ground station handoff
   dateFormat HH:mm
   tickInterval 1h
-  section Core
-  Scan :a1, 00:00, 2h
-  Inline :after a1, 3h
-  section Extensions
-  Mermaid :00:30, 2h
-  Math :1h, 2h
+  section Coastal station
+  Acquire :a1, 00:00, 2h
+  Calibrate :after a1, 3h
+  section Inland relay
+  Decode :00:30, 2h
+  Archive :1h, 2h
 ```
 
 ## Milestones
@@ -195,13 +199,13 @@ When each capability landed:
 
 ```mermaid
 timeline
-  title Renderer milestones
+  title Mission milestones
   section Foundation
-  2026 : Markdown blocks
-       : Native math
+  2026 : First telemetry pass
+       : Trajectory checks
   section Media
-  2026 : PNG and GIF support
-       : Transparency handling
+  2026 : Ground-station frames
+       : Handover coverage map
 ```
 
 ### A year in quarters
@@ -261,6 +265,10 @@ gitGraph
 ```
 
 ## Class diagrams
+
+The first class diagrams use generic software and domain examples to keep the
+relationship syntax easy to compare; the larger mission-oriented stress set is
+in `merman-ext.md`.
 
 ### Shapes and interfaces
 

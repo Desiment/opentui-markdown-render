@@ -1,87 +1,119 @@
-# Kestrel
+# Kestrel (fictional sample application)
 
-Kestrel turns a raw flight log into a readable terminal report. It parses
-CommonMark, typesets the formulas, and draws the diagrams and telemetry frames
-that come with the log.
+Kestrel is the night-shift console for turning a noisy flight log into a report
+someone can trust. It keeps the original evidence close at hand while adding the
+small amount of structure an operator needs: a readable timeline, checked
+figures, and diagrams that still make sense over a slow SSH connection.
 
-## Install
+This fixture uses Kestrel as a fictional host application. The snippets below
+are illustrative content for the Markdown renderer; Kestrel itself is not a
+package shipped by this repository.
+
+## Install the renderer
 
 ```sh
-bun add @kestrel/cli
+bun add opentui-markdown-render @opentui/core @opentui/solid solid-js
 ```
 
-## What it does
+## Mission brief
 
-- **Parses CommonMark** and keeps the terminal's own block renderer, so a
-  report looks native instead of foreign
-- **Typesets formulas** with MiTeX and Typst, falling back to the source
-- **Draws diagrams** from Mermaid blocks, from a pipeline sketch to a class
-  model of the whole vehicle
-- **Plays media** straight from local PNG and GIF assets, with transparency
-  composited against the terminal background
+The command-line client is designed for the hour after a launch, when the
+vehicle is safe but the ground team is still comparing recorder channels. It
+does four jobs without turning the report into a web page:
 
-### Inline formatting
+- **Reads CommonMark** and keeps the terminal's native rhythm, so an incident
+  report is comfortable to scan beside the live console
+- **Typesets equations** with MiTeX and Typst, while keeping the original source
+  visible when the terminal cannot draw a formula
+- **Draws Mermaid diagrams** for everything from the ingest pipeline to the
+  vehicle's class model
+- **Plays local media** from the mission archive, compositing transparent PNGs
+  against the operator's current terminal background
 
-Reports mix **bold text**, *emphasis*, ~~a crossed-out range~~ and `inline
-code`. A cross-reference such as [the flight plan](https://github.com/anomalyco/opentui)
-keeps its label. Escapes stay literal: \*not emphasis\* — and the pad costs
-\$5 per kilogram, which is not a formula.
+### Inline formatting in an operator note
 
-### Heading levels
+Reports mix **decisions**, *observations*, ~~superseded readings~~ and `channel
+names`. A cross-reference such as [the OpenTUI project](https://github.com/anomalyco/opentui)
+keeps its label when the report is read offline. Escapes stay literal:
+\*not emphasis\* — and the pad's reserve charge is \$5 per kilogram, which is
+not a formula.
 
-A terminal has one text size, so the levels of a heading are told apart by
-colour, weight and the room around them.
+### Heading levels in the watch book
 
-# Level one
+A terminal has one text size, so hierarchy comes from colour, weight and the
+space around a heading. The six levels below are intentionally useful labels,
+not placeholders: the same visual language is used throughout these examples.
 
-## Level two
+# Mission brief
 
-### Level three
+## Vehicle profile
 
-#### Level four
+### Flight phases
 
-##### Level five
+#### Guidance notes
 
-###### Level six
+##### Ground-station handover
+
+###### Archive conventions
 
 ### What a report contains
 
-- The launch profile, as a frame and as a table
-  - Altitude, velocity and propellant mass
-  - The phases that make up the flight
-- The formulas the trajectory is solved from
-1. Boost phase
-2. MECO and stage separation
-3. Payload deployment
+- The launch profile, as both a frame and a table
+  - altitude, velocity and propellant mass
+  - the phase boundaries used by the flight director
+- The equations used to verify the trajectory
+  - orbital energy and transfer velocity
+  - a readable source fallback for unsupported math
+- The evidence captured by the ground station
+  - decoded telemetry channels
+  - diagrams and sensor frames from the local archive
+
+The review order follows the operation:
+
+1. Confirm the recorder identity and time base.
+2. Check boost, MECO and stage-separation transitions.
+3. Recompute the insertion estimate before signing the report.
 
 > A flight log is often read over SSH, on a terminal that cannot draw a single
 > pixel. Kestrel never drops a formula silently: it prints the original source
 > instead of a broken image.
 >
-> The same rule holds for diagrams and telemetry frames.
+> The same rule holds for diagrams and telemetry frames. A degraded report is
+> still evidence; an empty report is not.
 
 ---
 
 ## Configuration
 
-Kestrel reads `kestrel.jsonc` from the working directory and walks up until it
-finds one:
+The standalone demo reads `opentui-markdown-render.jsonc` from the working
+directory and walks upward until it finds one. The mission archive keeps the
+configuration deliberately small:
 
 ```json
 {
-  "theme": { "mode": "light" },
-  "images": { "maxColumns": 80 }
+  "theme": { "mode": "dark" },
+  "images": { "maxColumns": 80, "maxRows": 32 },
+  "frame": { "enabled": true, "width": 96, "align": "center" }
 }
 ```
+
+The terminal theme is a presentation choice, not part of the flight record. A
+reviewer can switch from dark to light without changing the numbers in the
+report.
 
 ## Reading a log
 
 ```ts
-const report = await kestrel.report("KST-118")
+// Application-specific loader used by the fictional host:
+const report = await openFlightReport("KST-118")
 console.log(report.flight.samples.length, report.flight.apogee)
 ```
 
+For a first pass, the operator checks the sample count, the maximum altitude,
+and the timestamp of the last valid beacon. Only then is the report attached to
+the mission archive.
+
 ## Licence
 
-MIT. See [the project site](https://github.com/anomalyco/opentui) for the
-source and the issue tracker.
+MIT. See the [OpenTUI project](https://github.com/anomalyco/opentui) for the
+renderer host and issue tracker.

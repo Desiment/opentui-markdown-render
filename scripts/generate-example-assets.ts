@@ -10,42 +10,61 @@ await mkdir(output, { recursive: true })
 // pixels, so the sources are wider than that and stay sharp when the renderer
 // scales them down.
 
-// Opaque gradient with a bright horizon band
+// Opaque ascent profile on a dark telemetry-console background.
 await writeFile(path.join(output, "opaque.png"), png(1280, 720, (x, y) => {
-  const horizon = y / 720
-  const glow = Math.max(0, 1 - Math.abs(y - 360) / 184)
-  return [
-    Math.round(30 + horizon * 60 + glow * 90),
-    Math.round(70 + horizon * 80 + glow * 60),
-    Math.round(170 + horizon * 50 + glow * 30),
-    255,
-  ]
-}))
+  const pathY = ascentY(x, 1280, 720)
+  const distance = Math.abs(y - pathY)
+  const grid = x % 160 < 2 || y % 90 < 2
+  const glow = Math.max(0, 1 - distance / 18)
+  if (distance <= 3) return [102, 235, 255, 255]
+  if (glow > 0) return [Math.round(24 + glow * 35), Math.round(66 + glow * 120), Math.round(92 + glow * 130), 255]
+  if (grid) return [24, 61, 82, 255]
+  const depth = y / 720
+  return [Math.round(8 + depth * 8), Math.round(22 + depth * 18), Math.round(38 + depth * 28), 255]
+}, false))
 
-// Overlapping translucent discs on a transparent field
+// Overlapping translucent coverage footprints for the coastal and inland
+// ground stations. The transparent field lets the terminal background show.
 await writeFile(path.join(output, "transparent.png"), png(1024, 640, (x, y) => {
-  const left = Math.hypot(x - 384, y - 320) < 208
-  const right = Math.hypot(x - 664, y - 320) < 208
-  const top = Math.hypot(x - 524, y - 184) < 160
-  if (left) return [85, 180, 255, 190]
-  if (right) return [255, 105, 155, 190]
-  if (top) return [130, 255, 180, 150]
+  const coastal = ellipse(x, y, 340, 350, 255, 150)
+  const inland = ellipse(x, y, 690, 300, 255, 150)
+  const coastalRing = Math.abs(Math.hypot((x - 340) / 255, (y - 350) / 150) - 1) < 0.025
+  const inlandRing = Math.abs(Math.hypot((x - 690) / 255, (y - 300) / 150) - 1) < 0.025
+  const coastalStation = Math.hypot(x - 340, y - 350) < 10
+  const inlandStation = Math.hypot(x - 690, y - 300) < 10
+  if (coastalStation || inlandStation) return [255, 255, 255, 235]
+  if (coastal && inland) return [255, 176, 92, 145]
+  if (coastalRing || inlandRing) return [210, 240, 255, 210]
+  if (coastal) return [66, 174, 238, 125]
+  if (inland) return [238, 118, 150, 125]
   return [0, 0, 0, 0]
 }))
 
-// Color spectrum
+// A dark plume-spectrum fixture with a few bright emission lines.
 await writeFile(path.join(output, "spectrum.png"), png(1280, 640, (x, y) => {
-  const hue = (x / 1280) * 6
+  if (y < 96 || y >= 544) return [7, 17, 30, 255]
+  const hue = (x / 1280) * 5.8
   const [r, g, b] = hueRgb(hue)
-  const shade = 0.45 + (y / 640) * 0.55
-  return [Math.round(r * shade), Math.round(g * shade), Math.round(b * shade), 255]
-}))
+  const normalizedX = x / 1280
+  const peaks = [0.16, 0.31, 0.48, 0.72, 0.86]
+  const peak = Math.max(...peaks.map((position) => Math.max(0, 1 - Math.abs(normalizedX - position) / 0.012)))
+  const band = 0.38 + peak * 0.62
+  const grid = x % 160 < 2 || y % 112 < 2
+  if (grid && peak < 0.4) return [24, 43, 58, 255]
+  return [Math.round(r * band), Math.round(g * band), Math.round(b * band), 255]
+}, false))
 
-// Hard-edged checker
+// Calibration grid with a visible centre reticle and terminal-friendly contrast.
 await writeFile(path.join(output, "checker.png"), png(1024, 1024, (x, y) => {
   const cell = ((x >> 6) + (y >> 6)) & 1
-  return cell ? [235, 238, 242, 255] : [28, 34, 46, 255]
-}))
+  const line = x % 64 < 2 || y % 64 < 2
+  const reticle = Math.abs(x - 512) < 3 || Math.abs(y - 512) < 3
+  const ring = Math.abs(Math.hypot(x - 512, y - 512) - 230) < 3
+  if (reticle) return [102, 235, 255, 255]
+  if (ring) return [255, 183, 82, 230]
+  if (line) return [74, 103, 121, 255]
+  return cell ? [31, 50, 66, 255] : [11, 25, 40, 255]
+}, false))
 
 // A real animation: a ring pulsing outwards on a transparent field. Every
 // frame is a full-canvas image with its own disposal method, so the decoder's
@@ -58,7 +77,21 @@ await writeFile(path.join(output, "pulse.gif"), gif(640, 640, 6, (x, y, frame, f
   if (Math.abs(distance - outer) <= 16) return [1, 2, 3][frame % 3]!
   if (Math.abs(distance - inner) <= 12) return 3
   return 0
-}, [0, 0, 0], [[120, 200, 255], [160, 230, 255], [255, 255, 255]]))
+}, [0, 0, 0], [[66, 174, 238], [255, 176, 92], [255, 255, 255]]))
+
+function ascentY(x: number, width: number, height: number): number {
+  const progress = x / (width - 1)
+  const altitude = progress < 0.25
+    ? 0.12 + 0.34 * (progress / 0.25) ** 0.8
+    : progress < 0.7
+      ? 0.46 + 0.38 * ((progress - 0.25) / 0.45) ** 0.78
+      : 0.84 + 0.04 * ((progress - 0.7) / 0.3)
+  return Math.round(height - 58 - altitude * (height - 112))
+}
+
+function ellipse(x: number, y: number, centerX: number, centerY: number, radiusX: number, radiusY: number): boolean {
+  return ((x - centerX) / radiusX) ** 2 + ((y - centerY) / radiusY) ** 2 < 1
+}
 
 function hueRgb(hue: number): [number, number, number] {
   const c = 1
@@ -80,8 +113,13 @@ function hueRgb(hue: number): [number, number, number] {
 // filter that produces the smallest sum of absolute differences, which is what
 // the reference encoders do. Without it a smooth gradient is stored as raw
 // samples and the file grows with every pixel.
-function png(width: number, height: number, pixel: (x: number, y: number) => readonly [number, number, number, number]) {
-  const bytesPerPixel = 4
+function png(
+  width: number,
+  height: number,
+  pixel: (x: number, y: number) => readonly [number, number, number, number],
+  hasAlpha = true,
+) {
+  const bytesPerPixel = hasAlpha ? 4 : 3
   const stride = width * bytesPerPixel
   const raw = new Uint8Array(height * (1 + stride))
   const current = new Uint8Array(stride)
@@ -91,10 +129,11 @@ function png(width: number, height: number, pixel: (x: number, y: number) => rea
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const [r, g, b, a] = pixel(x, y)
-      current[x * 4] = r
-      current[x * 4 + 1] = g
-      current[x * 4 + 2] = b
-      current[x * 4 + 3] = a
+      const offset = x * bytesPerPixel
+      current[offset] = r
+      current[offset + 1] = g
+      current[offset + 2] = b
+      if (hasAlpha) current[offset + 3] = a
     }
     let bestType = 0
     let bestScore = Infinity
@@ -126,7 +165,7 @@ function png(width: number, height: number, pixel: (x: number, y: number) => rea
   }
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk("IHDR", new Uint8Array([width >>> 24, width >>> 16, width >>> 8, width, height >>> 24, height >>> 16, height >>> 8, height, 8, 6, 0, 0, 0])),
+    chunk("IHDR", new Uint8Array([width >>> 24, width >>> 16, width >>> 8, width, height >>> 24, height >>> 16, height >>> 8, height, 8, hasAlpha ? 6 : 2, 0, 0, 0])),
     chunk("IDAT", deflateSync(raw, { level: 9 })),
     chunk("IEND", new Uint8Array()),
   ])

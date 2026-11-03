@@ -1,48 +1,148 @@
-# Mermaid syntax support
+# Mermaid support
 
-This renderer implements a **subset**, not the upstream Mermaid grammar. Only
-fenced `mermaid` blocks whose first meaningful line identifies one of the seven
-families below are eligible for rendering as terminal diagrams. This page
-describes the current implementation, not a promise of compatibility with a particular
-Mermaid release. Examples in the “unsupported” column are illustrative, not an
-exhaustive list of rejected syntax.
+The renderer implements a terminal-oriented subset of Mermaid. It does not promise compatibility with the complete upstream Mermaid grammar or a particular Mermaid release.
 
-**Legend:** **rendered** means the syntax affects the diagram; **accepted but
-ignored** means the block still renders, but that directive has no visual or
-semantic effect; **unsupported** means the diagram cannot be prepared and the
-viewer normally shows its source fence. Comments and accessibility metadata
-are listed where the corresponding parser handles them; do not assume one
-diagram family's directives work in another.
+Only fenced `mermaid` blocks whose first meaningful line identifies one of the seven families below are eligible for diagram rendering. The terminal theme controls colours; browser CSS and SVG-specific behaviour are not reproduced.
 
-| Family / first line | Rendered syntax | Accepted but ignored / approximated | Unsupported examples |
+**Legend:** “rendered” affects the diagram; “accepted but ignored” keeps the block renderable but has no visual/semantic effect; “unsupported” normally leaves the source fence visible.
+
+| Family / first line | Rendered | Accepted but ignored or approximated | Unsupported examples |
 | --- | --- | --- | --- |
-| `flowchart` / `graph` | `TB`, `TD`, `BT`, `LR`, `RL`; box, rounded, circle, decision, database, subroutine, hexagon and `[/parallelogram/]` nodes; arrows/links, edge labels, chains, `&` groups, nested subgraphs, top-level `;` separators | `classDef`, `class`, `style`, `linkStyle` (terminal theme wins); `%%` comments | Modern `@{ shape: ... }` declarations, `click`/hyperlinks, other node shapes and unrecognized statements |
-| `sequenceDiagram` | Participants/actors, aliases and boxes; messages, notes, activations, `autonumber`; `alt`/`else`, `loop`, `opt`, `par`/`and`, `critical`/`option`, `break` | Colour on `box` is not applied (its label is retained); `%%` comment lines | `rect`, participant `create`/`destroy`, bidirectional messages |
-| `stateDiagram` / `stateDiagram-v2` | Directions `TB`, `TD`, `BT`, `LR`, `RL`; transitions and labels, start/end, declarations/descriptions, choice, fork/join, composites, inline/multiline left/right notes | `%%` comment lines | A `direction` inside a composite state and other unrecognized state statements |
-| `gantt` | `title`, `section`, `dateFormat`, `axisFormat`, fixed-unit `tickInterval`; task IDs, `after` dependencies, duration/end dates, `active`, `done`, `crit`, `milestone`; date formats `s`, `X`, `x`, `HH:mm`, `HH:mm:ss`, `YYYY-MM-DD`, `YYYY-MM-DD HH:mm`, `YYYY-MM-DD HH:mm:ss` and the same date-time formats with `T` instead of a space | `accTitle`, `accDescr`, `%%` comments; `vert` flag currently draws as a regular task | `excludes`, `todayMarker`, calendar-month tick intervals and other date formats |
-| `timeline` | `title`, `section`, periods and events separated by colon, continuation lines | `accTitle`, `accDescr`, `%%` comments; `TD`/`LR` is parsed but the terminal layout is always vertical | Empty `title`/`section`, continuation without a period; arbitrary unknown lines may instead be interpreted as period text |
-| `gitGraph` | `commit` (ID/message/tags/type), `branch` (order), `checkout`/`switch`, `merge`, simple `cherry-pick id: "..."` | `title`, `accTitle`, `accDescr`, `%%` comments; `LR`/`TB`/`BT` is parsed but the terminal layout is always vertical | `cherry-pick` with `parent:` or other extra options, unknown commands/attributes |
-| `classDiagram` | Directions `TB`, `BT`, `LR`, `RL`; classes, labelled classes, members, stereotypes, relationships, cardinalities and `note for Class "..."` (shown inside the class box) | `accTitle`, `accDescr`, `%%` comments | Standalone notes, `namespace`, `package`, `click`/hyperlinks, CSS styles |
+| `flowchart` / `graph` | `TB`, `TD`, `BT`, `LR`, `RL`; box, rounded, circle, decision, database, subroutine, hexagon, and parallelogram nodes; arrows, links, labels, chains, `&` groups, nested subgraphs, top-level `;` separators | `classDef`, `class`, `style`, `linkStyle`; terminal theme wins; `%%` comments | Modern `@{ shape: ... }`, `click`/hyperlinks, unknown statements and other node shapes |
+| `sequenceDiagram` | Participants, aliases, boxes, messages, notes, activations, `autonumber`, `alt`/`else`, `loop`, `opt`, `par`/`and`, `critical`/`option`, `break` | Box colour is not applied; its label is retained; `%%` comments | `rect`, participant `create`/`destroy`, bidirectional messages |
+| `stateDiagram` / `stateDiagram-v2` | Directions, transitions and labels, start/end, declarations/descriptions, choice, fork/join, composites, inline/multiline notes | `%%` comments | Direction inside a composite state and unknown state statements |
+| `gantt` | `title`, `section`, `dateFormat`, fixed-unit `tickInterval`; task IDs, `after`, durations/end dates, `active`, `done`, `crit`, milestones; date formats `s`, `X`, `x`, `HH:mm`, `HH:mm:ss`, `YYYY-MM-DD`, `YYYY-MM-DD HH:mm`, `YYYY-MM-DD HH:mm:ss` and the equivalent ISO `T` date-time forms | `accTitle`, `accDescr`, `%%`; `vert` draws as a regular task | `excludes`, `todayMarker`, calendar-month ticks, other date formats |
+| `timeline` | `title`, `section`, periods and colon-separated events, continuation lines | `accTitle`, `accDescr`, `%%`; `TD`/`LR` is parsed but layout remains vertical | Empty title/section, continuation without a period, unknown lines that cannot be interpreted |
+| `gitGraph` | `commit` with ID/message/tags/type, `branch`, `checkout`/`switch`, `merge`, simple `cherry-pick id: "..."` | `title`, accessibility metadata, comments; `LR`/`TB`/`BT` is parsed but layout remains vertical | `cherry-pick` with `parent:` or extra options, unknown commands/attributes |
+| `classDiagram` | Directions, classes, labels, members, stereotypes, relationships, cardinalities, and `note for Class "..."` inside the class box | Accessibility metadata and comments | Standalone notes, `namespace`, `package`, `click`/hyperlinks, CSS styles |
 
-Other diagram families, such as `erDiagram`, `pie`, `journey`, `mindmap`,
-`sankey` and `xychart`, are **not detected** and remain readable code fences.
-See [`src/merman/detect.ts`](../src/merman/detect.ts) for the actual family list.
+Other families such as `erDiagram`, `pie`, `journey`, `mindmap`, `sankey`, and `xychart` are not detected and remain readable code fences.
 
-For an unsupported statement in a detected family, the parser raises a
-`MermaidSyntaxError`. The view uses a code-fence fallback; while an existing
-diagram is being edited, it may instead keep the **last valid rendering** or
-render a valid prefix until the new input is complete. Some syntax can also
-render with simplified geometry or theme colours rather than matching Mermaid's
-SVG output.
+## Minimal working examples
 
-The canvas is limited to **250,000 cells**, and a flowchart source line may
-contain at most **10,000 characters**; exceeding these limits does not produce
-a partial drawing.
+Each block below is derived from a checked fixture in [`examples/mermaid.md`](../examples/mermaid.md). Copy a complete fenced block into a document to compare it with the renderer's fallback behaviour.
 
-The status examples are checked in
-[`test/mermaid-support.test.ts`](../test/mermaid-support.test.ts); additional
-rendering fixtures are in [`test/mermaid-extended.test.ts`](../test/mermaid-extended.test.ts),
-[`test/merman-ext.test.ts`](../test/merman-ext.test.ts),
-[`test/mermaid-view.render.test.tsx`](../test/mermaid-view.render.test.tsx),
-[`examples/mermaid.md`](../examples/mermaid.md) and the 95-diagram
-[`examples/merman-ext.md`](../examples/merman-ext.md) stress suite.
+### Flowchart
+
+```mermaid
+flowchart LR
+  Source[Raw Markdown] --> Detect{Block kind}
+  Detect -->|Math| Typeset[MiTeX + Typst]
+  Detect -->|Media| Decode[Image decoder]
+  Typeset --> Output[OpenTUI]
+  Decode --> Output
+```
+
+Direction is part of the first line. A supported `graph` declaration works in place of `flowchart`. Styles defined with Mermaid CSS directives do not override the terminal palette.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Renderer
+  User->>Renderer: Open example
+  Renderer-->>User: Draw terminal diagram
+```
+
+For branching and concurrent interactions, `alt`/`else`, `opt`, `loop`, `par`/`and`, and `critical`/`option` are supported. Browser-specific visual grouping such as `rect` is not.
+
+### State diagram
+
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Processing: Start
+  Processing --> Success: Complete
+  Success --> [*]
+```
+
+The start/end markers and transition labels are rendered in the terminal grid. Composite states, forks, joins, choices, and notes are also covered by the fixture suite.
+
+### Gantt chart
+
+```mermaid
+gantt
+  title Build Pipeline
+  dateFormat HH:mm
+  tickInterval 1h
+  section Core
+  Scan :a1, 00:00, 2h
+  Inline :after a1, 3h
+```
+
+Fixed-unit ticks work; calendar-month ticks, excluded days, and a today marker are not rendered. Check the date-format list in the matrix before assuming an upstream Gantt format works here.
+
+### Timeline
+
+```mermaid
+timeline
+  title Renderer milestones
+  section Foundation
+  2026 : Markdown blocks
+       : Native math
+  section Media
+  2026 : PNG and GIF support
+```
+
+Continuation lines beginning with `:` add events to the preceding period. The terminal timeline remains vertical even if a direction directive is parsed.
+
+### Git graph
+
+```mermaid
+gitGraph
+  commit id: "baseline"
+  branch media
+  commit id: "images"
+  checkout main
+  commit id: "docs"
+  merge media
+```
+
+Branches and merges are rendered, but the terminal graph remains vertical regardless of a parsed direction. `cherry-pick id: "..."` supports the simple form, not additional parent options.
+
+### Class diagram
+
+```mermaid
+classDiagram
+  class Shape {
+    <<interface>>
+    +area() double
+  }
+  class Circle {
+    +double radius
+    +area() double
+  }
+  Shape <|-- Circle : implements
+```
+
+`mermaid.classLayout` can switch between the terminal-optimized `builtin` layout and `dagre`. Only notes attached to a class are supported; standalone notes and namespaces remain unsupported.
+
+## Configuration
+
+```jsonc
+{
+  "mermaid": {
+    "compact": false,
+    "layoutMaxWidth": 120,
+    "classLayout": "builtin"
+  }
+}
+```
+
+`classLayout` is specific to class diagrams. `builtin` is the terminal-optimized default; `dagre` uses Dagre's layered layout. `layoutMaxWidth` bounds diagram layout and `compact` requests a denser layout.
+
+## Errors and editing behaviour
+
+If a detected family's source contains an unsupported statement, parsing raises `MermaidSyntaxError`. The view normally shows the original source fence. While an existing diagram is being edited, the view may retain its last valid rendering or render a valid prefix until the new input is complete.
+
+The drawing canvas is limited to 250,000 cells. A flowchart source line may contain at most 10,000 characters. Exceeding a limit does not produce a partial drawing.
+
+## Fixtures and tests
+
+The support contract is exercised by:
+
+- [`examples/mermaid.md`](../examples/mermaid.md) — one broad family overview;
+- [`examples/merman-ext.md`](../examples/merman-ext.md) — a larger stress suite;
+- [`test/mermaid-support.test.ts`](../test/mermaid-support.test.ts) — support assertions;
+- [`test/mermaid-extended.test.ts`](../test/mermaid-extended.test.ts), [`test/merman-ext.test.ts`](../test/merman-ext.test.ts), and Mermaid view render tests.
