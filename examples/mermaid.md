@@ -1,7 +1,7 @@
 # Architecture reference
 
 Every diagram kind Kestrel can draw, each with the scenario it describes.
-Scroll to compare; `t` cycles the theme and `q` quits.
+Scroll to compare; `c` opens the configuration panel to switch themes and `q` asks to quit.
 
 ## The pipeline
 

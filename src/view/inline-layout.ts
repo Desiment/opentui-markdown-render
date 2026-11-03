@@ -21,8 +21,8 @@ function hardChunks(content: string, columns: number) {
   return chunks
 }
 
-// The measurements, compact collision check and standard-size choice mirror
-// the original CanvasFlow layout; the input is now the shared styled AST.
+// Measurements, compact collision checks, and standard-size choices use the
+// shared styled AST.
 export function layoutAtoms(
   atoms: readonly StyledAtom[],
   columns: number,

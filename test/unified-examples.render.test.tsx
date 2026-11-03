@@ -6,7 +6,7 @@ import { MarkdownRenderer } from "../src/app"
 import { defaultTheme } from "../src/theme/defaults"
 
 // Exercise the production entry point on representative portions of the
-// shipped documents. This is not a historical pre-migration baseline.
+// shipped documents.
 const examples = [
   ["plain", "Kestrel", "Install"],
   ["tables", "Telemetry reference", "Channel"],

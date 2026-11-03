@@ -17,9 +17,10 @@ reproduction case.
 | `merman-ext.md` | `bun run demo:merman-ext` | the combined stress suite: 35 class diagrams plus 60 edge cases for flowchart, sequence, state, Gantt, timeline and Git graph |
 | `all.md` | `bun run demo:all` | the documentation index: every rendering path in one document |
 
-Run `bun run generate:examples` before the image, mixed, or all examples. Math needs a
-Kitty-compatible terminal with reported pixel dimensions; source LaTeX is the
-expected fallback otherwise.
+Run `bun run generate:examples` before the image, mixed, or all examples. Kitty
+graphics gives the sharpest math and image output; OpenTUI also supports Sixel
+or block-character rendering depending on terminal capabilities. A missing
+native math addon or invalid formula keeps the original LaTeX source readable.
 
 The demo app shows an informational status line at the bottom with the file
 name, theme mode, graphics protocol, cell pixel size, and scroll position.
