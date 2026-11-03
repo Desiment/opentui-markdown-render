@@ -1,54 +1,61 @@
-# Kestrel documentation
+# Kestrel mission dossier
 
-Everything the renderer covers, in one page: prose, code, tables, formulas,
-diagrams and telemetry frames.
+The complete KST-118 review in one page: a shift handover, a few working notes,
+the calculations behind the insertion estimate, and the diagrams and frames
+that make the evidence easier to audit.
 
-## The tool
+## The watch console
 
-Kestrel turns a raw flight log into a readable terminal report. It parses
-CommonMark, typesets the formulas, and draws the diagrams and frames that come
-with the log.
-
-### Formatting
-
-Reports mix *italic*, **bold** and `inline code`, and a cross-reference such as
-[the flight plan](https://github.com/sst/opentui) keeps its label.
+Kestrel turns a raw flight log into a readable terminal report without hiding
+the raw material. The night shift can move from a sentence to a code sample, a
+table, a formula, or a sensor frame without leaving the terminal.
 
 ### A note from the flight director
+
+Reports mix *observations*, **decisions** and `channel names`; a cross-reference
+such as [the OpenTUI project](https://github.com/anomalyco/opentui) keeps its label.
+The source remains readable when a terminal cannot display a formula, diagram, or image.
+
+### The review order
 
 > Every figure in a report has to survive being read over SSH, on a terminal
 > that cannot draw a single pixel. When a frame or a formula cannot be
 > rendered, the source is printed instead of a broken image.
 
-### The parts of a report
+The review proceeds in the same order as the operation:
 
 - Flight data
-  - Altitude and velocity
-  - Propellant mass
+  - altitude and velocity
+  - propellant mass and mode changes
 - Analysis
-  - Formulas
-  - Diagrams
-1. Recording
-2. Decoding
-3. Reporting
+  - equations and tolerances
+  - diagrams and image evidence
+1. Confirm the recorder and time base.
+2. Decode the state transitions.
+3. Sign the report only after the evidence agrees.
 
 ---
 
-## Code
+## A small archive check
 
 ```js
-function greet(vehicle) {
-  return `Hello, ${vehicle}!`
+// Application-specific loader used by the fictional host:
+const report = await openFlightReport("KST-118")
+
+function lastBeacon(report) {
+  return report.flight.samples
+    .filter((sample) => sample.channel === "beacon")
+    .at(-1)
 }
-console.log(greet("Kestrel"))
+console.log(lastBeacon(report))
 ```
 
-## Tables
+## Quick-look table
 
-| Left | Center | Right |
+| Event | Time | Status |
 |------|:------:|------:|
-| A    | B      | C     |
-| 1    | 2      | 3     |
+| MECO | T+63 s | nominal |
+| Insertion | T+512 s | signed |
 
 ## Math
 
@@ -67,23 +74,23 @@ $$
 
 Truncated, and therefore left as source: $$\frac{1}{ $$
 
-## Diagrams
+## Mission diagrams
 
-### The pipeline, in both directions
+### From recorder to signed report
 
 ```mermaid
 flowchart LR
-  A[Start] --> B{Decision}
-  B -->|Yes| C[End]
-  B -->|No| D[Retry]
+  A[Start] --> B{Range check}
+  B -->|Pass| C[End]
+  B -->|Review| D[Retry]
 ```
 
 ```mermaid
 flowchart TD
   A[Start] --> B((Round))
   B --> C{Decision}
-  C -->|Yes| D[(Database)]
-  C -->|No| E[[Subroutine]]
+  C -->|Pass| D[(Archive)]
+  C -->|Review| E[[Ground station]]
 ```
 
 ```mermaid
@@ -94,16 +101,16 @@ flowchart BT
   B --> C
 ```
 
-### The handoff
+### Ground-station handoff
 
 ```mermaid
 sequenceDiagram
-  participant User
-  participant Renderer
-  User->>Renderer: Open example
-  Renderer-->>User: Draw terminal diagram
-  User->>+Renderer: Request update
-  Renderer-->>-User: Updated output
+  participant Director
+  participant Console
+  Director->>Console: Open KST-118
+  Console-->>Director: Show signed report
+  Director->>+Console: Request fresh channel scan
+  Console-->>-Director: Archive updated
 ```
 
 ### Vehicle states
@@ -123,28 +130,28 @@ stateDiagram-v2
   Fork --> B
 ```
 
-### The launch window
+### The processing window
 
 ```mermaid
 gantt
   dateFormat s
-  section Render
-  Parse Markdown :0, 2
-  Typeset math :active, 2, 5
-  Draw media :3, 7
+  section Mission review
+  Decode recorder :0, 2
+  Check trajectory :active, 2, 5
+  Sign report :3, 7
 ```
 
 ### Milestones
 
 ```mermaid
 timeline
-  title Renderer milestones
+  title Kestrel milestones
   section Foundation
-  2026 : Markdown blocks
-       : Native math
+  2026 : First flight report
+       : Native trajectory checks
   section Media
-  2026 : PNG and GIF support
-       : Transparency handling
+  2026 : Ground-station frames
+       : Transparent handover map
 ```
 
 ### Release history
@@ -164,43 +171,43 @@ gitGraph
 ```mermaid
 classDiagram
   direction TB
-  class Shape {
+  class VehicleComponent {
     <<interface>>
-    +area() double
+    +health() string
   }
-  class Circle {
-    +double radius
-    +area() double
+  class Guidance {
+    +double bias
+    +health() string
   }
-  class Square {
-    +double side
-    +area() double
+  class Propulsion {
+    +double propellant
+    +health() string
   }
-  class Point {
-    +int x
-    +int y
+  class Sensor {
+    +int channel
+    +health() string
   }
-  Shape <|-- Circle : implements
-  Shape <|-- Square
-  Circle *-- Point : center
+  VehicleComponent <|-- Guidance : implements
+  VehicleComponent <|-- Propulsion
+  Guidance *-- Sensor : observes
 ```
 
-## Frames
+## Telemetry frames
 
-The ascent profile, opaque:
+The opaque ascent profile stays readable against the dark console:
 
 ![Altitude profile of the ascent phase](./assets/opaque.png)
 
-Two sensor footprints with partial coverage:
+The transparent overlap marks the ground-station handover:
 
 ![Overlapping sensor footprints](./assets/transparent.png)
 
-An animated countdown loop:
+The countdown loop is retained as a timed asset:
 
 ![Animated countdown loop](./assets/pulse.gif)
 
-Frames that must not load, because they point at a remote URL, escape the log
-directory, or are simply not there:
+These sources must not load: they point to the network, escape the archive, or
+refer to an asset that was never recorded:
 
 ![Refused remote frame](https://example.com/frame.png)
 

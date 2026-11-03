@@ -11,7 +11,7 @@ const examples = [
   ["plain", "Kestrel", "Install"],
   ["tables", "Telemetry reference", "Channel"],
   ["math", "Orbital mechanics", "launch azimuth"],
-  ["mermaid", "Architecture reference", "Raw Markdown"],
+  ["mermaid", "Mission architecture and syntax reference", "Raw Markdown"],
   ["images", "Telemetry frames", "Ascent profile"],
 ] as const
 
