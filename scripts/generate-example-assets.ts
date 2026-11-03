@@ -21,7 +21,7 @@ await writeFile(path.join(output, "opaque.png"), png(1280, 720, (x, y) => {
   if (grid) return [24, 61, 82, 255]
   const depth = y / 720
   return [Math.round(8 + depth * 8), Math.round(22 + depth * 18), Math.round(38 + depth * 28), 255]
-}))
+}, false))
 
 // Overlapping translucent coverage footprints for the coastal and inland
 // ground stations. The transparent field lets the terminal background show.
@@ -52,7 +52,7 @@ await writeFile(path.join(output, "spectrum.png"), png(1280, 640, (x, y) => {
   const grid = x % 160 < 2 || y % 112 < 2
   if (grid && peak < 0.4) return [24, 43, 58, 255]
   return [Math.round(r * band), Math.round(g * band), Math.round(b * band), 255]
-}))
+}, false))
 
 // Calibration grid with a visible centre reticle and terminal-friendly contrast.
 await writeFile(path.join(output, "checker.png"), png(1024, 1024, (x, y) => {
@@ -64,7 +64,7 @@ await writeFile(path.join(output, "checker.png"), png(1024, 1024, (x, y) => {
   if (ring) return [255, 183, 82, 230]
   if (line) return [74, 103, 121, 255]
   return cell ? [31, 50, 66, 255] : [11, 25, 40, 255]
-}))
+}, false))
 
 // A real animation: a ring pulsing outwards on a transparent field. Every
 // frame is a full-canvas image with its own disposal method, so the decoder's
@@ -113,8 +113,13 @@ function hueRgb(hue: number): [number, number, number] {
 // filter that produces the smallest sum of absolute differences, which is what
 // the reference encoders do. Without it a smooth gradient is stored as raw
 // samples and the file grows with every pixel.
-function png(width: number, height: number, pixel: (x: number, y: number) => readonly [number, number, number, number]) {
-  const bytesPerPixel = 4
+function png(
+  width: number,
+  height: number,
+  pixel: (x: number, y: number) => readonly [number, number, number, number],
+  hasAlpha = true,
+) {
+  const bytesPerPixel = hasAlpha ? 4 : 3
   const stride = width * bytesPerPixel
   const raw = new Uint8Array(height * (1 + stride))
   const current = new Uint8Array(stride)
@@ -124,10 +129,11 @@ function png(width: number, height: number, pixel: (x: number, y: number) => rea
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const [r, g, b, a] = pixel(x, y)
-      current[x * 4] = r
-      current[x * 4 + 1] = g
-      current[x * 4 + 2] = b
-      current[x * 4 + 3] = a
+      const offset = x * bytesPerPixel
+      current[offset] = r
+      current[offset + 1] = g
+      current[offset + 2] = b
+      if (hasAlpha) current[offset + 3] = a
     }
     let bestType = 0
     let bestScore = Infinity
@@ -159,7 +165,7 @@ function png(width: number, height: number, pixel: (x: number, y: number) => rea
   }
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk("IHDR", new Uint8Array([width >>> 24, width >>> 16, width >>> 8, width, height >>> 24, height >>> 16, height >>> 8, height, 8, 6, 0, 0, 0])),
+    chunk("IHDR", new Uint8Array([width >>> 24, width >>> 16, width >>> 8, width, height >>> 24, height >>> 16, height >>> 8, height, 8, hasAlpha ? 6 : 2, 0, 0, 0])),
     chunk("IDAT", deflateSync(raw, { level: 9 })),
     chunk("IEND", new Uint8Array()),
   ])
