@@ -10,7 +10,10 @@
   },
   "files": [
     "src",
-    "native",
+    "native/Cargo.toml",
+    "native/Cargo.lock",
+    "native/build.rs",
+    "native/src",
     "prebuilds",
     "README.md",
     "LICENSE",
