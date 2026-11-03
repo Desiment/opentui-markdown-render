@@ -2,7 +2,7 @@
 
 `opentui-markdown-render` is a Markdown renderer for [OpenTUI](https://github.com/anomalyco/opentui) and Solid. It turns Markdown into a terminal-native document with tables, syntax-highlighted code, Mermaid diagrams, local images, animated GIFs, and optional LaTeX-style mathematics.
 
-> **Visual demo coming soon:** screenshots and GIFs will be added under the repository-root `assets/` directory after captures from the real terminal demo are available. For now, run `bun run demo:all` to see the result.
+![A mixed Markdown document rendered in OpenTUI, including a table, Mermaid flowchart, inline math, display math, frame, and status line](assets/overview.png)
 
 ## Why this renderer exists
 
@@ -18,6 +18,32 @@ Terminal UIs usually have to choose between displaying Markdown as plain text an
 - source ranges and render units for selection, comments, review tools, and overlays owned by the host.
 
 The renderer uses OpenTUI primitives rather than OpenTUI's built-in Markdown parser. Math is rasterized by the native addon using MiTeX and Typst; the renderer does not start a system LaTeX or Typst process.
+
+## See it in action
+
+### Live themes and configuration
+
+Press `c` in the demo to switch between light, dark, and Solarized themes and to adjust frame, table, and class-diagram layout without restarting the viewer.
+
+![Switching themes and layout settings from the OpenTUI configuration panel](assets/themes.gif)
+
+### Typeset mathematics
+
+Inline formulas participate in normal text layout, while display formulas use display style with large operators and limits. Rendering happens in-process through MiTeX and Typst.
+
+![Inline and display mathematics rendered inside an OpenTUI Markdown document](assets/math.png)
+
+### Terminal-native Mermaid diagrams
+
+Supported Mermaid families are parsed and laid out as terminal diagrams rather than browser SVG. Unsupported syntax remains a readable source fence.
+
+![Flowcharts and supported node shapes rendered as terminal-native Mermaid diagrams](assets/mermaid.png)
+
+### Local images and animated GIFs
+
+Local assets are decoded below the configured asset root, fitted to terminal cells, and composited against the active background. GIF timing and transparency are retained.
+
+![Local images and an animated GIF rendered inside the OpenTUI document viewer](assets/images.gif)
 
 ## Quick start
 
