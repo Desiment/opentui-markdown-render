@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/Desiment/opentui-markdown-render/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/Desiment/opentui-markdown-render/actions/workflows/verify.yml)
 
+> [!WARNING]
+> The code in this repository is 100% AI-slop. I disclaim any responsibility for the functionality of this code. I also do not accept pull requests for this repository. You are welcome to open issues if you find any bugs, but it is unlikely that I will fix them. If you would like to develop this project into something more substantial, please let me know by opening an issue.
+
 `opentui-markdown-render` is a Markdown renderer for [OpenTUI](https://github.com/anomalyco/opentui) and Solid. It turns Markdown into a terminal-native document with tables, syntax-highlighted code, Mermaid diagrams, local images, animated GIFs, and optional LaTeX-style mathematics.
 
 ![A mixed Markdown document rendered in OpenTUI, including a table, Mermaid flowchart, inline math, display math, frame, and status line](assets/overview.png)
