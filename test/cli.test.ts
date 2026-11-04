@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test"
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { parseCliArgs } from "../src/cli"
 
+const bin = path.resolve(import.meta.dir, "../bin/otmd.tsx")
+
 describe("otmd CLI arguments", () => {
+  test("preloads the Solid client runtime from the installed executable", () => {
+    expect(readFileSync(bin, "utf8").split("\n", 1)[0]).toBe(
+      "#!/usr/bin/env -S bun --preload @opentui/solid/preload",
+    )
+  })
+
   test("renders a file with automatic config discovery", () => {
     expect(parseCliArgs(["README.md"])).toEqual({
       kind: "run",
