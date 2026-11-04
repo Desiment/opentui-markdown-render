@@ -32,6 +32,8 @@ export type MarkdownRendererCommonProps = {
   // `cwd` looking for `opentui-markdown-render.json[c]`.
   readonly configPath?: string
   readonly themeMode?: ThemeModeSetting | (() => ThemeModeSetting | null | undefined)
+  // Host-controlled display-math enlargement. Inline formulas keep text size.
+  readonly mathScale?: number | (() => number)
   readonly cwd?: string
   // The viewer window. `enabled: false` keeps the document in the whole area.
   readonly frame?: FrameConfig | (() => FrameConfig)
@@ -97,6 +99,10 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   }
 
   const themeModeSetting = () => (typeof props.themeMode === "function" ? props.themeMode() : props.themeMode)
+  const mathScale = () => {
+    const value = typeof props.mathScale === "function" ? props.mathScale() : props.mathScale
+    return value !== undefined && Number.isFinite(value) && value > 0 ? value : 1
+  }
   const config = createMemo<MarkdownConfig>(() => {
     const provided = typeof props.config === "function" ? props.config() : props.config
     if (provided) return provided
@@ -171,6 +177,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
               imageLimits={config().images}
               tableOptions={tableOptions()}
               mermaidOptions={config().mermaid}
+              mathScale={mathScale()}
               onDiagnostic={props.onDiagnostic}
               renderUnit={props.renderUnit}
             />

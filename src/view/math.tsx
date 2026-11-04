@@ -12,6 +12,7 @@ export function DisplayMath(props: {
   surface: () => string
   theme: () => Theme
   graphics: CanvasGraphics
+  scale: () => number
 }) {
   const [failed, setFailed] = createSignal(false)
   const color = () => rgbaToHex(props.theme().text.base)
@@ -27,11 +28,12 @@ export function DisplayMath(props: {
         color: color(),
         background: props.surface(),
         cell: props.graphics.cell(),
+        scale: props.scale(),
       }),
     async (key): Promise<{ raster: MathImage } | { error: string }> => {
-      const input = JSON.parse(key) as { content: string; color: string; background: string; cell: CellSize | null }
+      const input = JSON.parse(key) as { content: string; color: string; background: string; cell: CellSize | null; scale: number }
       try {
-        const raster = await renderMathImage(input.content, true, input.color, input.background, input.cell)
+        const raster = await renderMathImage(input.content, true, input.color, input.background, input.cell, input.scale)
         return raster ? { raster } : { error: "Renderer returned no image" }
       } catch (error) {
         return { error: error instanceof Error ? error.message : String(error) }
@@ -69,7 +71,7 @@ export function DisplayMath(props: {
         <Match when={raster()}>
           <box width="100%" height={box().rows} flexShrink={0} alignItems="center" justifyContent="center">
             <image
-              id={`opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell())}-${props.surface()}`}
+              id={`opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell(), props.scale())}-${props.surface()}`}
               source={raster()!.png}
               fit="fit"
               protocol="auto"

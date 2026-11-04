@@ -30,10 +30,15 @@ export function loadNativeMath() {
 
 async function importNativeMath(): Promise<NativeModule | undefined> {
   if (process.platform !== "linux" || process.arch !== "x64") return undefined
-  try {
-    const file = path.join(import.meta.dir, "..", "..", "prebuilds", "linux-x64-gnu", "opentui_markdown_render.node")
-    return createRequire(import.meta.url)(file) as NativeModule
-  } catch {
-    return undefined
+  const relative = path.join("prebuilds", "linux-x64-gnu", "opentui_markdown_render.node")
+  // The first location is the published package layout. The second supports a
+  // host bundling the TypeScript implementation into its own package while
+  // copying `prebuilds` beside the generated entrypoint.
+  const candidates = [path.join(import.meta.dir, "..", "..", relative), path.join(import.meta.dir, relative)]
+  for (const file of candidates) {
+    try {
+      return createRequire(import.meta.url)(file) as NativeModule
+    } catch {}
   }
+  return undefined
 }

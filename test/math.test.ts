@@ -70,6 +70,16 @@ describe("math image scale", () => {
     expect(display!.rows).toBeGreaterThan(inline!.rows)
   })
 
+  test("enlarges display math when the host supplies a scale", async () => {
+    if (!existsSync(addon)) return
+    const formula = String.raw`\int_0^1 x^2\,dx`
+    const normal = await renderMathImage(formula, true, "e6edf3", "0d1117", { width: 8, height: 16 })
+    const enlarged = await renderMathImage(formula, true, "e6edf3", "0d1117", { width: 8, height: 16 }, 1.5)
+    expect(normal).toBeDefined()
+    expect(enlarged).toBeDefined()
+    expect(enlarged!.rows).toBeGreaterThan(normal!.rows)
+  })
+
   test("keeps the standard text size for a formula that stands alone", async () => {
     if (!existsSync(addon)) return
     // A formula that shares its row with prose is scaled down to fit that row.
