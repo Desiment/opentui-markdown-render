@@ -1,11 +1,11 @@
 {
   "name": "opentui-markdown-render",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "OpenTUI Markdown renderer with optional native LaTeX math",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "otmd": "bin/otmd.tsx"
+    "otmd": "bin/otmd.ts"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -25,6 +25,7 @@
     "NOTICE"
   ],
   "scripts": {
+    "build:cli": "bun run scripts/build-cli.ts",
     "build:native": "bun run scripts/build-native.ts",
     "generate:examples": "bun run scripts/generate-example-assets.ts",
     "demo": "bun --preload @opentui/solid/preload examples/app.tsx",
@@ -38,9 +39,9 @@
     "demo:frame": "bun --preload @opentui/solid/preload examples/app.tsx frame.md",
     "test": "bun test --preload @opentui/solid/preload --timeout 30000",
     "typecheck": "tsgo --noEmit",
-    "verify": "bun run build:native && bun run typecheck && bun run test && bun run verify:native",
+    "verify": "bun run build:native && bun run build:cli && bun run typecheck && bun run test && bun run verify:native",
     "verify:native": "cargo test --manifest-path native/Cargo.toml",
-    "prepack": "bun run build:native",
+    "prepack": "bun run build:native && bun run build:cli",
     "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md"
   },
   "peerDependencies": {
