@@ -4,7 +4,7 @@ import path from "node:path"
 import { isFrameAlign, isFrameStyle } from "../core/frame"
 import { isTableColumnFitter, isTableOverflow, isTableWidthMode } from "../core/tables"
 import { isHeadingLevelKey, isStatusLineField, isStatusLineStyle, type HeadingLevelConfig, type HeadingsConfig, type MarkdownConfig, type StatusLineField } from "./types"
-import { validateTheme } from "./theme"
+import { validateThemeConfig } from "./theme"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
 export const xdgConfigFilenames = ["config.jsonc", "config.json"]
@@ -86,16 +86,19 @@ function discoverXdgConfig(environment: ConfigEnvironment): string | undefined {
 }
 
 export function parseConfig(source: string, file = "config", report?: ConfigReporter): MarkdownConfig {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(stripJsonComments(source))
-  } catch (error) {
-    throw new Error(`Invalid config ${file}: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  const parsed = parseJsonc(source, file)
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`Invalid config ${file}: expected a JSON object`)
   }
   return validateConfig(parsed as Record<string, unknown>, file, report)
+}
+
+export function parseJsonc(source: string, file = "config"): unknown {
+  try {
+    return JSON.parse(stripJsonComments(source))
+  } catch (error) {
+    throw new Error(`Invalid config ${file}: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 const sections = ["theme", "statusline", "images", "mermaid", "headings", "frame", "tables"] as const
@@ -108,7 +111,7 @@ function validateConfig(value: Record<string, unknown>, file: string, report?: C
     }
   }
   return {
-    theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
+    theme: isRecord(value.theme) ? validateThemeConfig(value.theme, file, report) : undefined,
     statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,
     mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid, file, report) : undefined,

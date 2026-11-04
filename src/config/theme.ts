@@ -1,4 +1,5 @@
 import type { ThemeOverride } from "../theme/types"
+import type { ThemeConfig } from "./types"
 import type { ConfigReporter } from "./load"
 
 // A JSON file only carries strings, not RGBA instances. OpenTUI accepts these
@@ -11,14 +12,15 @@ const colorNames = new Set([
   "brightblue", "brightyellow", "brightcyan", "brightmagenta", "brightwhite",
 ])
 
-type Field = "color" | "mode" | "colors" | { readonly [key: string]: Field }
+type Field = "name" | "color" | "mode" | "colors" | { readonly [key: string]: Field }
 const colors = <K extends string>(keys: readonly K[]): Record<K, Field> =>
   Object.fromEntries(keys.map((key) => [key, "color"])) as Record<K, Field>
 
 // The allowlist follows ThemeOverride, not the resolved Theme: headingLevels
 // is an internal six-colour array, while heading1..heading6 are file options.
-const themeFields: Record<string, Field> = {
+const themeFileFields: Record<string, Field> = {
   mode: "mode",
+  palette: "colors",
   accent: "color",
   categorical: "colors",
   text: {
@@ -84,5 +86,25 @@ export function validateTheme(value: Record<string, unknown>, file: string, repo
     }
     return result
   }
-  return validate(value, themeFields, "theme") as ThemeOverride
+  return validate(value, themeFileFields, "theme") as ThemeOverride
+}
+
+export function validateThemeConfig(value: Record<string, unknown>, file: string, report?: ConfigReporter): ThemeConfig {
+  const warn = (message: string) => {
+    if (report) report(message)
+    else console.warn(`[opentui-markdown-render] ${message}`)
+  }
+  const result: { name?: string } = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (key !== "name") {
+      warn(`Unknown theme option "theme.${key}" in ${file}`)
+      continue
+    }
+    if (typeof entry !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(entry)) {
+      warn(`Invalid theme option "theme.name" in ${file}`)
+      continue
+    }
+    result.name = entry
+  }
+  return result
 }

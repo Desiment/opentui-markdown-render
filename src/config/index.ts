@@ -31,6 +31,7 @@ export type {
   StatusLineStyle,
   ImagesConfig,
   MermaidConfig,
+  ThemeConfig,
   HeadingsConfig,
   HeadingLevelConfig,
   HeadingLevelKey,

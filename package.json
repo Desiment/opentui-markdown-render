@@ -19,6 +19,7 @@
     "native/build.rs",
     "native/src",
     "prebuilds",
+    "themes",
     "README.md",
     "LICENSE",
     "NOTICE"

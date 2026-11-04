@@ -1,4 +1,6 @@
 export { defaultTheme } from "./defaults"
+export { loadTheme, bundledThemeNames, themeFileNames } from "./load"
+export type { ThemeEnvironment } from "./load"
 export { generateSyntax } from "./syntax"
 export { resolveTheme, mergeTheme, deriveStatusLineTheme } from "./resolve"
 export { mixColors } from "./colors"

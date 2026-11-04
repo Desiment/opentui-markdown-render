@@ -74,6 +74,7 @@ export {
   type StatusLineStyle,
   type ImagesConfig,
   type MermaidConfig,
+  type ThemeConfig,
   type HeadingsConfig,
   type HeadingLevelConfig,
   type HeadingLevelKey,
@@ -84,6 +85,9 @@ export {
 } from "./config"
 export {
   defaultTheme,
+  loadTheme,
+  bundledThemeNames,
+  themeFileNames,
   generateSyntax,
   resolveTheme,
   mergeTheme,
@@ -93,6 +97,7 @@ export {
   type ThemeMode,
   type ThemePreset,
   type ThemeOverride,
+  type ThemeEnvironment,
   type StatusLineTheme,
   type StatusLineThemeOverride,
   type MarkdownThemeOverride,

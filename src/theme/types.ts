@@ -120,10 +120,11 @@ export type MarkdownThemeOverride = {
   readonly heading6?: ColorInput
 }
 
-// Host themes and the config file provide a partial, color-input override that
-// is merged over the bundled default for the selected mode.
+// Host-side theme APIs accept a partial color-input override. JSON/JSONC
+// application config selects a complete theme file by name instead.
 export type ThemeOverride = {
   readonly mode?: ThemePreset
+  readonly palette?: readonly ColorInput[]
   readonly accent?: ColorInput
   readonly categorical?: readonly ColorInput[]
   readonly text?: {

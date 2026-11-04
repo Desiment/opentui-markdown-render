@@ -24,7 +24,7 @@ MarkdownRenderer frame/tables props -> config.frame/config.tables -> defaults
 Theme mode follows a separate precedence:
 
 ```text
-host-provided resolved Theme -> runtime themeMode -> config.theme.mode -> light
+host-provided resolved Theme -> runtime themeMode -> config.theme.name -> light
 ```
 
 The terminal's current colour theme does not select the renderer mode. The host can pass a fully resolved `Theme` when it needs complete control. A runtime `frame` or `tables` object replaces that entire config section; it is **not** merged field by field with the file section.
@@ -40,17 +40,7 @@ File loading and validation are not the same as a ready TypeScript `config` prop
 ```jsonc
 {
   "theme": {
-    "mode": "solarized-dark",
-    "accent": "#7dd3fc",
-    "markdown": {
-      "heading": "#e2e8f0",
-      "heading3": "#94a3b8"
-    },
-    "statusline": {
-      "background": "#162333",
-      "title": "#7dd3fc",
-      "border": "#7dd3fc"
-    }
+    "name": "solarized-dark"
   },
   "statusline": {
     "enabled": true,
@@ -95,61 +85,34 @@ File loading and validation are not the same as a ready TypeScript `config` prop
 }
 ```
 
-Unknown sections, unknown nested theme keys, unknown status fields, invalid colours, and many invalid enum values produce diagnostics and are ignored. Not every section reports every unknown or mistyped field; see [Validation and diagnostics](#validation-and-diagnostics). A file that is not valid JSON/JSONC falls back to bundled defaults *when loaded by the component adapter*. Use `onDiagnostic` to collect these messages in an embedding application's own UI.
+Unknown sections, invalid theme names, unknown status fields, and many invalid enum values produce diagnostics and are ignored. Not every section reports every unknown or mistyped field; see [Validation and diagnostics](#validation-and-diagnostics). A file that is not valid JSON/JSONC falls back to bundled defaults *when loaded by the component adapter*. Use `onDiagnostic` to collect these messages in an embedding application's own UI.
 
 ## `theme`
 
 ```ts
-type ThemeOverride = {
-  mode?: "light" | "dark" | "solarized-light" | "solarized-dark"
-  accent?: ColorInput
-  categorical?: readonly ColorInput[]
-  text?: {
-    base?: ColorInput
-    muted?: ColorInput
-    feedback?: {
-      error?: ColorInput
-      warning?: ColorInput
-      success?: ColorInput
-      info?: ColorInput
-    }
-    action?: { primary?: { focused?: ColorInput } }
-  }
-  background?: { base?: ColorInput }
-  border?: { base?: ColorInput }
-  frame?: { border?: ColorInput; title?: ColorInput }
-  statusline?: {
-    background?: ColorInput
-    foreground?: ColorInput
-    title?: ColorInput
-    muted?: ColorInput
-    border?: ColorInput
-  }
-  markdown?: MarkdownThemeOverride
-  syntax?: Record<string, ColorInput>
-  diff?: {
-    text?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
-    background?: { added?: ColorInput; removed?: ColorInput; context?: ColorInput }
-  }
+type ThemeConfig = {
+  name?: string
 }
 ```
 
-Supported `markdown` colour keys are `text`, `heading`, `heading1` through `heading6`, `link`, `linkText`, `code`, `blockQuote`, `emphasis`, `strong`, `horizontalRule`, `listItem`, `listEnumeration`, `image`, `imageText`, and `codeBlock`.
+Bundled themes are `light`, `dark`, `solarized-light`, and `solarized-dark`. A
+user theme with the same name in the XDG theme directory takes precedence over
+the bundled file.
 
-Notable colour behaviour:
+User themes live next to the main config:
 
-- `listItem` and `listEnumeration` colour list markers.
-- `code` colours inline code; `codeBlock` is the base colour for unhighlighted fenced code.
-- `horizontalRule` colours the rule border.
-- `image` colours loading/error labels; `imageText` colours alt text and diagnostics.
-- Loaded image pixels are not recoloured.
-- `statusline` colours are used by the `bar` status-line style and otherwise fall back to colours derived from the accent.
+```text
+$XDG_CONFIG_HOME/otmd/themes/my-theme.jsonc
+```
 
-Solarized modes use canonical Solarized colours for the preset and diagram palette. Individual overrides can still adjust the resolved theme.
+The complete commented template is [`themes/example.jsonc`](../themes/example.jsonc).
+Copy it, remove or edit the comments, and select it with `{ "theme": { "name": "my-theme" } }`.
 
-Heading colours have a specific precedence within `theme.markdown`: a `headingN` colour sets level N; otherwise an explicit `heading` colour applies to that level; otherwise the selected preset's per-level colour is kept. The internal resolved theme contains a `headingLevels` array, but `theme.markdown.headingLevels` is **not** a supported JSONC field: use `heading1` through `heading6` instead. `headings.levels[N].color` is also not a supported field.
-
-File colours accept named colours from the validator (such as `red` or `brightblue`) and hex strings in 3-, 4-, 6-, or 8-digit forms, with or without `#`. Invalid colours are ignored so an accidental typo does not turn the interface an unexpected colour.
+Theme files contain the complete colour tree: `mode`, optional `palette`,
+`accent`, `categorical`, `text`, `background`, `border`, `frame`, optional
+`statusline`, `markdown`, `syntax`, and `diff`. JSONC comments and trailing
+commas are supported. Inline colour overrides in the main config are not
+supported; edit a theme file instead.
 
 ## `statusline`
 
@@ -214,7 +177,7 @@ type HeadingsConfig = {
 }
 ```
 
-Each option is optional. An omitted option keeps the bundled style for that level. Margins are non-negative integer row counts. Heading colours are configured under `theme.markdown`; `headings.levels` controls attributes, case, and spacing only.
+Each option is optional. An omitted option keeps the bundled style for that level. Margins are non-negative integer row counts. Heading colours are configured in the selected theme file; `headings.levels` controls attributes, case, and spacing only.
 
 Bundled styles are:
 
@@ -284,7 +247,7 @@ File validation is intentionally soft. Recognized invalid values are ignored, va
 | Section / value | Invalid value | Unknown keys |
 | --- | --- | --- |
 | Root | Unknown sections are reported and ignored; `$schema` is ignored. | Reported. |
-| `theme` | Invalid colours, preset modes, and nested types are reported. Invalid entries in `categorical` are reported individually and dropped. | Nested theme keys are reported. |
+| `theme` | Invalid theme names are reported. Theme file colour and nested-type errors are reported when that file is loaded. | Inline theme keys are reported; theme-file nested keys are also reported. |
 | `statusline` | Unknown field names, `style`, and `highlight` are reported. Other invalid fields are silently omitted. | Extra object keys are not reported. |
 | `images` | Non-positive or non-integer limits are silently omitted. | Extra object keys are not reported. |
 | `mermaid` | Invalid `classLayout` is reported; invalid `compact` or `layoutMaxWidth` is silently omitted. | Extra object keys are not reported. |

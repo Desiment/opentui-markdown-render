@@ -121,6 +121,20 @@ Pass `--config PATH` to `otmd` or `configPath` to `MarkdownRenderer` to select a
 file explicitly. Embedded hosts can pass `discoverConfig={false}` when they own
 configuration themselves.
 
+Themes are complete JSON/JSONC files. Select a bundled theme or a user theme
+from `$XDG_CONFIG_HOME/otmd/themes` with:
+
+```jsonc
+{
+  "theme": { "name": "dark" }
+}
+```
+
+The repository includes [`themes/example.jsonc`](themes/example.jsonc), a fully
+commented template showing every theme setting. Copy it to
+`~/.config/otmd/themes/my-theme.jsonc` and select it with
+`{ "theme": { "name": "my-theme" } }`.
+
 The smallest useful component looks like this:
 
 ```tsx

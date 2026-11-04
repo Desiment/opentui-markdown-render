@@ -1,12 +1,11 @@
 import type { FrameConfig } from "../core/frame"
 import type { TablesConfig } from "../core/tables"
-import type { ThemeOverride } from "../theme/types"
 
 // The configuration file is a plain JSON/JSONC object. Every section is
 // optional; a missing section keeps the bundled default.
 export type MarkdownConfig = {
-  // Colour scheme. Mirrors the theme override shape.
-  readonly theme?: ThemeOverride
+  // Selects a complete theme file from the bundled or XDG theme directory.
+  readonly theme?: ThemeConfig
   readonly statusline?: StatusLineConfig
   readonly images?: ImagesConfig
   readonly mermaid?: MermaidConfig
@@ -15,6 +14,10 @@ export type MarkdownConfig = {
   readonly frame?: FrameConfig
   // How tables size themselves and what happens when they are too wide.
   readonly tables?: TablesConfig
+}
+
+export type ThemeConfig = {
+  readonly name?: string
 }
 
 // The status line is a single row of labelled fields. `fields` selects and

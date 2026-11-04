@@ -40,7 +40,7 @@ const frame: FrameConfig | undefined =
 
 function Demo() {
   const [settings, setSettings] = createSignal<DemoSettings>({
-    mode: config.theme?.mode ?? "light",
+    mode: "light",
     classLayout: config.mermaid?.classLayout ?? "builtin",
     frame: frame ?? {},
     tables: config.tables ?? {},
