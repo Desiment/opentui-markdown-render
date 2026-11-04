@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { imageInfo } from "@opentui/core"
-import { decompressFrames, parseGIF } from "gifuct-js"
 import path from "node:path"
 import { parseDocument } from "../src/core"
-import { imageBox, resolveLocalImage, standaloneImage } from "../src/media"
+import { imageBox, loadGif, resolveLocalImage, standaloneImage } from "../src/media"
 
 describe("Markdown document", () => {
   const source = [
@@ -83,6 +82,8 @@ describe("local media boundaries", () => {
     expect(imageInfo(spectrum)).toMatchObject({ format: "png", hasAlpha: false, width: 1280, height: 640 })
     expect(imageInfo(checker)).toMatchObject({ format: "png", hasAlpha: false, width: 1024, height: 1024 })
     expect(imageInfo(gif)).toMatchObject({ format: "gif", width: 640, height: 640 })
-    expect(decompressFrames(parseGIF(gif.slice().buffer as ArrayBuffer), true).length).toBeGreaterThan(1)
+    const media = loadGif(gif, { columns: 40, rows: 20 }, { width: 320, height: 320 }, [0, 0, 0])
+    expect(media.animation.frames.length).toBeGreaterThan(1)
+    expect("patch" in media.animation.frames[0]!).toBe(false)
   })
 })

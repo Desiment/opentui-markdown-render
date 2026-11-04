@@ -1,5 +1,5 @@
-import type { CliRenderer, SyntaxStyle } from "@opentui/core"
-import { createMemo, createSignal, onCleanup } from "solid-js"
+import type { CliRenderer } from "@opentui/core"
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { useCanvasGraphics } from "./graphics"
 import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
@@ -155,14 +155,14 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   // The look of the heading levels is a configuration of its own: the colours
   // come from the theme, the attributes and the spacing from the config file.
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
-  let currentSyntax: SyntaxStyle | undefined
   const syntaxStyle = createMemo(() => {
-    currentSyntax?.destroy()
     const nativeScene = (renderer as CliRenderer & { readonly nativeScene?: object }).nativeScene
-    currentSyntax = generateSyntax(theme(), headings(), theme().markdown.codeBlock, nativeScene)
-    return currentSyntax
+    return generateSyntax(theme(), headings(), theme().markdown.codeBlock, nativeScene)
   })
-  onCleanup(() => currentSyntax?.destroy())
+  createEffect(() => {
+    const style = syntaxStyle()
+    onCleanup(() => void renderer.idle().then(() => style.destroy()))
+  })
   return (
         <box
           width="100%"

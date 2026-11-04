@@ -1,5 +1,6 @@
 import { NativeImage, imageInfo, parseColor, type ColorInput, type RGBA } from "@opentui/core"
-import { decompressFrames, parseGIF } from "gifuct-js"
+import { useRenderer } from "@opentui/solid"
+import { decompressFrame, parseGIF, type ParsedGif } from "gifuct-js"
 import path from "node:path"
 import { createEffect, createResource, createSignal, Match, onCleanup, Show, Switch } from "solid-js"
 
@@ -44,8 +45,16 @@ export function rgbToHex(color: Rgb) {
   return `#${channel(color[0])}${channel(color[1])}${channel(color[2])}`
 }
 
-type AnimatedFrame = { readonly image: NativeImage; readonly delay: number }
-type Media = { readonly box: { columns: number; rows: number }; readonly image?: NativeImage; readonly frames?: readonly AnimatedFrame[] }
+type GifFrame = Parameters<typeof decompressFrame>[0]
+type GifAnimation = {
+  readonly width: number
+  readonly height: number
+  readonly frames: readonly GifFrame[]
+  readonly colorTable: ParsedGif["gct"]
+  readonly target: { width: number; height: number }
+  readonly background: Rgb
+}
+type Media = { readonly box: { columns: number; rows: number }; readonly image?: NativeImage; readonly animation?: GifAnimation }
 
 export { standaloneImage, type MarkdownImage } from "./core/image"
 
@@ -88,6 +97,7 @@ export function LocalImage(props: {
   readonly textColor?: () => RGBA
   readonly limits?: ImageLimits
 }) {
+  const renderer = useRenderer()
   const [failure, setFailure] = createSignal<string>()
   // The cell size is part of the key so the image is reloaded and re-fitted once
   // the terminal reports its pixel resolution (kitty queries it after startup).
@@ -145,26 +155,40 @@ export function LocalImage(props: {
 
   createEffect(() => {
     const value = media()
-    if (!value?.frames?.length) {
+    if (!value?.animation) {
       setFrame(value?.image)
       return
     }
+    const animation = value.animation
+    const canvas = new Uint8Array(animation.width * animation.height * 4)
     let index = 0
+    let current: NativeImage | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
     const next = () => {
-      const current = value.frames![index]!
-      setFrame(current.image)
-      index = (index + 1) % value.frames!.length
-      timer = setTimeout(next, current.delay)
+      const decoded = decompressFrame(animation.frames[index]!, animation.colorTable, true)
+      const before = decoded.disposalType === 3 ? canvas.slice() : undefined
+      drawPatch(canvas, animation.width, animation.height, decoded.patch, decoded.dims.left, decoded.dims.top, decoded.dims.width, decoded.dims.height)
+      const image = prepareImage(NativeImage.fromRgba(canvas.slice(), animation.width, animation.height), animation.target, animation.background)
+      const previous = current
+      current = image
+      setFrame(image)
+      if (previous) void renderer.idle().then(() => previous.dispose())
+      if (decoded.disposalType === 2) clearPatch(canvas, animation.width, decoded.dims.left, decoded.dims.top, decoded.dims.width, decoded.dims.height)
+      if (before) canvas.set(before)
+      index = (index + 1) % animation.frames.length
+      timer = setTimeout(next, Math.max(50, decoded.delay || 100))
     }
     next()
     onCleanup(() => {
       if (timer) clearTimeout(timer)
+      const image = current
+      if (image) void renderer.idle().then(() => image.dispose())
+      setFrame()
     })
   })
   createEffect(() => {
     const value = media()
-    onCleanup(() => disposeMedia(value))
+    onCleanup(() => void renderer.idle().then(() => disposeMedia(value)))
   })
 
   return (
@@ -197,21 +221,13 @@ export function LocalImage(props: {
   )
 }
 
-function loadGif(bytes: Uint8Array, box: { columns: number; rows: number }, target: { width: number; height: number }, background: Rgb) {
+export function loadGif(bytes: Uint8Array, box: { columns: number; rows: number }, target: { width: number; height: number }, background: Rgb) {
   const gif = parseGIF(bytes.slice().buffer as ArrayBuffer)
   const width = gif.lsd.width
   const height = gif.lsd.height
-  const canvas = new Uint8Array(width * height * 4)
-  const frames = decompressFrames(gif, true).map((frame) => {
-    const before = canvas.slice()
-    drawPatch(canvas, width, height, frame.patch, frame.dims.left, frame.dims.top, frame.dims.width, frame.dims.height)
-    const image = prepareImage(NativeImage.fromRgba(canvas.slice(), width, height), target, background)
-    if (frame.disposalType === 2) clearPatch(canvas, width, frame.dims.left, frame.dims.top, frame.dims.width, frame.dims.height)
-    if (frame.disposalType === 3) canvas.set(before)
-    return { image, delay: Math.max(50, frame.delay || 100) }
-  })
+  const frames = gif.frames.filter((frame): frame is GifFrame => "image" in frame)
   if (!frames.length) throw new Error("GIF contains no frames")
-  return { box, frames }
+  return { box, animation: { width, height, frames, colorTable: gif.gct, target, background } }
 }
 
 function drawPatch(canvas: Uint8Array, width: number, height: number, patch: Uint8ClampedArray, left: number, top: number, patchWidth: number, patchHeight: number) {
@@ -263,5 +279,4 @@ function prepareImage(image: NativeImage, target: { width: number; height: numbe
 
 function disposeMedia(media: Media | undefined) {
   media?.image?.dispose()
-  media?.frames?.forEach((frame) => frame.image.dispose())
 }

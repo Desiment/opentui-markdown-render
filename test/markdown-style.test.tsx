@@ -4,6 +4,7 @@ import { createSignal } from "solid-js"
 import { MarkdownRenderer } from "../src/app"
 import { defaultTheme, mergeTheme } from "../src/theme"
 import { parseDocument } from "../src/core"
+import { resolveCodeFiletype } from "../src/view/code"
 
 const theme = mergeTheme(defaultTheme("dark"), {
   markdown: {
@@ -34,7 +35,20 @@ function colorOf(setup: Awaited<ReturnType<typeof render>>, text: string) {
   return span?.fg.toInts()
 }
 
+function colorsOnLine(setup: Awaited<ReturnType<typeof render>>, text: string) {
+  const line = setup.captureSpans().lines.find((entry) => entry.spans.map((span) => span.text).join("").includes(text))
+  return new Set(line?.spans.filter((span) => span.text.trim()).map((span) => span.fg.toInts().join(",")) ?? [])
+}
+
 describe("semantic Markdown colors", () => {
+  test("renders ordinary inline-flow text", async () => {
+    const setup = await render("Plain paragraph text.\n\n## Visible heading\n\n- visible item\n")
+    const frame = setup.captureCharFrame()
+    expect(frame).toContain("Plain paragraph text.")
+    expect(frame).toContain("Visible heading")
+    expect(frame).toContain("visible item")
+  })
+
   test("keeps inline code distinct from fenced code", async () => {
     const inline = await render("`inline code`\n")
     const fenced = await render("```\ncode line\n```\n")
@@ -79,6 +93,19 @@ describe("semantic Markdown colors", () => {
     await setup.renderOnce()
     expect(colorOf(setup, "1. ")).toEqual(theme.markdown.listEnumeration.toInts())
     expect(colorOf(setup, "new code")).toEqual(theme.markdown.codeBlock.toInts())
+  })
+
+  test("highlights jsonc, TypeScript, and TSX fences", async () => {
+    expect(resolveCodeFiletype("jsonc")).toBe("json")
+    const results: Array<{ language: string; colors: number }> = []
+    for (const [language, source, line] of [
+      ["ts", "type ThemeConfig = { name?: string }", "ThemeConfig"],
+      ["tsx", "const view = <MarkdownRenderer content={content} />", "MarkdownRenderer"],
+    ] as const) {
+      const setup = await render(`\`\`\`${language}\n${source}\n\`\`\`\n`)
+      results.push({ language, colors: colorsOnLine(setup, line).size })
+    }
+    for (const result of results) expect(result.colors).toBeGreaterThan(1)
   })
 
   test("colors the actual border of a horizontal rule", async () => {

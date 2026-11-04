@@ -25,24 +25,34 @@ export type InlineFlowProps = {
 
 function PrefixSegment(props: { chunks: () => TextChunk[]; width: number }) {
   let ref: TextRenderable | undefined
-  createEffect(() => {
-    if (ref) ref.content = new StyledText(props.chunks())
-  })
-  return <text ref={ref} wrapMode="none" width={props.width} flexShrink={0} />
+  const update = () => {
+    const content = new StyledText(props.chunks())
+    if (ref) ref.content = content
+    return content
+  }
+  createEffect(update)
+  return <text ref={(renderable) => {
+    ref = renderable
+    renderable.content = update()
+  }} wrapMode="none" width={props.width} flexShrink={0} />
 }
 
 function StyledSegment(props: { entry: LayoutRun; textRow: number }) {
   let ref: TextRenderable | undefined
-  createEffect(() => {
+  const update = () => {
     const atom = props.entry.atom
-    if (ref && atom.type === "text") {
-      ref.content = new StyledText([{
-        __isChunk: true, text: atom.text, fg: atom.fg, attributes: atom.attributes,
-        ...(atom.href ? { link: { url: atom.href } } : {}),
-      }])
-    }
-  })
-  return <text ref={ref} width={props.entry.columns} flexShrink={0} wrapMode="none" marginTop={props.textRow} />
+    const content = atom.type === "text" ? new StyledText([{
+      __isChunk: true, text: atom.text, fg: atom.fg, attributes: atom.attributes,
+      ...(atom.href ? { link: { url: atom.href } } : {}),
+    }]) : new StyledText([])
+    if (ref) ref.content = content
+    return content
+  }
+  createEffect(update)
+  return <text ref={(renderable) => {
+    ref = renderable
+    renderable.content = update()
+  }} width={props.entry.columns} flexShrink={0} wrapMode="none" marginTop={props.textRow} />
 }
 
 export function InlineFlow(props: InlineFlowProps) {
