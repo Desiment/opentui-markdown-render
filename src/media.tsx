@@ -192,7 +192,7 @@ export function LocalImage(props: {
   })
 
   return (
-    <box width="100%" flexDirection="column" flexShrink={0} overflow="hidden">
+    <box width="100%" flexDirection="column" flexShrink={0} overflow="hidden" alignItems="center">
       <Switch>
         <Match when={loaded.loading}>
           <box width="100%" flexDirection="row">
