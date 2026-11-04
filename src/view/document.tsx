@@ -67,7 +67,7 @@ export function DocumentView(props: DocumentViewProps) {
     if (input.block().type === "mermaid") {
       return <MermaidDiagramView source={(input.block() as Extract<Block, { type: "mermaid" }>).content}
         theme={props.theme} columns={input.columns} mermaidOptions={props.mermaidOptions}
-        headings={props.headings} onDiagnostic={props.onDiagnostic} />
+        headings={props.headings} syntaxStyle={props.syntaxStyle} onDiagnostic={props.onDiagnostic} />
     }
     const view = createMemo(() => {
       const block = input.block()
