@@ -27,4 +27,20 @@ describe("embedded MiTeX and Typst renderer", () => {
 
     expect(image).toBeUndefined()
   })
+
+  test.skipIf(!existsSync(addon))("renders negative spacing and multiline environments without diagnostics", async () => {
+    const child = Bun.spawn([process.execPath, path.join(import.meta.dir, "fixtures/native-compatibility-smoke.ts")], {
+      cwd: path.join(import.meta.dir, ".."),
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    const [stdout, stderr, exit] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
+    expect(exit).toBe(0)
+    expect(stderr).toBe("")
+    expect(stdout).toContain("rendered 5 formulas")
+  })
 })

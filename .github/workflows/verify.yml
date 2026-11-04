@@ -30,3 +30,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: cargo install cargo-zigbuild --locked
       - run: bun run verify:portable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-linux-x64-glibc-2.17
+          path: prebuilds/linux-x64-gnu/opentui_markdown_render.node
+          if-no-files-found: error
