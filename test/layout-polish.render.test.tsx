@@ -76,3 +76,31 @@ test("standalone images are centered in the document width", async () => {
   expect(image!.width).toBe(20)
   expect(image!.x).toBe(20)
 })
+
+test("a README image remains centered when a Canvas-style host reports its width", async () => {
+  const base = fileURLToPath(new URL("..", import.meta.url))
+  let resize!: (columns: number) => void
+  const setup = await testRender(() => {
+    const [columns, setColumns] = createSignal(8)
+    resize = setColumns
+    return <box width={120} height={40} flexDirection="row">
+      <box width={117} minWidth={0} flexDirection="column">
+        <LocalImage href="assets/overview.png" alt="README overview" base={() => base} columns={columns}
+          cell={() => ({ width: 8, height: 16 })} background={() => "#0d1117"} limits={{ maxColumns: 80, maxRows: 24 }} />
+      </box>
+      <box width={3} flexShrink={0} />
+    </box>
+  }, { width: 120, height: 40 })
+  await setup.renderOnce()
+  resize(117)
+  await new Promise((resolve) => setTimeout(resolve, 250))
+  await setup.renderOnce()
+
+  const findImage = (node: Renderable): ImageRenderable | undefined => node instanceof ImageRenderable
+    ? node
+    : node.getChildren().map(findImage).find(Boolean)
+  const image = findImage(setup.renderer.root)
+  expect(image).toBeDefined()
+  expect(image!.width).toBeLessThanOrEqual(80)
+  expect(image!.x).toBe(Math.floor((117 - image!.width) / 2))
+})
