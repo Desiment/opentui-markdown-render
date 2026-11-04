@@ -89,6 +89,7 @@ export {
   bundledThemeNames,
   themeFileNames,
   generateSyntax,
+  type SyntaxResourceOwner,
   resolveTheme,
   mergeTheme,
   deriveStatusLineTheme,

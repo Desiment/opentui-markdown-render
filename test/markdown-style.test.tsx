@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createSignal } from "solid-js"
 import { MarkdownRenderer } from "../src/app"
-import { defaultTheme, generateSyntax, mergeTheme } from "../src/theme"
+import { defaultTheme, mergeTheme } from "../src/theme"
 import { parseDocument } from "../src/core"
 
 const theme = mergeTheme(defaultTheme("dark"), {
@@ -36,11 +36,10 @@ function colorOf(setup: Awaited<ReturnType<typeof render>>, text: string) {
 
 describe("semantic Markdown colors", () => {
   test("keeps inline code distinct from fenced code", async () => {
-    const syntax = generateSyntax(theme)
-    expect(syntax.getStyle("markup.raw.inline")?.fg).toEqual(theme.markdown.code)
-    expect(syntax.getStyle("markup.raw.block")?.fg).toEqual(theme.markdown.codeBlock)
-    const setup = await render("```\ncode line\n```\n")
-    expect(colorOf(setup, "code line")).toEqual(theme.markdown.codeBlock.toInts())
+    const inline = await render("`inline code`\n")
+    const fenced = await render("```\ncode line\n```\n")
+    expect(colorOf(inline, "inline code")).toEqual(theme.markdown.code.toInts())
+    expect(colorOf(fenced, "code line")).toEqual(theme.markdown.codeBlock.toInts())
   })
 
   test("colors unordered and numbered markers independently", async () => {

@@ -266,7 +266,7 @@ const theme = resolveRendererTheme(renderer, {
 
 `solarized-light` and `solarized-dark` use their canonical palette for Markdown and diagram colours. The resolved `Theme.mode` remains `light` or `dark`; the Solarized palette is available separately.
 
-`defaultTheme(preset)` returns the bundled palette. `resolveTheme({ mode, override? })` starts with a preset and merges the override (whose `mode` can also select the preset). `mergeTheme(base, override)` merges a partial theme over a resolved theme. Other root helpers include `deriveStatusLineTheme`, `mixColors`, `generateSyntax`, `rgbaToHex`, heading style helpers (`defaultHeadingStyles`, `resolveHeadingStyles`, `headingAttributes`, `headingColor`, `headingLevels`), and their related types. Prefer the complete `theme` prop if the host already owns its palette.
+`defaultTheme(preset)` returns the bundled palette. `resolveTheme({ mode, override? })` starts with a preset and merges the override (whose `mode` can also select the preset). `mergeTheme(base, override)` merges a partial theme over a resolved theme. Other root helpers include `deriveStatusLineTheme`, `mixColors`, `generateSyntax`, `rgbaToHex`, heading style helpers (`defaultHeadingStyles`, `resolveHeadingStyles`, `headingAttributes`, `headingColor`, `headingLevels`), and their related types. On OpenTUI releases with explicit native resource ownership, pass `renderer.nativeScene` as the fourth argument to `generateSyntax`. Prefer the complete `theme` prop if the host already owns its palette.
 
 ## Math API
 
