@@ -1,0 +1,98 @@
+{
+  // The semantic mode controls contrast-sensitive derived colours.
+  "mode": "dark",
+
+  // Optional fixed Mermaid diagram palette. Omit it to derive diagram colours.
+  "palette": [
+    "#58a6ff", "#d2a8ff", "#3fb950", "#d29922", "#f85149", "#ffa657"
+  ],
+
+  // Main accent and the categorical colours used by diagrams and UI elements.
+  "accent": "#58a6ff",
+  "categorical": ["#58a6ff", "#d2a8ff", "#3fb950", "#d29922", "#f85149", "#ffa657"],
+
+  "text": {
+    "base": "#e6edf3",
+    "muted": "#8b949e",
+    "feedback": {
+      "error": "#f85149",
+      "warning": "#d29922",
+      "success": "#3fb950",
+      "info": "#58a6ff"
+    },
+    "action": {
+      "primary": {
+        "focused": "#58a6ff"
+      }
+    }
+  },
+
+  "background": {
+    "base": "#0d1117"
+  },
+  "border": {
+    "base": "#30363d"
+  },
+
+  // Frame and statusline are optional in the resolved API; these examples show
+  // the complete file shape and can be adjusted independently.
+  "frame": {
+    "border": "#30363d",
+    "title": "#8b949e"
+  },
+  "statusline": {
+    "background": "#161b22",
+    "foreground": "#e6edf3",
+    "title": "#58a6ff",
+    "muted": "#8b949e",
+    "border": "#58a6ff"
+  },
+
+  "markdown": {
+    "text": "#e6edf3",
+    "heading": "#d2a8ff",
+    "heading1": "#58a6ff",
+    "heading2": "#d2a8ff",
+    "heading3": "#d2a8ff",
+    "heading4": "#8b949e",
+    "heading5": "#8b949e",
+    "heading6": "#8b949e",
+    "link": "#58a6ff",
+    "linkText": "#58a6ff",
+    "code": "#ffa657",
+    "blockQuote": "#8b949e",
+    "emphasis": "#e6edf3",
+    "strong": "#e6edf3",
+    "horizontalRule": "#30363d",
+    "listItem": "#e6edf3",
+    "listEnumeration": "#e6edf3",
+    "image": "#58a6ff",
+    "imageText": "#58a6ff",
+    "codeBlock": "#e6edf3"
+  },
+
+  "syntax": {
+    "comment": "#8b949e",
+    "keyword": "#ff7b72",
+    "function": "#d2a8ff",
+    "variable": "#ffa657",
+    "string": "#a5d6ff",
+    "number": "#79c0ff",
+    "type": "#ffa657",
+    "operator": "#ff7b72",
+    "punctuation": "#c9d1d9"
+  },
+
+  "diff": {
+    "text": {
+      "added": "#3fb950",
+      "removed": "#f85149",
+      "context": "#8b949e"
+    },
+    "background": {
+      "added": "#12261e",
+      "removed": "#25171c",
+      "context": "#161b22"
+    }
+  }
+}

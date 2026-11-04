@@ -1,5 +1,6 @@
 import type { Theme, ThemePreset } from "../theme/types"
 import { resolveTheme } from "../theme/resolve"
+import { loadTheme } from "../theme/load"
 import { createDocumentLayout, type DocumentLayout, type FrameConfig, type TablesConfig } from "../core"
 import type { MarkdownConfig } from "./types"
 
@@ -15,10 +16,8 @@ export type ThemeRuntime = {
 export function resolveConfiguredTheme(config: MarkdownConfig, runtime: ThemeRuntime = {}): Theme {
   if (runtime.theme) return runtime.theme
   const explicit = runtime.themeMode ?? undefined
-  const mode = explicit ?? config.theme?.mode ?? "light"
-  // resolveTheme normally gives override.mode precedence over mode. An explicit
-  // host setting must win over the mode in the file, including for defaults.
-  const override = explicit ? { ...config.theme, mode } : config.theme
+  const override = loadTheme(explicit ?? config.theme?.name ?? "light")
+  const mode = override?.mode ?? "light"
   return resolveTheme({ mode, override })
 }
 

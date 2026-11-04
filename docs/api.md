@@ -59,7 +59,7 @@ The component measures its own root box and uses that width once available. Befo
 For the theme mode, resolution is:
 
 ```text
-host-provided Theme -> runtime themeMode -> config.theme.mode -> light
+host-provided Theme -> runtime themeMode -> config.theme.name -> light
 ```
 
 The terminal's own theme does not automatically choose the renderer palette. Pass a resolved `Theme` when the host needs total control.
@@ -252,7 +252,7 @@ The root additionally exports `statusLinePalette`, `defaultStatusLineFields`, `S
 
 ## Theme API
 
-The package exports `defaultTheme`, `resolveTheme`, `mergeTheme`, `resolveRendererTheme`, and theme types (`Theme`, `ThemeMode`, `ThemePreset`, `ThemeOverride`, and the section overrides). A `Theme` is fully resolved and uses RGBA values. A `ThemeOverride` is the partial colour/configuration shape accepted by JSONC and theme helpers.
+The package exports `defaultTheme`, `loadTheme`, `bundledThemeNames`, `resolveTheme`, `mergeTheme`, `resolveRendererTheme`, and theme types (`Theme`, `ThemeMode`, `ThemePreset`, `ThemeOverride`, and the section overrides). A `Theme` is fully resolved and uses RGBA values. `MarkdownConfig.theme` selects a complete theme file by name; `ThemeOverride` remains the partial colour/configuration shape accepted by host-side theme helpers.
 
 Use `resolveRendererTheme` when a host wants the same precedence rules as `MarkdownRenderer`:
 
@@ -322,7 +322,7 @@ The package exports `loadConfig`, `discoverConfig`, `parseConfig`, `loadRenderer
 
 ```ts
 const file = discoverConfig(process.cwd())  // string | undefined
-const parsed = parseConfig('{ "theme": { "mode": "dark" } }', "inline.jsonc")
+const parsed = parseConfig('{ "theme": { "name": "dark" } }', "inline.jsonc")
 const direct = loadConfig("/path/to/config.jsonc")
 const safe = loadRendererConfig("/path/to/config.jsonc", process.cwd(), {
   report: (message) => diagnostics.push(message),

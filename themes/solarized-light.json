@@ -1,0 +1,32 @@
+{
+  "mode": "light",
+  "palette": ["#002b36", "#073642", "#586e75", "#657b83", "#839496", "#93a1a1", "#eee8d5", "#fdf6e3", "#b58900", "#cb4b16", "#dc322f", "#d33682", "#6c71c4", "#268bd2", "#2aa198", "#859900"],
+  "accent": "#268bd2",
+  "categorical": ["#268bd2", "#6c71c4", "#859900", "#b58900", "#dc322f", "#cb4b16"],
+  "text": {
+    "base": "#586e75", "muted": "#657b83",
+    "feedback": { "error": "#dc322f", "warning": "#b58900", "success": "#859900", "info": "#268bd2" },
+    "action": { "primary": { "focused": "#268bd2" } }
+  },
+  "background": { "base": "#fdf6e3" },
+  "border": { "base": "#657b83" },
+  "frame": { "border": "#657b83", "title": "#586e75" },
+  "markdown": {
+    "text": "#586e75", "heading": "#268bd2",
+    "heading1": "#268bd2", "heading2": "#268bd2", "heading3": "#268bd2",
+    "heading4": "#268bd2", "heading5": "#268bd2", "heading6": "#268bd2",
+    "link": "#268bd2", "linkText": "#268bd2", "code": "#cb4b16",
+    "blockQuote": "#657b83", "emphasis": "#586e75", "strong": "#586e75",
+    "horizontalRule": "#657b83", "listItem": "#586e75", "listEnumeration": "#586e75",
+    "image": "#268bd2", "imageText": "#268bd2", "codeBlock": "#586e75"
+  },
+  "syntax": {
+    "comment": "#657b83", "keyword": "#dc322f", "function": "#6c71c4",
+    "variable": "#586e75", "string": "#2aa198", "number": "#d33682",
+    "type": "#b58900", "operator": "#268bd2", "punctuation": "#586e75"
+  },
+  "diff": {
+    "text": { "added": "#859900", "removed": "#dc322f", "context": "#657b83" },
+    "background": { "added": "#eee8d5", "removed": "#eee8d5", "context": "#eee8d5" }
+  }
+}

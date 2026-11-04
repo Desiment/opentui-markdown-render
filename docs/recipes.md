@@ -54,7 +54,7 @@ The component normally discovers a JSONC/JSON file while walking up from `cwd`. 
 import type { MarkdownConfig } from "opentui-markdown-render"
 
 const config: MarkdownConfig = {
-  theme: { mode: "dark" },
+  theme: { name: "dark" },
   tables: { widthMode: "content", overflow: "scroll" },
   frame: { enabled: false },
 }

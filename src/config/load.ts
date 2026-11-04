@@ -1,11 +1,14 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { isFrameAlign, isFrameStyle } from "../core/frame"
 import { isTableColumnFitter, isTableOverflow, isTableWidthMode } from "../core/tables"
 import { isHeadingLevelKey, isStatusLineField, isStatusLineStyle, type HeadingLevelConfig, type HeadingsConfig, type MarkdownConfig, type StatusLineField } from "./types"
-import { validateTheme } from "./theme"
+import { validateThemeConfig } from "./theme"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
+export const xdgConfigFilenames = ["config.jsonc", "config.json"]
+export const xdgConfigDirectory = "otmd"
 
 // Config warnings normally go to stderr. A host that embeds the renderer can
 // collect them instead and show them in its own UI.
@@ -46,7 +49,15 @@ export function loadRendererConfig(
   }
 }
 
-export function discoverConfig(start: string): string | undefined {
+export type ConfigEnvironment = {
+  readonly XDG_CONFIG_HOME?: string
+  readonly HOME?: string
+}
+
+export function discoverConfig(
+  start: string,
+  environment: ConfigEnvironment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME },
+): string | undefined {
   let directory = path.resolve(start)
   while (true) {
     for (const name of configFilenames) {
@@ -54,22 +65,40 @@ export function discoverConfig(start: string): string | undefined {
       if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
     }
     const parent = path.dirname(directory)
-    if (parent === directory) return undefined
+    if (parent === directory) break
     directory = parent
   }
+
+  return discoverXdgConfig(environment)
+}
+
+function discoverXdgConfig(environment: ConfigEnvironment): string | undefined {
+  const configured = environment.XDG_CONFIG_HOME
+  const configHome = configured && path.isAbsolute(configured)
+    ? configured
+    : path.join(environment.HOME || os.homedir(), ".config")
+  const directory = path.join(configHome, xdgConfigDirectory)
+  for (const name of xdgConfigFilenames) {
+    const candidate = path.join(directory, name)
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
+  }
+  return undefined
 }
 
 export function parseConfig(source: string, file = "config", report?: ConfigReporter): MarkdownConfig {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(stripJsonComments(source))
-  } catch (error) {
-    throw new Error(`Invalid config ${file}: ${error instanceof Error ? error.message : String(error)}`)
-  }
+  const parsed = parseJsonc(source, file)
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error(`Invalid config ${file}: expected a JSON object`)
   }
   return validateConfig(parsed as Record<string, unknown>, file, report)
+}
+
+export function parseJsonc(source: string, file = "config"): unknown {
+  try {
+    return JSON.parse(stripJsonComments(source))
+  } catch (error) {
+    throw new Error(`Invalid config ${file}: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 const sections = ["theme", "statusline", "images", "mermaid", "headings", "frame", "tables"] as const
@@ -82,7 +111,7 @@ function validateConfig(value: Record<string, unknown>, file: string, report?: C
     }
   }
   return {
-    theme: isRecord(value.theme) ? validateTheme(value.theme, file, report) : undefined,
+    theme: isRecord(value.theme) ? validateThemeConfig(value.theme, file, report) : undefined,
     statusline: isRecord(value.statusline) ? validateStatusLine(value.statusline, file, report) : undefined,
     images: isRecord(value.images) ? validateImages(value.images) : undefined,
     mermaid: isRecord(value.mermaid) ? validateMermaid(value.mermaid, file, report) : undefined,

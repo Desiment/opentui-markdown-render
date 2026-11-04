@@ -1,8 +1,35 @@
 import { describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
-import { defaultTheme, generateSyntax, mergeTheme, resolveTheme } from "../src/theme"
+import { defaultTheme, generateSyntax, loadTheme, mergeTheme, resolveTheme } from "../src/theme"
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import path from "node:path"
 
 describe("theme resolution", () => {
+  test("loads complete bundled themes from the package themes directory", () => {
+    for (const name of ["light", "dark", "solarized-light", "solarized-dark"] as const) {
+      expect(loadTheme(name)).toBeDefined()
+    }
+    const theme = loadTheme("dark")
+    expect(theme?.mode).toBe("dark")
+    expect(theme?.markdown?.heading1).toBe("#58a6ff")
+    expect(theme?.syntax?.keyword).toBe("#ff7b72")
+  })
+
+  test("parses the complete commented example theme", () => {
+    const theme = loadTheme("example")
+    expect(theme?.statusline?.background).toBe("#161b22")
+    expect(theme?.diff?.background?.added).toBe("#12261e")
+  })
+
+  test("prefers a user theme with the same name", () => {
+    const xdg = mkdtempSync(path.join(tmpdir(), "otmd-themes-"))
+    const directory = path.join(xdg, "otmd", "themes")
+    mkdirSync(directory, { recursive: true })
+    writeFileSync(path.join(directory, "dark.jsonc"), `{ "mode": "dark", "accent": "#123456" }`)
+    expect(loadTheme("dark", { XDG_CONFIG_HOME: xdg, HOME: xdg })).toMatchObject({ mode: "dark", accent: "#123456" })
+  })
+
   test("merges a partial override over the bundled default for the mode", () => {
     const theme = resolveTheme({ mode: "light", override: { markdown: { heading: "#123456" } } })
     expect(theme.mode).toBe("light")

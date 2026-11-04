@@ -37,6 +37,7 @@ export function mergeTheme(base: Theme, override: ThemeOverride | undefined): Th
   if (!override) return base
   const color = (value: ColorInput | undefined, fallback: RGBA) => (value === undefined ? fallback : parseColor(value))
   const accent = color(override.accent, base.accent)
+  const palette = override.palette ? override.palette.map((entry) => parseColor(entry)) : base.palette
   const background = { base: color(override.background?.base, base.background.base) }
   const text = {
     base: color(override.text?.base, base.text.base),
@@ -56,10 +57,10 @@ export function mergeTheme(base: Theme, override: ThemeOverride | undefined): Th
     ),
   }
   const mode = override.mode ? (override.mode.endsWith("light") ? "light" : "dark") : base.mode
-  const derived = deriveStatusLineTheme({ mode, accent, background, text, palette: base.palette })
+  const derived = deriveStatusLineTheme({ mode, accent, background, text, palette })
   return {
     mode,
-    palette: base.palette,
+    palette,
     accent,
     categorical: override.categorical ? override.categorical.map((entry) => parseColor(entry)) : base.categorical,
     text: {

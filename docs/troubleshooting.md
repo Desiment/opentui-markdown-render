@@ -74,7 +74,7 @@ If a diagram is wider than its area, use horizontal dragging to pan it. The Merm
 Inspect precedence before assuming the config loader ignored a value:
 
 ```text
-theme: host Theme > themeMode prop > config.theme.mode > light
+theme: host Theme > themeMode prop > config.theme.name > light
 frame: frame prop > config.frame > defaults
 tables: tables prop > config.tables > defaults
 ```

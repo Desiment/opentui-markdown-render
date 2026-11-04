@@ -7,61 +7,55 @@ import { loadRendererConfig } from "../src/app"
 import { defaultTheme } from "../src/theme"
 
 describe("config parsing", () => {
-  test("validates theme colors and nested keys without rejecting the rest of the theme", () => {
+  test("accepts a named theme and rejects inline color overrides", () => {
     const messages: string[] = []
     const config = parseConfig(`{
       "theme": {
-        "mode": "neon", "accent": "#123456", "categorical": ["#fff", "no-such-color"],
-        "markdown": { "heading1": "#abcdef", "heading2": "not-a-color", "headingLevels": ["#123456"] },
-        "text": { "feedback": { "error": "red", "succes": "#00ff00" } }
+        "name": "gruvbox-dark", "accent": "#123456"
       }
     }`, "theme.jsonc", (message) => messages.push(message))
-    expect(config.theme?.mode).toBeUndefined()
-    expect(config.theme?.accent).toBe("#123456")
-    expect(config.theme?.categorical).toEqual(["#fff"])
-    expect(config.theme?.markdown?.heading1).toBe("#abcdef")
-    expect(config.theme?.markdown?.heading2).toBeUndefined()
-    expect(config.theme?.text?.feedback?.error).toBe("red")
-    expect(messages).toHaveLength(5)
+    expect(config.theme).toEqual({ name: "gruvbox-dark" })
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toContain("theme.accent")
     for (const message of messages) expect(message).toContain("theme.jsonc")
   })
 
-  test("a malformed theme color cannot break theme resolution", () => {
-    const config = parseConfig(`{ "theme": { "accent": "invalid", "markdown": { "heading3": "#abc" } } }`)
+  test("a missing theme falls back to light", () => {
+    const config = parseConfig(`{ "theme": { "name": "does-not-exist" } }`)
     const theme = resolveConfiguredTheme(config)
     expect(theme.accent).toEqual(defaultTheme("light").accent)
-    expect(theme.markdown.headingLevels[2]?.toInts()).toEqual([170, 187, 204, 255])
+    expect(theme.mode).toBe("light")
   })
 
-  test("rejects auto as a theme mode in the config file", () => {
+  test("rejects an invalid theme name", () => {
     const messages: string[] = []
-    const config = parseConfig(`{ "theme": { "mode": "auto" } }`, "theme.jsonc", (message) => messages.push(message))
-    expect(config.theme?.mode).toBeUndefined()
+    const config = parseConfig(`{ "theme": { "name": "../secret" } }`, "theme.jsonc", (message) => messages.push(message))
+    expect(config.theme).toEqual({})
     expect(resolveConfiguredTheme(config).mode).toBe("light")
     expect(messages).toHaveLength(1)
   })
 
   test("accepts both solarized presets in the config file", () => {
-    for (const mode of ["solarized-light", "solarized-dark"] as const) {
-      const config = parseConfig(`{ "theme": { "mode": "${mode}" } }`)
-      expect(config.theme?.mode).toBe(mode)
-      expect(resolveConfiguredTheme(config).background.base).toEqual(defaultTheme(mode).background.base)
+    for (const name of ["solarized-light", "solarized-dark"] as const) {
+      const config = parseConfig(`{ "theme": { "name": "${name}" } }`)
+      expect(config.theme?.name).toBe(name)
+      expect(resolveConfiguredTheme(config).background.base).toEqual(defaultTheme(name).background.base)
     }
   })
 
   test("accepts JSONC comments and trailing commas", () => {
     const config = parseConfig(`{
       // a comment
-      "theme": { "mode": "light", "markdown": { "text": "#101010", }, },
+      "theme": { "name": "dark", },
       "statusline": { "fields": ["title", "mode"], },
     }`)
-    expect(config.theme).toEqual({ mode: "light", markdown: { text: "#101010" } })
+    expect(config.theme).toEqual({ name: "dark" })
     expect(config.statusline?.fields).toEqual(["title", "mode"])
   })
 
   test("keeps every section", () => {
     const config = parseConfig(`{
-      "theme": { "accent": "#ff0000" },
+      "theme": { "name": "light" },
       "statusline": { "enabled": false, "separator": " | ", "border": "top" },
       "images": { "maxColumns": 40, "maxRows": 12 },
       "mermaid": { "compact": true, "layoutMaxWidth": 90, "classLayout": "dagre" }
@@ -227,7 +221,28 @@ describe("config discovery", () => {
 
   test("returns nothing when no config exists", () => {
     const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
-    expect(discoverConfig(root)).toBeUndefined()
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBeUndefined()
+  })
+
+  test("falls back to the XDG otmd config directory", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    const directory = path.join(xdg, "otmd")
+    mkdirSync(directory)
+    writeFileSync(path.join(directory, "config.jsonc"), "{}")
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBe(path.join(directory, "config.jsonc"))
+  })
+
+  test("prefers a project config over XDG config", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    const directory = path.join(xdg, "otmd")
+    mkdirSync(directory)
+    writeFileSync(path.join(directory, "config.jsonc"), "{}")
+    const project = path.join(root, "opentui-markdown-render.json")
+    writeFileSync(project, "{}")
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBe(project)
   })
 
   test("reports config warnings through the reporter", () => {
