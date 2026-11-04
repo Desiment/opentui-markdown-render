@@ -1,6 +1,6 @@
 {
   "name": "opentui-markdown-render",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "OpenTUI Markdown renderer with optional native LaTeX math",
   "type": "module",
   "license": "MIT",
@@ -37,6 +37,7 @@
     "build:cli": "bun run scripts/build-cli.ts",
     "build:library": "bun run scripts/build-library.ts",
     "build:native": "bun run scripts/build-native.ts",
+    "build:native:portable": "bun run scripts/build-native.ts --portable",
     "generate:examples": "bun run scripts/generate-example-assets.ts",
     "demo": "bun --preload @opentui/solid/preload examples/app.tsx",
     "demo:plain": "bun --preload @opentui/solid/preload examples/app.tsx plain.md",
@@ -50,8 +51,10 @@
     "test": "bun test --preload @opentui/solid/preload --timeout 30000",
     "typecheck": "tsgo --noEmit",
     "verify": "bun run build:native && bun run build:library && bun run build:cli && bun run typecheck && bun run test && bun run verify:native",
+    "verify:portable": "bun run build:native:portable && bun run verify:prebuild && bun run build:library && bun run build:cli && bun run typecheck && bun run test && bun run verify:native",
     "verify:native": "cargo test --manifest-path native/Cargo.toml",
-    "prepack": "bun run build:native && bun run build:library && bun run build:cli",
+    "verify:prebuild": "bun run scripts/verify-prebuild.ts",
+    "prepack": "bun run verify:prebuild && bun run build:library && bun run build:cli",
     "demo:all": "bun --preload @opentui/solid/preload examples/app.tsx all.md"
   },
   "peerDependencies": {
