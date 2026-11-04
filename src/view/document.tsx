@@ -50,13 +50,15 @@ export function DocumentView(props: DocumentViewProps) {
 
   function flow(
     children: Extract<Block, { type: "paragraph" }>["children"],
-    columns: number,
+    // Canvas and other embedded hosts can report a provisional width first.
+    // Keep the accessor intact so list-item flows re-layout after measurement.
+    columns: Accessor<number>,
     quote: boolean | undefined,
     prefix?: (index: number) => string,
     prefixColor?: () => Theme["text"]["base"],
     prefixChunks?: (index: number) => TextChunk[],
   ) {
-    return <InlineFlow inlines={children} columns={columns} theme={props.theme} headings={props.headings}
+    return <InlineFlow inlines={children} columns={columns()} theme={props.theme} headings={props.headings}
       graphics={props.graphics} surface={props.surface} quote={quote} prefix={prefix}
       prefixColor={prefixColor} prefixChunks={prefixChunks} />
   }
@@ -73,7 +75,7 @@ export function DocumentView(props: DocumentViewProps) {
       const block = input.block()
       const columns = Math.max(1, input.columns)
       switch (block.type) {
-        case "paragraph": return flow(block.children, columns, input.quote)
+        case "paragraph": return flow(block.children, () => columns, input.quote)
         case "heading": {
           const level = headingLevels[block.level - 1]
           const style = props.headings[level]
@@ -131,7 +133,7 @@ export function DocumentView(props: DocumentViewProps) {
     const content = <box flexDirection="column" width="100%" flexShrink={0}
       marginBottom={list().loose && input.index() < list().items.length - 1 ? 1 : 0}>
       <For each={item().blocks}>{(child, childIndex) => childIndex() === 0 && child.type === "paragraph"
-        ? flow(child.children, input.columns, input.quote, (row) => row === 0
+        ? flow(child.children, () => input.columns, input.quote, (row) => row === 0
             ? `${marker().padEnd(markerWidth())} ` : " ".repeat(hanging()),
           () => list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem,
           item().task ? (row) => row === 0
