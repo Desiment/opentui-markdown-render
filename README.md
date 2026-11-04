@@ -77,6 +77,25 @@ Press `c` to open the configuration panel. Use Up/Down (or `j`/`k`) to select an
 
 See [Examples and demo fixtures](examples/README.md) for the complete fixture matrix and [Getting started](docs/getting-started.md) for a step-by-step walkthrough.
 
+### Install the `otmd` CLI
+
+The package also provides `otmd`, a terminal Markdown viewer. npm can install the
+package globally, but Bun is still required at runtime because the CLI executes
+TypeScript and uses the Bun native addon loader:
+
+```sh
+npm install -g opentui-markdown-render
+# or: bun add -g opentui-markdown-render
+
+otmd --version
+otmd README.md
+cat README.md | otmd -
+```
+
+Use `otmd --help` for options such as `--config` and `--no-config`. The current
+native math prebuild targets Linux x64 with glibc; other platforms keep readable
+math source when the addon is unavailable.
+
 ### Install in an OpenTUI application
 
 ```sh
@@ -84,6 +103,23 @@ bun add opentui-markdown-render @opentui/core @opentui/solid solid-js
 ```
 
 `@opentui/core`, `@opentui/solid`, and `solid-js` are peer dependencies. The package currently targets Bun 1.4+, OpenTUI 0.5.12+, and Solid 1.9+. Native prebuild coverage is currently Linux x64 with glibc.
+
+### Configuration discovery
+
+With automatic discovery enabled, the nearest project configuration wins. The
+loader checks `opentui-markdown-render.jsonc` and then
+`opentui-markdown-render.json` while walking from the current working directory
+up through its parents. If no project file exists, it checks the XDG user
+configuration directory:
+
+```text
+$XDG_CONFIG_HOME/otmd/config.jsonc  # or ~/.config when XDG_CONFIG_HOME is unset
+$XDG_CONFIG_HOME/otmd/config.json
+```
+
+Pass `--config PATH` to `otmd` or `configPath` to `MarkdownRenderer` to select a
+file explicitly. Embedded hosts can pass `discoverConfig={false}` when they own
+configuration themselves.
 
 The smallest useful component looks like this:
 

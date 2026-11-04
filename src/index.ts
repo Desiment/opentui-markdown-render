@@ -1,4 +1,5 @@
 export { MarkdownRenderer, resolveRendererTheme, loadRendererConfig, type MarkdownRendererProps, type MarkdownRendererCommonProps, type MarkdownDiagnostic, type ThemeModeSetting } from "./app"
+export { cliUsage, parseCliArgs, type CliCommand } from "./cli"
 export type { RenderUnit } from "./view/document"
 export { parseDocument, type Document, type Block, type Inline, type ListItem, type TableCell, type SourceRange, type UnitInfo } from "./core"
 export {
@@ -58,6 +59,8 @@ export {
   discoverConfig,
   parseConfig,
   configFilenames,
+  xdgConfigFilenames,
+  xdgConfigDirectory,
   resolveConfiguredTheme,
   resolveConfiguredLayout,
   statusLineFields,
@@ -75,6 +78,7 @@ export {
   type HeadingLevelConfig,
   type HeadingLevelKey,
   type ConfigReporter,
+  type ConfigEnvironment,
   type ThemeRuntime,
   type LayoutRuntime,
 } from "./config"

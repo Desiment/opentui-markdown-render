@@ -50,6 +50,15 @@ bun add opentui-markdown-render @opentui/core @opentui/solid solid-js
 
 The package exposes TypeScript source through its package entry points. `@opentui/core`, `@opentui/solid`, and `solid-js` are peer dependencies so that the host controls their versions. The native math loader looks for a matching addon in the package's `prebuilds/linux-x64-gnu/` directory; building from a repository checkout writes it there.
 
+To install the standalone CLI globally, npm and Bun are both supported as
+installers. Bun is still required to run the command:
+
+```sh
+npm install -g opentui-markdown-render
+otmd --version
+otmd README.md
+```
+
 ## Render a string
 
 Create an OpenTUI renderer, then mount the Solid component:

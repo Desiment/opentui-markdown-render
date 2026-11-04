@@ -1,4 +1,4 @@
-export { loadConfig, loadRendererConfig, discoverConfig, parseConfig, configFilenames, type ConfigReporter } from "./load"
+export { loadConfig, loadRendererConfig, discoverConfig, parseConfig, configFilenames, xdgConfigFilenames, xdgConfigDirectory, type ConfigEnvironment, type ConfigReporter } from "./load"
 export {
   resolveConfiguredTheme,
   resolveConfiguredLayout,

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { isFrameAlign, isFrameStyle } from "../core/frame"
 import { isTableColumnFitter, isTableOverflow, isTableWidthMode } from "../core/tables"
@@ -6,6 +7,8 @@ import { isHeadingLevelKey, isStatusLineField, isStatusLineStyle, type HeadingLe
 import { validateTheme } from "./theme"
 
 export const configFilenames = ["opentui-markdown-render.jsonc", "opentui-markdown-render.json"]
+export const xdgConfigFilenames = ["config.jsonc", "config.json"]
+export const xdgConfigDirectory = "otmd"
 
 // Config warnings normally go to stderr. A host that embeds the renderer can
 // collect them instead and show them in its own UI.
@@ -46,7 +49,15 @@ export function loadRendererConfig(
   }
 }
 
-export function discoverConfig(start: string): string | undefined {
+export type ConfigEnvironment = {
+  readonly XDG_CONFIG_HOME?: string
+  readonly HOME?: string
+}
+
+export function discoverConfig(
+  start: string,
+  environment: ConfigEnvironment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME },
+): string | undefined {
   let directory = path.resolve(start)
   while (true) {
     for (const name of configFilenames) {
@@ -54,9 +65,24 @@ export function discoverConfig(start: string): string | undefined {
       if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
     }
     const parent = path.dirname(directory)
-    if (parent === directory) return undefined
+    if (parent === directory) break
     directory = parent
   }
+
+  return discoverXdgConfig(environment)
+}
+
+function discoverXdgConfig(environment: ConfigEnvironment): string | undefined {
+  const configured = environment.XDG_CONFIG_HOME
+  const configHome = configured && path.isAbsolute(configured)
+    ? configured
+    : path.join(environment.HOME || os.homedir(), ".config")
+  const directory = path.join(configHome, xdgConfigDirectory)
+  for (const name of xdgConfigFilenames) {
+    const candidate = path.join(directory, name)
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
+  }
+  return undefined
 }
 
 export function parseConfig(source: string, file = "config", report?: ConfigReporter): MarkdownConfig {

@@ -11,8 +11,9 @@ The standalone component can receive configuration from a prop or from a file:
 1. A `config` prop, when present, replaces file lookup entirely.
 2. Otherwise `configPath` names the file to load.
 3. Without `configPath`, discovery starts at `cwd` (or the process working directory) and walks upward. **At each directory**, `opentui-markdown-render.jsonc` wins over `opentui-markdown-render.json`; a config in the nearest directory wins over one in a parent.
-4. `discoverConfig={false}` disables automatic discovery for an embedded renderer, but does not cancel an explicit `configPath`.
-5. Missing sections use bundled defaults.
+4. If no project config exists, the loader checks `$XDG_CONFIG_HOME/otmd/config.jsonc` and `$XDG_CONFIG_HOME/otmd/config.json`. When `XDG_CONFIG_HOME` is unset, `$HOME/.config` is used instead.
+5. `discoverConfig={false}` disables automatic discovery for an embedded renderer, but does not cancel an explicit `configPath`.
+6. Missing sections use bundled defaults.
 
 Runtime layout props override their file sections:
 

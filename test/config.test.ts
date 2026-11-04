@@ -227,7 +227,28 @@ describe("config discovery", () => {
 
   test("returns nothing when no config exists", () => {
     const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
-    expect(discoverConfig(root)).toBeUndefined()
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBeUndefined()
+  })
+
+  test("falls back to the XDG otmd config directory", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    const directory = path.join(xdg, "otmd")
+    mkdirSync(directory)
+    writeFileSync(path.join(directory, "config.jsonc"), "{}")
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBe(path.join(directory, "config.jsonc"))
+  })
+
+  test("prefers a project config over XDG config", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "opentui-config-"))
+    const xdg = mkdtempSync(path.join(tmpdir(), "opentui-xdg-"))
+    const directory = path.join(xdg, "otmd")
+    mkdirSync(directory)
+    writeFileSync(path.join(directory, "config.jsonc"), "{}")
+    const project = path.join(root, "opentui-markdown-render.json")
+    writeFileSync(project, "{}")
+    expect(discoverConfig(root, { XDG_CONFIG_HOME: xdg, HOME: xdg })).toBe(project)
   })
 
   test("reports config warnings through the reporter", () => {
