@@ -2,7 +2,14 @@ import { SyntaxStyle, type RGBA, type ThemeTokenStyle } from "@opentui/core"
 import { defaultHeadingStyles, headingColor, headingLevels, type HeadingStyles } from "../headings"
 import type { HeadingLevel, Theme } from "./types"
 
-export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHeadingStyles, defaultColor: RGBA = theme.text.base) {
+export type SyntaxResourceOwner = object
+
+export function generateSyntax(
+  theme: Theme,
+  headings: HeadingStyles = defaultHeadingStyles,
+  defaultColor: RGBA = theme.text.base,
+  owner?: SyntaxResourceOwner,
+) {
   const { markdown, syntax, text } = theme
   const feedback = text.feedback
 
@@ -22,7 +29,7 @@ export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHe
     rule([`markup.heading.${level}`], headingColor(theme, level), headingStyle(level)),
   )
 
-  return SyntaxStyle.fromTheme([
+  const rules = [
     rule(["default"], defaultColor),
     rule(["prompt"], theme.accent),
     rule(["comment", "comment.documentation"], syntax.comment, { italic: true }),
@@ -84,7 +91,11 @@ export function generateSyntax(theme: Theme, headings: HeadingStyles = defaultHe
     rule(["error"], feedback.error, { bold: true }),
     rule(["warning"], feedback.warning, { bold: true }),
     rule(["info"], feedback.info),
-  ])
+  ]
+  // OpenTUI 0.8 makes native resource ownership explicit. Passing the owner is
+  // harmless on older supported releases, whose factory ignores extra args.
+  const fromTheme = SyntaxStyle.fromTheme as (rules: ThemeTokenStyle[], owner?: SyntaxResourceOwner) => SyntaxStyle
+  return fromTheme(rules, owner)
 }
 
 function rule(

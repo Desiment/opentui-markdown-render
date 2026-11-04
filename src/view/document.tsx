@@ -1,6 +1,6 @@
 import { createMemo, For, type Accessor, type JSX } from "solid-js"
 import stringWidth from "string-width"
-import { type TextChunk } from "@opentui/core"
+import { type SyntaxStyle, type TextChunk } from "@opentui/core"
 import { assertNever, type Block, type Document, type ListItem, type UnitInfo } from "../core/document"
 import type { ResolvedTableOptions } from "../core/tables"
 import type { ImagesConfig, MermaidConfig } from "../config/types"
@@ -31,6 +31,7 @@ export type DocumentViewProps = {
   tableOptions: ResolvedTableOptions
   mermaidOptions?: MermaidConfig
   mathScale?: number
+  syntaxStyle?: SyntaxStyle
   onDiagnostic?: (diagnostic: { level: "warning" | "error"; message: string }) => void
   renderUnit?: RenderUnit
 }
@@ -97,9 +98,11 @@ export function DocumentView(props: DocumentViewProps) {
             columns={columns > 2 ? columns - 2 : columns} quote />}</For>
         </box>
         case "list": return <ListBlockView block={() => block} columns={columns} quote={input.quote} wrapItems={false} />
-        case "code": return <CodeBlock content={block.content} language={block.language} theme={props.theme} headings={props.headings} />
+        case "code": return <CodeBlock content={block.content} language={block.language} theme={props.theme}
+          headings={props.headings} syntaxStyle={props.syntaxStyle} />
         case "mermaid": return <MermaidDiagramView source={block.content} theme={props.theme} columns={columns}
-          mermaidOptions={props.mermaidOptions} headings={props.headings} onDiagnostic={props.onDiagnostic} />
+          mermaidOptions={props.mermaidOptions} headings={props.headings} syntaxStyle={props.syntaxStyle}
+          onDiagnostic={props.onDiagnostic} />
         case "table": return <TableBlock block={block} options={props.tableOptions} theme={props.theme} headings={props.headings}
           hyperlinks={props.graphics.hyperlinks?.() ?? true} />
         case "literal": return <text fg={props.theme.markdown.text} wrapMode="word" content={block.text} />

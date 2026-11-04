@@ -1,5 +1,5 @@
-import type { CliRenderer } from "@opentui/core"
-import { createMemo, createSignal } from "solid-js"
+import type { CliRenderer, SyntaxStyle } from "@opentui/core"
+import { createMemo, createSignal, onCleanup } from "solid-js"
 import { useCanvasGraphics } from "./graphics"
 import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
@@ -9,6 +9,7 @@ import { parseDocument, type Document, type FrameConfig, type TablesConfig } fro
 import { MarkdownFrame } from "./view/frame"
 import { DocumentView, type RenderUnit } from "./view/document"
 import type { Theme } from "./theme/types"
+import { generateSyntax } from "./theme/syntax"
 
 export type { ThemeModeSetting } from "./config"
 export { loadRendererConfig } from "./config"
@@ -154,6 +155,14 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
   // The look of the heading levels is a configuration of its own: the colours
   // come from the theme, the attributes and the spacing from the config file.
   const headings = createMemo(() => resolveHeadingStyles(config().headings))
+  let currentSyntax: SyntaxStyle | undefined
+  const syntaxStyle = createMemo(() => {
+    currentSyntax?.destroy()
+    const nativeScene = (renderer as CliRenderer & { readonly nativeScene?: object }).nativeScene
+    currentSyntax = generateSyntax(theme(), headings(), theme().markdown.codeBlock, nativeScene)
+    return currentSyntax
+  })
+  onCleanup(() => currentSyntax?.destroy())
   return (
         <box
           width="100%"
@@ -178,6 +187,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
               tableOptions={tableOptions()}
               mermaidOptions={config().mermaid}
               mathScale={mathScale()}
+              syntaxStyle={syntaxStyle()}
               onDiagnostic={props.onDiagnostic}
               renderUnit={props.renderUnit}
             />

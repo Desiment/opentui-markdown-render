@@ -1,6 +1,6 @@
 {
   "name": "opentui-markdown-render",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OpenTUI Markdown renderer with optional native LaTeX math",
   "type": "module",
   "license": "MIT",
@@ -56,12 +56,12 @@
     "string-width": "7.2.0"
   },
   "devDependencies": {
-    "@opentui/core": "0.5.12",
-    "@opentui/solid": "0.5.12",
+    "@opentui/core": "0.8.2",
+    "@opentui/solid": "0.8.2",
     "@tsconfig/bun": "1.0.9",
     "@types/bun": "1.4.0",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",
-    "solid-js": "1.9.15"
+    "solid-js": "1.9.18"
   },
   "engines": {
     "bun": ">=1.4.0"

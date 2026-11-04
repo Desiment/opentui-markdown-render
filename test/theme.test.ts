@@ -1,9 +1,23 @@
 import { describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
+import { createTestRenderer } from "@opentui/core/testing"
 import { defaultTheme, generateSyntax, loadTheme, mergeTheme, resolveTheme } from "../src/theme"
+import { defaultHeadingStyles } from "../src/headings"
+import type { Theme } from "../src/theme"
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
+
+async function inspectSyntax(theme: Theme, inspect: (syntax: ReturnType<typeof generateSyntax>) => void) {
+  const setup = await createTestRenderer({ width: 1, height: 1 })
+  const syntax = generateSyntax(theme, defaultHeadingStyles, theme.text.base, setup.renderer.nativeScene)
+  try {
+    inspect(syntax)
+  } finally {
+    syntax.destroy()
+    setup.renderer.destroy()
+  }
+}
 
 describe("theme resolution", () => {
   test("loads complete bundled themes from the package themes directory", () => {
@@ -42,12 +56,13 @@ describe("theme resolution", () => {
     expect(theme.mode).toBe("light")
   })
 
-  test("colours list markers as body text", () => {
+  test("colours list markers as body text", async () => {
     for (const mode of ["light", "dark"] as const) {
-      const syntax = generateSyntax(defaultTheme(mode))
-      const text = syntax.getStyle("default")?.fg
-      expect(syntax.getStyle("markup.list")?.fg).toEqual(text)
-      expect(syntax.getStyle("markup.list.enumeration")?.fg).toEqual(text)
+      await inspectSyntax(defaultTheme(mode), (syntax) => {
+        const text = syntax.getStyle("default")?.fg
+        expect(syntax.getStyle("markup.list")?.fg).toEqual(text)
+        expect(syntax.getStyle("markup.list.enumeration")?.fg).toEqual(text)
+      })
     }
   })
 })
@@ -83,12 +98,13 @@ describe("heading colours", () => {
     }
   })
 
-  test("the syntax styles follow the levels", () => {
+  test("the syntax styles follow the levels", async () => {
     const theme = defaultTheme("dark")
-    const syntax = generateSyntax(theme)
-    expect(syntax.getStyle("markup.heading.1")?.fg).toEqual(theme.markdown.headingLevels[0])
-    expect(syntax.getStyle("markup.heading.2")?.fg).toEqual(theme.markdown.headingLevels[1])
-    expect(syntax.getStyle("markup.heading.6")?.fg).toEqual(theme.markdown.headingLevels[5])
+    await inspectSyntax(theme, (syntax) => {
+      expect(syntax.getStyle("markup.heading.1")?.fg).toEqual(theme.markdown.headingLevels[0])
+      expect(syntax.getStyle("markup.heading.2")?.fg).toEqual(theme.markdown.headingLevels[1])
+      expect(syntax.getStyle("markup.heading.6")?.fg).toEqual(theme.markdown.headingLevels[5])
+    })
   })
 })
 
@@ -110,7 +126,7 @@ describe("solarized presets", () => {
     }
   })
 
-  test("each preset has its own surface and semantic light/dark mode", () => {
+  test("each preset has its own surface and semantic light/dark mode", async () => {
     expect(defaultTheme("solarized-light").mode).toBe("light")
     expect(defaultTheme("solarized-light").background.base.toInts()).toEqual([253, 246, 227, 255])
     expect(defaultTheme("solarized-dark").mode).toBe("dark")
@@ -119,7 +135,9 @@ describe("solarized presets", () => {
       const theme = defaultTheme(preset)
       expect(theme.markdown.headingLevels).toHaveLength(6)
       expect(theme.markdown.headingLevels[0]).toEqual(theme.accent)
-      expect(generateSyntax(theme).getStyle("markup.heading.4")?.fg).toEqual(theme.markdown.headingLevels[3])
+      await inspectSyntax(theme, (syntax) => {
+        expect(syntax.getStyle("markup.heading.4")?.fg).toEqual(theme.markdown.headingLevels[3])
+      })
     }
   })
 

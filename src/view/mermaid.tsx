@@ -1,5 +1,5 @@
 import { createEffect, createMemo, Show, type Accessor } from "solid-js"
-import { type MouseEvent, type TextRenderable } from "@opentui/core"
+import { type MouseEvent, type SyntaxStyle, type TextRenderable } from "@opentui/core"
 import { measureMermaidDiagram, type PreparedDiagram } from "../merman/diagram"
 import { detectMermaidDiagram } from "../merman/detect"
 import { MermaidSyntaxError } from "../merman/diagnostics"
@@ -16,6 +16,7 @@ export type MermaidDiagramViewProps = {
   columns: number
   mermaidOptions?: MermaidConfig
   headings?: HeadingStyles
+  syntaxStyle?: SyntaxStyle
   onDiagnostic?: (diagnostic: { level: "error"; message: string }) => void
 }
 
@@ -121,7 +122,7 @@ export function MermaidDiagramView(props: MermaidDiagramViewProps) {
   })
   return <box width="100%" flexDirection="column" flexShrink={0}>
     <Show when={prepared()} fallback={<CodeBlock content={props.source} language="mermaid"
-      theme={props.theme} headings={props.headings ?? defaultHeadingStyles} />}>
+      theme={props.theme} headings={props.headings ?? defaultHeadingStyles} syntaxStyle={props.syntaxStyle} />}>
       {(value) => <DiagramText prepared={value} />}
     </Show>
   </box>

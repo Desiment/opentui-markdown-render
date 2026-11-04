@@ -1,7 +1,7 @@
 export { defaultTheme } from "./defaults"
 export { loadTheme, bundledThemeNames, themeFileNames } from "./load"
 export type { ThemeEnvironment } from "./load"
-export { generateSyntax } from "./syntax"
+export { generateSyntax, type SyntaxResourceOwner } from "./syntax"
 export { resolveTheme, mergeTheme, deriveStatusLineTheme } from "./resolve"
 export { mixColors } from "./colors"
 export type { Theme, ThemeMode, ThemePreset, ThemeOverride, StatusLineTheme, StatusLineThemeOverride, FrameTheme, FrameThemeOverride, MarkdownThemeOverride, HeadingLevel } from "./types"
