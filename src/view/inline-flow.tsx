@@ -81,7 +81,7 @@ export function InlineFlow(props: InlineFlowProps) {
     <box width="100%" flexDirection="column" flexShrink={0}>
       <For each={lines()}>
         {(line, index) => (
-          <box flexDirection="row" alignItems="flex-start" width="100%" height={line.height} flexShrink={0} backgroundColor={props.theme.background.base}>
+          <box flexDirection="row" alignItems="flex-start" width="100%" height={line.height} flexShrink={0} backgroundColor={props.surface()}>
             <Show when={props.prefix}>
               <Show when={props.prefixChunks} fallback={<text fg={props.prefixColor?.() ?? props.theme.markdown.text}
                 wrapMode="none" width={prefixWidth()} flexShrink={0}>{props.prefix?.(index()) ?? ""}</text>}>

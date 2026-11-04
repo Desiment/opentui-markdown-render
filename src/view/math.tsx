@@ -59,7 +59,7 @@ export function DisplayMath(props: {
   }
 
   return (
-    <box width="100%" flexShrink={0} flexDirection="column" marginTop={1} marginBottom={1}>
+    <box width="100%" flexShrink={0} flexDirection="column" marginTop={1} marginBottom={1} backgroundColor={props.surface()}>
       <Switch>
         <Match when={rendered.loading}>
           <text fg={props.theme().text.muted} alignSelf="center">Rendering math...</text>

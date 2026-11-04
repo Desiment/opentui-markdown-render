@@ -34,6 +34,7 @@ export type DocumentViewProps = {
   syntaxStyle?: SyntaxStyle
   onDiagnostic?: (diagnostic: { level: "warning" | "error"; message: string }) => void
   renderUnit?: RenderUnit
+  unitSurface?: (info: Accessor<UnitInfo>) => string | undefined
 }
 
 function listMarker(list: ListBlock, index: number, item: ListItem): string {
@@ -54,16 +55,18 @@ export function DocumentView(props: DocumentViewProps) {
     // Keep the accessor intact so list-item flows re-layout after measurement.
     columns: Accessor<number>,
     quote: boolean | undefined,
+    surface: () => string = props.surface,
     prefix?: (index: number) => string,
     prefixColor?: () => Theme["text"]["base"],
     prefixChunks?: (index: number) => TextChunk[],
   ) {
     return <InlineFlow inlines={children} columns={columns()} theme={props.theme} headings={props.headings}
-      graphics={props.graphics} surface={props.surface} quote={quote} prefix={prefix}
+      graphics={props.graphics} surface={surface} quote={quote} prefix={prefix}
       prefixColor={prefixColor} prefixChunks={prefixChunks} />
   }
 
-  function BlockView(input: { block: () => Block; columns: number; quote?: boolean }) {
+  function BlockView(input: { block: () => Block; columns: number; quote?: boolean; surface?: () => string }) {
+    const surface = input.surface ?? props.surface
     // A reused Mermaid slot must retain this component's local last-good state
     // while its fenced source changes. The other variants can remount on edit.
     if (input.block().type === "mermaid") {
@@ -75,29 +78,29 @@ export function DocumentView(props: DocumentViewProps) {
       const block = input.block()
       const columns = Math.max(1, input.columns)
       switch (block.type) {
-        case "paragraph": return flow(block.children, () => columns, input.quote)
+        case "paragraph": return flow(block.children, () => columns, input.quote, surface)
         case "heading": {
           const level = headingLevels[block.level - 1]
           const style = props.headings[level]
           const children = style.uppercase ? block.children.map((child) => child.type === "text" ? { ...child, text: child.text.toUpperCase() } : child) : block.children
           return <box width="100%" flexDirection="column" flexShrink={0} marginTop={style.marginTop} marginBottom={style.marginBottom}>
             <InlineFlow inlines={children} columns={columns} theme={props.theme} headings={props.headings}
-              graphics={props.graphics} surface={props.surface} heading={{ level }}
+              graphics={props.graphics} surface={surface} heading={{ level }}
               prefix={(index) => index === 0 ? `${"#".repeat(level)} ` : " ".repeat(level + 1)} prefixColor={() => props.theme.text.muted} />
           </box>
         }
         case "rule": return <box height={1} width="100%" border={["top"]} borderColor={props.theme.markdown.horizontalRule} />
         case "image": return <LocalImage href={block.href} alt={block.alt} base={props.assetBase}
-          columns={() => columns} cell={props.graphics.cell} background={props.surface}
+          columns={() => columns} cell={props.graphics.cell} background={surface}
           labelColor={() => props.theme.markdown.image} textColor={() => props.theme.markdown.imageText}
           limits={props.imageLimits} />
         case "display-math": return <DisplayMath content={block.content} open={block.open} close={block.close}
-          maxWidth={() => columns} theme={() => props.theme} graphics={props.graphics} surface={props.surface}
+          maxWidth={() => columns} theme={() => props.theme} graphics={props.graphics} surface={surface}
           scale={() => props.mathScale ?? 1} />
         case "quote": return <box border={columns > 2 ? ["left"] : []} borderColor={props.theme.markdown.blockQuote}
           paddingLeft={columns > 2 ? 1 : 0} width="100%" flexDirection="column">
           <For each={block.blocks}>{(child) => <BlockView block={() => child}
-            columns={columns > 2 ? columns - 2 : columns} quote />}</For>
+            columns={columns > 2 ? columns - 2 : columns} quote surface={surface} />}</For>
         </box>
         case "list": return <ListBlockView block={() => block} columns={columns} quote={input.quote} wrapItems={false} />
         case "code": return <CodeBlock content={block.content} language={block.language} theme={props.theme}
@@ -106,12 +109,13 @@ export function DocumentView(props: DocumentViewProps) {
           mermaidOptions={props.mermaidOptions} headings={props.headings} syntaxStyle={props.syntaxStyle}
           onDiagnostic={props.onDiagnostic} />
         case "table": return <TableBlock block={block} options={props.tableOptions} theme={props.theme} headings={props.headings}
+          surface={surface}
           hyperlinks={props.graphics.hyperlinks?.() ?? true} />
         case "literal": return <text fg={props.theme.markdown.text} wrapMode="word" content={block.text} />
         default: return assertNever(block)
       }
     })
-    return <box width="100%" flexDirection="column" flexShrink={0}>{view()}</box>
+    return <box width="100%" flexDirection="column" flexShrink={0} backgroundColor={surface()}>{view()}</box>
   }
 
   function ListItemView(input: {
@@ -130,10 +134,16 @@ export function DocumentView(props: DocumentViewProps) {
     const hanging = () => markerWidth() + 1
     const marker = () => listMarker(list(), input.index(), item())
 
-    const content = <box flexDirection="column" width="100%" flexShrink={0}
+    const info = () => {
+      const current = item()
+      const source = input.latest().items[input.index()]?.source ?? null
+      return { kind: "list-item" as const, item: current.source === source ? current : { ...current, source }, source }
+    }
+    const surface = () => props.unitSurface?.(info) ?? props.surface()
+    const content = <box flexDirection="column" width="100%" flexShrink={0} backgroundColor={surface()}
       marginBottom={list().loose && input.index() < list().items.length - 1 ? 1 : 0}>
       <For each={item().blocks}>{(child, childIndex) => childIndex() === 0 && child.type === "paragraph"
-        ? flow(child.children, () => input.columns, input.quote, (row) => row === 0
+        ? flow(child.children, () => input.columns, input.quote, surface, (row) => row === 0
             ? `${marker().padEnd(markerWidth())} ` : " ".repeat(hanging()),
           () => list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem,
           item().task ? (row) => row === 0
@@ -150,20 +160,15 @@ export function DocumentView(props: DocumentViewProps) {
                 fg={list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem}>
                 {`${marker().padEnd(markerWidth())} `}
               </text>
-              <BlockView block={() => child} columns={Math.max(1, input.columns - hanging())} quote={input.quote} />
+              <BlockView block={() => child} columns={Math.max(1, input.columns - hanging())} quote={input.quote} surface={surface} />
             </box>
         : <box marginLeft={hanging()} width={Math.max(1, input.columns - hanging())} flexDirection="column">
-            <BlockView block={() => child} columns={Math.max(1, input.columns - hanging())} quote={input.quote} />
+            <BlockView block={() => child} columns={Math.max(1, input.columns - hanging())} quote={input.quote} surface={surface} />
           </box>}
       </For>
       {item().blocks.length === 0 && <text fg={props.theme.markdown.listItem}>{marker()}</text>}
     </box>
 
-    const info = () => {
-      const current = item()
-      const source = input.latest().items[input.index()]?.source ?? null
-      return { kind: "list-item" as const, item: current.source === source ? current : { ...current, source }, source }
-    }
     return <>{input.wrapUnit && props.renderUnit ? props.renderUnit(info, content) : content}</>
   }
 
@@ -192,7 +197,8 @@ export function DocumentView(props: DocumentViewProps) {
       const source = input.slot.latest().source ?? null
       return { kind: "block" as const, block: current.source === source ? current : { ...current, source }, source }
     }
-    const content = <BlockView block={block} columns={input.columns} />
+    const surface = () => props.unitSurface?.(info) ?? props.surface()
+    const content = <BlockView block={block} columns={input.columns} surface={surface} />
     return <>{props.renderUnit ? props.renderUnit(info, content) : content}</>
   }
 

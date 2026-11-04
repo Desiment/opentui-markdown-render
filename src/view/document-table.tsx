@@ -1,4 +1,4 @@
-import { TextAttributes, TextTableRenderable, type RenderContext, type RGBA, type TextChunk, type TextTableContent } from "@opentui/core"
+import { parseColor, TextAttributes, TextTableRenderable, type RenderContext, type RGBA, type TextChunk, type TextTableContent } from "@opentui/core"
 import { extend } from "@opentui/solid"
 import { resolveTableOptions, type ResolvedTableOptions } from "../core/tables"
 import type { Block } from "../core/document"
@@ -82,6 +82,7 @@ export function TableBlock(props: {
   theme: Theme
   headings: HeadingStyles
   hyperlinks?: boolean
+  surface?: () => string
 }) {
   const cell = (inlines: readonly import("../core/document").Inline[], header: boolean): TextChunk[] => {
     const chunks = toTableChunks(inlines, props.theme, props.headings, props.hyperlinks)
@@ -93,6 +94,6 @@ export function TableBlock(props: {
     ...props.block.rows.map((row) => row.map((value) => cell(value.children, false))),
   ]
   return <md_text_table tableData={content()} resolved={props.options}
-    foreground={props.theme.markdown.text} background={props.theme.background.base}
+    foreground={props.theme.markdown.text} background={props.surface ? parseColor(props.surface()) : props.theme.background.base}
     tableBorderColor={props.theme.border.base} />
 }

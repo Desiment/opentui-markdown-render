@@ -2332,7 +2332,7 @@ function reconcileSlots(prev, next) {
 import { setProp as _$setProp4 } from "@opentui/solid";
 import { effect as _$effect3 } from "@opentui/solid";
 import { createElement as _$createElement4 } from "@opentui/solid";
-import { TextAttributes as TextAttributes3, TextTableRenderable as TextTableRenderable2 } from "@opentui/core";
+import { parseColor as parseColor3, TextAttributes as TextAttributes3, TextTableRenderable as TextTableRenderable2 } from "@opentui/core";
 import { extend } from "@opentui/solid";
 
 // src/view/table.ts
@@ -2591,7 +2591,7 @@ function TableBlock(props) {
   return (() => {
     var _el$ = _$createElement4("md_text_table");
     _$effect3((_p$) => {
-      var _v$ = content(), _v$2 = props.options, _v$3 = props.theme.markdown.text, _v$4 = props.theme.background.base, _v$5 = props.theme.border.base;
+      var _v$ = content(), _v$2 = props.options, _v$3 = props.theme.markdown.text, _v$4 = props.surface ? parseColor3(props.surface()) : props.theme.background.base, _v$5 = props.theme.border.base;
       _v$ !== _p$.e && (_p$.e = _$setProp4(_el$, "tableData", _v$, _p$.e));
       _v$2 !== _p$.t && (_p$.t = _$setProp4(_el$, "resolved", _v$2, _p$.t));
       _v$3 !== _p$.a && (_p$.a = _$setProp4(_el$, "foreground", _v$3, _p$.a));
@@ -3005,7 +3005,7 @@ function InlineFlow(props) {
           }
         }), null);
         _$effect4((_p$) => {
-          var _v$3 = line.height, _v$4 = props.theme.background.base;
+          var _v$3 = line.height, _v$4 = props.surface();
           _v$3 !== _p$.e && (_p$.e = _$setProp5(_el$4, "height", _v$3, _p$.e));
           _v$4 !== _p$.t && (_p$.t = _$setProp5(_el$4, "backgroundColor", _v$4, _p$.t));
           return _p$;
@@ -3166,6 +3166,7 @@ function DisplayMath(props) {
         })];
       }
     }));
+    _$effect5((_$p) => _$setProp6(_el$, "backgroundColor", props.surface(), _$p));
     return _el$;
   })();
 }
@@ -3181,7 +3182,7 @@ import { createEffect as createEffect3, createMemo as createMemo4, Show as Show2
 
 // src/merman/diagram.ts
 import {
-  parseColor as parseColor3,
+  parseColor as parseColor4,
   StyledText as StyledText3
 } from "@opentui/core";
 
@@ -12575,7 +12576,7 @@ function renderTimelineGridStyledText(grid, colors) {
 
 // src/merman/diagram.ts
 function color(value) {
-  return value === undefined ? undefined : parseColor3(value);
+  return value === undefined ? undefined : parseColor4(value);
 }
 function prepareDiagram(kind, source, options, layoutMaxWidth) {
   const colors = options.colors ?? {};
@@ -12959,7 +12960,7 @@ function DocumentView(props) {
     previous = reconcileSlots(previous, [...props.document.blocks]);
     return previous;
   });
-  function flow(children, columns, quote, prefix, prefixColor, prefixChunks) {
+  function flow(children, columns, quote, surface = props.surface, prefix, prefixColor, prefixChunks) {
     return _$createComponent5(InlineFlow, {
       inlines: children,
       get columns() {
@@ -12974,9 +12975,7 @@ function DocumentView(props) {
       get graphics() {
         return props.graphics;
       },
-      get surface() {
-        return props.surface;
-      },
+      surface,
       quote,
       prefix,
       prefixColor,
@@ -12984,6 +12983,7 @@ function DocumentView(props) {
     });
   }
   function BlockView(input) {
+    const surface = input.surface ?? props.surface;
     if (input.block().type === "mermaid") {
       return _$createComponent5(MermaidDiagramView, {
         get source() {
@@ -13014,7 +13014,7 @@ function DocumentView(props) {
       const columns = Math.max(1, input.columns);
       switch (block.type) {
         case "paragraph":
-          return flow(block.children, () => columns, input.quote);
+          return flow(block.children, () => columns, input.quote, surface);
         case "heading": {
           const level = headingLevels[block.level - 1];
           const style = props.headings[level];
@@ -13039,9 +13039,7 @@ function DocumentView(props) {
               get graphics() {
                 return props.graphics;
               },
-              get surface() {
-                return props.surface;
-              },
+              surface,
               heading: {
                 level
               },
@@ -13084,9 +13082,7 @@ function DocumentView(props) {
             get cell() {
               return props.graphics.cell;
             },
-            get background() {
-              return props.surface;
-            },
+            background: surface,
             labelColor: () => props.theme.markdown.image,
             textColor: () => props.theme.markdown.imageText,
             get limits() {
@@ -13109,9 +13105,7 @@ function DocumentView(props) {
             get graphics() {
               return props.graphics;
             },
-            get surface() {
-              return props.surface;
-            },
+            surface,
             scale: () => props.mathScale ?? 1
           });
         case "quote":
@@ -13128,7 +13122,8 @@ function DocumentView(props) {
               children: (child) => _$createComponent5(BlockView, {
                 block: () => child,
                 columns: columns > 2 ? columns - 2 : columns,
-                quote: true
+                quote: true,
+                surface
               })
             }));
             _$effect6((_$p) => _$setProp8(_el$3, "borderColor", props.theme.markdown.blockQuote, _$p));
@@ -13195,6 +13190,7 @@ function DocumentView(props) {
             get headings() {
               return props.headings;
             },
+            surface,
             get hyperlinks() {
               return props.graphics.hyperlinks?.() ?? true;
             }
@@ -13224,6 +13220,7 @@ function DocumentView(props) {
       _$setProp8(_el$5, "flexDirection", "column");
       _$setProp8(_el$5, "flexShrink", 0);
       _$insert6(_el$5, view);
+      _$effect6((_$p) => _$setProp8(_el$5, "backgroundColor", surface(), _$p));
       return _el$5;
     })();
   }
@@ -13233,6 +13230,19 @@ function DocumentView(props) {
     const markerWidth = input.markerWidth;
     const hanging = () => markerWidth() + 1;
     const marker = () => listMarker(list(), input.index(), item());
+    const info = () => {
+      const current = item();
+      const source = input.latest().items[input.index()]?.source ?? null;
+      return {
+        kind: "list-item",
+        item: current.source === source ? current : {
+          ...current,
+          source
+        },
+        source
+      };
+    };
+    const surface = () => props.unitSurface?.(info) ?? props.surface();
     const content = (() => {
       var _el$6 = _$createElement8("box");
       _$setProp8(_el$6, "flexDirection", "column");
@@ -13242,7 +13252,7 @@ function DocumentView(props) {
         get each() {
           return item().blocks;
         },
-        children: (child, childIndex) => childIndex() === 0 && child.type === "paragraph" ? flow(child.children, () => input.columns, input.quote, (row) => row === 0 ? `${marker().padEnd(markerWidth())} ` : " ".repeat(hanging()), () => list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem, item().task ? (row) => row === 0 ? [{
+        children: (child, childIndex) => childIndex() === 0 && child.type === "paragraph" ? flow(child.children, () => input.columns, input.quote, surface, (row) => row === 0 ? `${marker().padEnd(markerWidth())} ` : " ".repeat(hanging()), () => list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem, item().task ? (row) => row === 0 ? [{
           __isChunk: true,
           text: `${list().ordered ? `${list().start + input.index()}.` : "-"} `,
           fg: list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem
@@ -13269,12 +13279,13 @@ function DocumentView(props) {
             },
             get quote() {
               return input.quote;
-            }
+            },
+            surface
           }), null);
           _$effect6((_p$) => {
-            var _v$5 = hanging(), _v$6 = list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem;
-            _v$5 !== _p$.e && (_p$.e = _$setProp8(_el$8, "width", _v$5, _p$.e));
-            _v$6 !== _p$.t && (_p$.t = _$setProp8(_el$8, "fg", _v$6, _p$.t));
+            var _v$7 = hanging(), _v$8 = list().ordered ? props.theme.markdown.listEnumeration : props.theme.markdown.listItem;
+            _v$7 !== _p$.e && (_p$.e = _$setProp8(_el$8, "width", _v$7, _p$.e));
+            _v$8 !== _p$.t && (_p$.t = _$setProp8(_el$8, "fg", _v$8, _p$.t));
             return _p$;
           }, {
             e: undefined,
@@ -13291,12 +13302,13 @@ function DocumentView(props) {
             },
             get quote() {
               return input.quote;
-            }
+            },
+            surface
           }));
           _$effect6((_p$) => {
-            var _v$7 = hanging(), _v$8 = Math.max(1, input.columns - hanging());
-            _v$7 !== _p$.e && (_p$.e = _$setProp8(_el$9, "marginLeft", _v$7, _p$.e));
-            _v$8 !== _p$.t && (_p$.t = _$setProp8(_el$9, "width", _v$8, _p$.t));
+            var _v$9 = hanging(), _v$0 = Math.max(1, input.columns - hanging());
+            _v$9 !== _p$.e && (_p$.e = _$setProp8(_el$9, "marginLeft", _v$9, _p$.e));
+            _v$0 !== _p$.t && (_p$.t = _$setProp8(_el$9, "width", _v$0, _p$.t));
             return _p$;
           }, {
             e: undefined,
@@ -13314,21 +13326,17 @@ function DocumentView(props) {
           return _el$0;
         })();
       })(), null);
-      _$effect6((_$p) => _$setProp8(_el$6, "marginBottom", list().loose && input.index() < list().items.length - 1 ? 1 : 0, _$p));
+      _$effect6((_p$) => {
+        var _v$5 = surface(), _v$6 = list().loose && input.index() < list().items.length - 1 ? 1 : 0;
+        _v$5 !== _p$.e && (_p$.e = _$setProp8(_el$6, "backgroundColor", _v$5, _p$.e));
+        _v$6 !== _p$.t && (_p$.t = _$setProp8(_el$6, "marginBottom", _v$6, _p$.t));
+        return _p$;
+      }, {
+        e: undefined,
+        t: undefined
+      });
       return _el$6;
     })();
-    const info = () => {
-      const current = item();
-      const source = input.latest().items[input.index()]?.source ?? null;
-      return {
-        kind: "list-item",
-        item: current.source === source ? current : {
-          ...current,
-          source
-        },
-        source
-      };
-    };
     return _$memo5(() => _$memo5(() => !!(input.wrapUnit && props.renderUnit))() ? props.renderUnit(info, content) : content);
   }
   function ListBlockView(input) {
@@ -13395,11 +13403,13 @@ function DocumentView(props) {
         source
       };
     };
+    const surface = () => props.unitSurface?.(info) ?? props.surface();
     const content = _$createComponent5(BlockView, {
       block,
       get columns() {
         return input.columns;
-      }
+      },
+      surface
     });
     return _$memo5(() => _$memo5(() => !!props.renderUnit)() ? props.renderUnit(info, content) : content);
   }
@@ -13562,6 +13572,9 @@ function MarkdownRenderer(props) {
           },
           get renderUnit() {
             return props.renderUnit;
+          },
+          get unitSurface() {
+            return props.unitSurface;
           }
         });
       }
