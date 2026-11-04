@@ -36,6 +36,7 @@ async function importNativeMath(): Promise<NativeModule | undefined> {
   // copying `prebuilds` beside the generated entrypoint.
   const candidates = [
     path.join(import.meta.dir, "..", "..", relative),
+    path.join(import.meta.dir, "..", relative),
     path.join(import.meta.dir, relative),
     path.join(import.meta.dir, "node_modules", "opentui-markdown-render", relative),
   ]

@@ -1,4 +1,3 @@
-#!/usr/bin/env -S bun --preload @opentui/solid/preload
 import { createCliRenderer } from "@opentui/core"
 import { render } from "@opentui/solid"
 import { createSignal, onCleanup, Show } from "solid-js"
