@@ -137,7 +137,31 @@ const PAGE_MARGIN_PT: f64 = FONT_SIZE_PT * 6.0;
 // below is the official MiTeX scope (mitex-rs/mitex, `packages/mitex/specs/
 // latex/standard.typ`, Apache-2.0), reduced to the handlers Typst 0.15 does not
 // provide on its own.
-const MITEX_SCOPE: &str = r#"
+const MITEX_SCOPE: &str = r##"
+#let negthinspace = h(-(3/18) * 1em)
+#let negthinmedspace = h(-(3/18) * 1em)
+#let negmedspace = h(-(4/18) * 1em)
+#let negthickspace = h(-(5/18) * 1em)
+#let enspace = h((1/2) * 1em)
+#let bra(body) = $chevron.l #body |$
+#let ket(body) = $| #body chevron.r$
+#let braket(body) = $chevron.l #body chevron.r$
+#let xhookrightarrow(body) = $limits(stretch(#math.arrow.r.hook)^#body)$
+#let color-name(value) = if type(value) == str {
+  value
+} else if value.has("children") {
+  value.children.filter(it => it.has("text")).map(it => it.text).join("")
+} else if value.has("text") {
+  value.text
+} else { "" }
+#let colortext(color, body) = {
+  let colors = (red: rgb("#ff0000"), green: rgb("#00ff00"), blue: rgb("#0000ff"),
+    black: rgb("#000000"), white: rgb("#ffffff"), cyan: rgb("#00ffff"),
+    magenta: rgb("#ff00ff"), yellow: rgb("#ffff00"), gray: rgb("#808080"))
+  let fill = colors.at(color-name(color), default: none)
+  if fill == none { panic("Unsupported LaTeX color: " + color-name(color)) }
+  text(fill: fill, body)
+}
 #let mitexsqrt(..args) = {
   let p = args.pos()
   if p.len() == 1 { math.sqrt(p.at(0)) }
@@ -188,11 +212,12 @@ const MITEX_SCOPE: &str = r#"
 #let bmatrix(..args) = math.mat(delim: "[", ..args.pos())
 #let Bmatrix(..args) = math.mat(delim: "{", ..args.pos())
 #let vmatrix(..args) = math.mat(delim: "|", ..args.pos())
-#let Vmatrix(..args) = math.mat(delim: "||", ..args.pos())
+#let Vmatrix(..args) = math.mat(delim: "‖", ..args.pos())
 #let matrix(..args) = math.mat(delim: none, ..args.pos())
 #let smallmatrix(..args) = math.inline(math.mat(delim: none, ..args.pos()))
 #let aligned(body) = math.op(body)
-#let alignedat(body) = math.op(body)
+#let alignedat(arg0: none, body) = math.op(body)
+#let rcases(..args) = math.cases(reverse: true, ..args.pos())
 #let mitexarray(arg0: none, ..args) = {
   if args.pos().len() == 0 { return [] }
   let columns = if type(arg0) == str {
@@ -212,9 +237,9 @@ const MITEX_SCOPE: &str = r#"
   let width = calc.max(..rows.map(row => row.len()))
   let cells = rows.map(row => row + (width - row.len()) * (none,)).flatten()
   let align-map = ("l": left, "c": center, "r": right)
-  set align(if columns.len() == 0 { center } else { align-map.at(columns.at(0)) })
   grid(
     columns: width,
+    align: if columns.len() == 0 { center } else { columns.map(it => align-map.at(it)) },
     column-gutter: 0.5em,
     row-gutter: 0.5em,
     ..cells.map(cell => $cell$),
@@ -233,7 +258,7 @@ const MITEX_SCOPE: &str = r#"
 #let mitexlabel(..args) = []
 #let mitexcite(..args) = []
 #let mitexref(..args) = []
-"#;
+"##;
 
 // `display` math is typeset in Typst's display style, where large operators
 // carry their limits above and below instead of beside them.
@@ -266,8 +291,8 @@ fn compile_math_page(
     match compile_page(source) {
         Ok(page) => Ok(page),
         Err(error) if display => {
-            eprintln!("[opentui-markdown-render] display style failed, using text style: {error}");
             compile_page(math_source(math, foreground, background, SENTINEL_HEX, false))
+                .map_err(|fallback| format!("Display style failed: {error}; text style failed: {fallback}"))
         }
         Err(error) => Err(error),
     }
@@ -876,5 +901,105 @@ mod tests {
             }
         }
         assert!(failures.is_empty(), "commands that failed to render:\n{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn compatibility_corpus_compiles_without_style_fallback() {
+        let cases: &[&str] = &[
+            r"a\!b", r"a\negthinspace b", r"a\negthinmedspace b", r"a\negmedspace b", r"a\negthickspace b",
+            r"a\,b\:c\;d\quad e\qquad f", r"a\enspace b",
+            r"\begin{align*} a &= b + c \\ d &= e + f \end{align*}",
+            r"\begin{alignedat}{2} a &= b & c &= d \\ e &= f & g &= h \end{alignedat}",
+            r"\begin{equation} x = \frac{1}{2} \end{equation}",
+            r"\begin{equation*} x = \frac{1}{2} \end{equation*}",
+            r"\begin{cases} x^2 & x > 0 \\ -x & x \leq 0 \end{cases}",
+            r"\begin{rcases} x & x > 0 \\ -x & x \leq 0 \end{rcases}",
+            r"\begin{matrix} a & b \\ c & d \end{matrix}",
+            r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}",
+            r"\begin{pmatrix} \frac{1}{2} & x \\ y & \sqrt{2} \end{pmatrix}",
+            r"\begin{bmatrix} a & b \\ c & d \end{bmatrix}",
+            r"\begin{Bmatrix} a & b \\ c & d \end{Bmatrix}",
+            r"\begin{vmatrix} a & b \\ c & d \end{vmatrix}",
+            r"\begin{Vmatrix} a & b \\ c & d \end{Vmatrix}",
+            r"\begin{array}{lcr} a & b & c \\ d & e & f \end{array}",
+            r"\sum_{\substack{i=1 \\ j=2}}^n i",
+            r"\not=", r"\bra{\psi}", r"\ket{\psi}", r"\braket{a|b}",
+            r"\xhookrightarrow{f}", r"\textcolor{red}{x}",
+        ];
+        let mut failures = Vec::new();
+        for formula in cases {
+            match mitex::convert_math(formula, None) {
+                Ok(math) => for display in [false, true] {
+                    let source = math_source(&math, "000000", "ffffff", SENTINEL_HEX, display);
+                    if let Err(error) = super::compile_page(source) {
+                        failures.push(format!("{formula} (display={display}), converted={math}: {error}"));
+                    }
+                },
+                Err(error) => failures.push(format!("{formula}: conversion failed: {error}")),
+            }
+        }
+        assert!(failures.is_empty(), "math compatibility failures:\n{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn multiline_environments_produce_taller_ink() {
+        let ink_height = |formula: &str| {
+            let math = mitex::convert_math(formula, None).expect("convert");
+            let page = super::compile_page(math_source(&math, "000000", "ffffff", SENTINEL_HEX, true))
+                .expect("display style must compile without fallback");
+            let image = super::render_page(&page, 16.0 / 12.0);
+            let ink = measure_regions(&image, hex_rgb("ffffff"), sentinel_gap_px(16.0 / 12.0))
+                .math.expect("formula must produce ink");
+            ink.bottom - ink.top + 1
+        };
+        for (single, multi) in [
+            (r"\begin{pmatrix} a & b \end{pmatrix}", r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}"),
+            (r"\begin{cases} x & x > 0 \end{cases}", r"\begin{cases} x & x > 0 \\ -x & x < 0 \end{cases}"),
+            (r"\begin{align*} a &= b \end{align*}", r"\begin{align*} a &= b \\ c &= d \end{align*}"),
+        ] {
+            let one = ink_height(single);
+            let two = ink_height(multi);
+            assert!(two > one, "multiline {multi} ({two}px) must be taller than {single} ({one}px)");
+        }
+    }
+
+    #[test]
+    fn textcolor_paints_the_requested_color() {
+        let math = mitex::convert_math(r"\textcolor{red}{x}", None).expect("convert");
+        let page = super::compile_page(math_source(&math, "000000", "ffffff", SENTINEL_HEX, true))
+            .expect("display style");
+        let image = super::render_page(&page, 16.0 / 12.0);
+        assert!(image.data().chunks_exact(4).any(|px| px[0] > 180 && px[1] < 100 && px[2] < 100),
+            "formula must contain red pixels");
+    }
+
+    #[test]
+    fn failed_display_and_text_styles_keep_both_diagnostics() {
+        let error = match super::compile_math_page("unknownmathhelper(x)", "000000", "ffffff", true) {
+            Ok(_) => panic!("unknown helper must fail in both styles"),
+            Err(error) => error,
+        };
+        assert!(error.contains("Display style failed:"));
+        assert!(error.contains("text style failed:"));
+        assert!(error.contains("unknownmathhelper"));
+    }
+
+    #[test]
+    fn multiline_formulas_render_to_nonempty_rasters() {
+        for formula in [
+            r"\begin{align*} a &= b \\ c &= d \end{align*}",
+            r"\begin{alignedat}{2} a &= b & c &= d \\ e &= f & g &= h \end{alignedat}",
+            r"\begin{cases} x^2 & x > 0 \\ -x & x \leq 0 \end{cases}",
+            r"\begin{rcases} x & x > 0 \\ -x & x \leq 0 \end{rcases}",
+            r"\begin{Vmatrix} \frac{1}{2} & b \\ c & \sqrt{2} \end{Vmatrix}",
+            r"\begin{array}{lcr} a & b & c \\ d & e & f \end{array}",
+        ] {
+            let image = render_math_png(formula.into(), 16.0 / 12.0, "000000".into(), "ffffff".into(), true, 8.0, 16.0, false, false)
+                .unwrap_or_else(|error| panic!("{formula}: {error}"));
+            let raster = tiny_skia::Pixmap::decode_png(&image.png).expect("valid PNG");
+            assert!(raster.data().chunks_exact(4).any(|px| px[0] < 220 && px[1] < 220 && px[2] < 220),
+                "{formula} must produce visible ink");
+            assert!(image.width >= 8 && image.height >= 48, "{formula} has a valid display box");
+        }
     }
 }

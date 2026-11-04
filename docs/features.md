@@ -65,7 +65,9 @@ Inline math shares the baseline and row layout of neighbouring text. Display mat
 
 An inline formula that has text after it on the same row may be scaled down to fit that row. If the formula ends the line, it keeps the standard text size because it does not need to share the row with following text.
 
-The MiTeX scope includes common constructs such as `\sqrt[n]{x}`, `\dfrac`, `\tfrac`, `\text`, `\operatorname`, `\boxed`, matrix environments, cases, aligned/array environments, `\xrightarrow`, `\middle`, `\big`, `\substack`, and `\displaystyle`. A formula that cannot be converted or typeset is left as its original source.
+The MiTeX scope includes common constructs such as `\sqrt[n]{x}`, `\dfrac`, `\tfrac`, `\text`, `\operatorname`, `\boxed`, matrix environments, cases, aligned/array environments, `\xrightarrow`, `\middle`, `\big`, `\substack`, and `\displaystyle`. Negative spacing commands such as `\!` and `\negthinspace` are supported. `\textcolor` supports the named colors black, white, red, green, blue, cyan, magenta, yellow, and gray. A formula that cannot be converted or typeset is left as its original source.
+
+The embedded MiTeX scope is not a complete LaTeX engine. In particular, `\set` is not currently supported by the pinned MiTeX converter; use `\{x\}` for set notation instead. `alignedat` accepts its column count but does not apply TeX's precise inter-column spacing.
 
 ### Math capability fallback
 
