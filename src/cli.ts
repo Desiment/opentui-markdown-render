@@ -17,6 +17,11 @@ Options:
       --no-config      Disable automatic config discovery
   -h, --help           Show this help
   -v, --version        Show the package version
+
+Viewer keys:
+  c                     Open or close runtime configuration
+  q                     Ask to quit
+  Ctrl+C                Quit immediately
 `
 
 export function parseCliArgs(args: readonly string[]): CliCommand {

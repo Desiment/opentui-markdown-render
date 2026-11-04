@@ -1461,16 +1461,49 @@ function createMathDisplayExtension() {
     }
   };
 }
+function createMathDisplayBlockExtension() {
+  return {
+    name: "mathDisplayBlock",
+    level: "block",
+    start(src) {
+      const match = /\n(?= {0,3}(?:\$\$|\\\[))/.exec(src);
+      if (!match)
+        return;
+      return match.index + 1;
+    },
+    tokenizer(src) {
+      const match = /^( {0,3})(\$\$|\\\[)/.exec(src);
+      if (!match)
+        return;
+      const open = match[2];
+      const close = open === "$$" ? "$$" : "\\]";
+      const contentStart = match[0].length;
+      const end = closing(src, close, contentStart, false);
+      if (end <= contentStart)
+        return;
+      const content = src.slice(contentStart, end);
+      const raw = src.slice(0, end + close.length);
+      return {
+        type: "mathDisplayBlock",
+        raw,
+        text: content,
+        content,
+        open,
+        close
+      };
+    }
+  };
+}
 
 // src/core/parse.ts
 var parser = new Marked({
   gfm: true,
   breaks: false,
   async: false,
-  extensions: [createMathDisplayExtension(), createMathInlineExtension()]
+  extensions: [createMathDisplayBlockExtension(), createMathDisplayExtension(), createMathInlineExtension()]
 });
 function isDisplay(token) {
-  return token.type === "mathDisplay";
+  return token.type === "mathDisplay" || token.type === "mathDisplayBlock";
 }
 function isInlineMath(token) {
   return token.type === "mathInline";
@@ -13593,6 +13626,11 @@ Options:
       --no-config      Disable automatic config discovery
   -h, --help           Show this help
   -v, --version        Show the package version
+
+Viewer keys:
+  c                     Open or close runtime configuration
+  q                     Ask to quit
+  Ctrl+C                Quit immediately
 `;
 function parseCliArgs(args) {
   let configPath;

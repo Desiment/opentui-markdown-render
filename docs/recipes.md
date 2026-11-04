@@ -118,7 +118,7 @@ const theme = defaultTheme("dark")
 </box>
 ```
 
-The host computes `position()` from its scrollbox (or another application source). The library formats and colours the row; it does not monitor scrolling. If themes switch, keep the theme passed to `StatusLine` and `MarkdownRenderer` synchronized. The full demo in [`examples/app.tsx`](../examples/app.tsx) shows theme, protocol, cell dimensions, and scroll position in its status line.
+The host computes `position()` from its scrollbox (or another application source). The library formats and colours the row; it does not monitor scrolling. If themes switch, keep the theme passed to `StatusLine` and `MarkdownRenderer` synchronized. The shared standalone shell in [`src/viewer/app.tsx`](../src/viewer/app.tsx), used by both the demo and `otmd`, shows theme, protocol, cell dimensions, and scroll position in its status line.
 
 ## Choose between a scrolling and fixed frame
 

@@ -1,14 +1,9 @@
 // @bun
 // bin/otmd-main.tsx
-import { effect as _$effect9 } from "@opentui/solid";
-import { insertNode as _$insertNode4 } from "@opentui/solid";
-import { insert as _$insert9 } from "@opentui/solid";
-import { createComponent as _$createComponent8 } from "@opentui/solid";
-import { setProp as _$setProp11 } from "@opentui/solid";
-import { createElement as _$createElement11 } from "@opentui/solid";
+import { createComponent as _$createComponent9 } from "@opentui/solid";
+import { memo as _$memo7 } from "@opentui/solid";
 import { createCliRenderer } from "@opentui/core";
 import { render } from "@opentui/solid";
-import { createSignal as createSignal6, onCleanup as onCleanup5, Show as Show4 } from "solid-js";
 import path5 from "path";
 
 // src/app.tsx
@@ -1461,16 +1456,49 @@ function createMathDisplayExtension() {
     }
   };
 }
+function createMathDisplayBlockExtension() {
+  return {
+    name: "mathDisplayBlock",
+    level: "block",
+    start(src) {
+      const match = /\n(?= {0,3}(?:\$\$|\\\[))/.exec(src);
+      if (!match)
+        return;
+      return match.index + 1;
+    },
+    tokenizer(src) {
+      const match = /^( {0,3})(\$\$|\\\[)/.exec(src);
+      if (!match)
+        return;
+      const open = match[2];
+      const close = open === "$$" ? "$$" : "\\]";
+      const contentStart = match[0].length;
+      const end = closing(src, close, contentStart, false);
+      if (end <= contentStart)
+        return;
+      const content = src.slice(contentStart, end);
+      const raw = src.slice(0, end + close.length);
+      return {
+        type: "mathDisplayBlock",
+        raw,
+        text: content,
+        content,
+        open,
+        close
+      };
+    }
+  };
+}
 
 // src/core/parse.ts
 var parser = new Marked({
   gfm: true,
   breaks: false,
   async: false,
-  extensions: [createMathDisplayExtension(), createMathInlineExtension()]
+  extensions: [createMathDisplayBlockExtension(), createMathDisplayExtension(), createMathInlineExtension()]
 });
 function isDisplay(token) {
-  return token.type === "mathDisplay";
+  return token.type === "mathDisplay" || token.type === "mathDisplayBlock";
 }
 function isInlineMath(token) {
   return token.type === "mathInline";
@@ -13593,6 +13621,11 @@ Options:
       --no-config      Disable automatic config discovery
   -h, --help           Show this help
   -v, --version        Show the package version
+
+Viewer keys:
+  c                     Open or close runtime configuration
+  q                     Ask to quit
+  Ctrl+C                Quit immediately
 `;
 function parseCliArgs(args) {
   let configPath;
@@ -13796,6 +13829,339 @@ function StatusLine(props) {
     return _el$;
   })();
 }
+// src/viewer/app.tsx
+import { memo as _$memo6 } from "@opentui/solid";
+import { use as _$use3 } from "@opentui/solid";
+import { insert as _$insert9 } from "@opentui/solid";
+import { createComponent as _$createComponent8 } from "@opentui/solid";
+import { effect as _$effect9 } from "@opentui/solid";
+import { createTextNode as _$createTextNode3 } from "@opentui/solid";
+import { insertNode as _$insertNode4 } from "@opentui/solid";
+import { setProp as _$setProp11 } from "@opentui/solid";
+import { createElement as _$createElement11 } from "@opentui/solid";
+import { createSignal as createSignal6, For as For4, onCleanup as onCleanup5, Show as Show4 } from "solid-js";
+
+// src/viewer/quit.ts
+function quitAction(key, confirming) {
+  if (key.ctrl && key.name === "c")
+    return "exit";
+  if (confirming) {
+    if (!key.ctrl && (key.name === "y" || key.name === "return" || key.name === "enter"))
+      return "exit";
+    if (key.name === "n" || key.name === "escape")
+      return "cancel";
+    return "none";
+  }
+  return key.name === "q" && !key.ctrl ? "prompt" : "none";
+}
+
+// src/viewer/settings.ts
+var settingKeys = [
+  "mode",
+  "classLayout",
+  "frameEnabled",
+  "frameStyle",
+  "frameAlign",
+  "frameWidth",
+  "framePadding",
+  "tableWidth",
+  "tableOverflow",
+  "tableFitter",
+  "tablePadding"
+];
+var themeModes = ["light", "dark", "solarized-light", "solarized-dark"];
+function settingRows(settings, configuredTheme) {
+  return [
+    { key: "mode", label: "Theme", value: settings.themeMode ?? configuredTheme ?? "light" },
+    { key: "classLayout", label: "Class layout", value: settings.classLayout },
+    { key: "frameEnabled", label: "Frame", value: settings.frame.enabled ? "on" : "off" },
+    { key: "frameStyle", label: "Frame style", value: settings.frame.style ?? "box" },
+    { key: "frameAlign", label: "Frame align", value: settings.frame.align ?? "left" },
+    { key: "frameWidth", label: "Frame width", value: String(settings.frame.width ?? "full") },
+    { key: "framePadding", label: "Frame padding", value: String(settings.frame.paddingX ?? 1) },
+    { key: "tableWidth", label: "Table width", value: settings.tables.widthMode ?? "content" },
+    { key: "tableOverflow", label: "Table overflow", value: settings.tables.overflow ?? "scroll" },
+    { key: "tableFitter", label: "Table fitter", value: settings.tables.columnFitter ?? "balanced" },
+    { key: "tablePadding", label: "Table padding", value: String(settings.tables.cellPaddingX ?? 1) }
+  ];
+}
+function cycle(options, value, direction) {
+  const index = options.indexOf(value);
+  return options[(index + direction + options.length) % options.length];
+}
+function step(value, direction, min, max) {
+  return Math.min(max, Math.max(min, value + direction));
+}
+function configuredMode(name) {
+  return themeModes.includes(name) ? name : "light";
+}
+function changeSetting(settings, key, direction, configuredTheme) {
+  const { frame, tables } = settings;
+  switch (key) {
+    case "mode":
+      return { ...settings, themeMode: cycle(themeModes, settings.themeMode ?? configuredMode(configuredTheme), direction) };
+    case "classLayout":
+      return { ...settings, classLayout: cycle(["builtin", "dagre"], settings.classLayout, direction) };
+    case "frameEnabled":
+      return { ...settings, frame: { ...frame, enabled: !frame.enabled } };
+    case "frameStyle":
+      return { ...settings, frame: { ...frame, style: cycle(["box", "ascii", "rounded", "heavy", "double"], frame.style ?? "box", direction) } };
+    case "frameAlign":
+      return { ...settings, frame: { ...frame, align: cycle(["left", "center", "right"], frame.align ?? "left", direction) } };
+    case "frameWidth":
+      return { ...settings, frame: { ...frame, width: step(frame.width ?? 100, direction * 5, 20, 200) } };
+    case "framePadding":
+      return { ...settings, frame: { ...frame, paddingX: step(frame.paddingX ?? 1, direction, 0, 8) } };
+    case "tableWidth":
+      return { ...settings, tables: { ...tables, widthMode: cycle(["content", "full"], tables.widthMode ?? "content", direction) } };
+    case "tableOverflow":
+      return { ...settings, tables: { ...tables, overflow: cycle(["scroll", "wrap"], tables.overflow ?? "scroll", direction) } };
+    case "tableFitter":
+      return { ...settings, tables: { ...tables, columnFitter: cycle(["balanced", "proportional"], tables.columnFitter ?? "balanced", direction) } };
+    case "tablePadding":
+      return { ...settings, tables: { ...tables, cellPaddingX: step(tables.cellPaddingX ?? 1, direction, 0, 8) } };
+  }
+}
+
+// src/viewer/app.tsx
+function StandaloneViewer(props) {
+  const [settings, setSettings] = createSignal6({
+    classLayout: props.config.mermaid?.classLayout ?? "builtin",
+    frame: props.frame ?? props.config.frame ?? {},
+    tables: props.config.tables ?? {}
+  });
+  const [panelOpen, setPanelOpen] = createSignal6(false);
+  const [confirmExit, setConfirmExit] = createSignal6(false);
+  const [selected, setSelected] = createSignal6(0);
+  const [position, setPosition] = createSignal6("1/1");
+  const theme = () => resolveRendererTheme(props.renderer, {
+    themeMode: settings().themeMode,
+    config: props.config,
+    cwd: props.cwd
+  });
+  const graphics = useCanvasGraphics(props.renderer);
+  let scroll;
+  let savedScrollTop = 0;
+  const timer = setInterval(() => {
+    if (!scroll)
+      return;
+    const total = Math.max(0, scroll.scrollHeight - scroll.viewport.height);
+    const top = Math.min(total, Math.max(0, scroll.scrollTop));
+    setPosition(`${top + 1}/${total + 1}`);
+  }, 200);
+  onCleanup5(() => clearInterval(timer));
+  const onKeypress = (key) => {
+    const action = quitAction(key, confirmExit());
+    if (action === "exit") {
+      props.onExit();
+      return;
+    }
+    if (action === "prompt") {
+      if (scroll) {
+        savedScrollTop = scroll.scrollTop;
+        scroll = undefined;
+      }
+      setConfirmExit(true);
+      key.preventDefault();
+      return;
+    }
+    if (confirmExit()) {
+      if (action === "cancel")
+        setConfirmExit(false);
+      key.preventDefault();
+      return;
+    }
+    if (key.name === "c" || panelOpen() && key.name === "escape") {
+      if (!panelOpen() && scroll) {
+        savedScrollTop = scroll.scrollTop;
+        scroll = undefined;
+      }
+      setPanelOpen(!panelOpen());
+      key.preventDefault();
+      return;
+    }
+    if (!panelOpen())
+      return;
+    if (key.name === "up" || key.name === "k") {
+      setSelected((index) => (index + settingKeys.length - 1) % settingKeys.length);
+    } else if (key.name === "down" || key.name === "j") {
+      setSelected((index) => (index + 1) % settingKeys.length);
+    } else if (key.name === "left" || key.name === "h") {
+      setSettings((current) => changeSetting(current, settingKeys[selected()], -1, props.config.theme?.name));
+    } else if (key.name === "right" || key.name === "l" || key.name === "return") {
+      setSettings((current) => changeSetting(current, settingKeys[selected()], 1, props.config.theme?.name));
+    } else {
+      return;
+    }
+    key.preventDefault();
+  };
+  props.renderer.keyInput.on("keypress", onKeypress);
+  onCleanup5(() => props.renderer.keyInput.off("keypress", onKeypress));
+  const state = () => ({
+    title: props.title,
+    mode: `theme:${settings().themeMode ?? props.config.theme?.name ?? theme().mode}`,
+    protocol: graphics.protocol(),
+    cell: graphics.cell() ? `${graphics.cell().width}x${graphics.cell().height}` : undefined,
+    position: position(),
+    hint: "c:config q:quit"
+  });
+  return (() => {
+    var _el$ = _$createElement11("box");
+    _$setProp11(_el$, "width", "100%");
+    _$setProp11(_el$, "height", "100%");
+    _$setProp11(_el$, "flexDirection", "column");
+    _$insert9(_el$, _$createComponent8(Show4, {
+      get when() {
+        return confirmExit();
+      },
+      get fallback() {
+        return _$createComponent8(Show4, {
+          get when() {
+            return panelOpen();
+          },
+          get fallback() {
+            return (() => {
+              var _el$13 = _$createElement11("scrollbox");
+              _$use3((element) => {
+                scroll = element;
+                queueMicrotask(() => {
+                  element.scrollTop = savedScrollTop;
+                });
+              }, _el$13);
+              _$setProp11(_el$13, "width", "100%");
+              _$setProp11(_el$13, "flexGrow", 1);
+              _$setProp11(_el$13, "contentOptions", {
+                paddingLeft: 1,
+                paddingRight: 1,
+                paddingTop: 1,
+                paddingBottom: 1
+              });
+              _$insert9(_el$13, _$createComponent8(MarkdownRenderer, {
+                content: () => props.content,
+                get renderer() {
+                  return props.renderer;
+                },
+                assetBase: () => props.assetBase,
+                themeMode: () => settings().themeMode,
+                config: () => ({
+                  ...props.config,
+                  mermaid: {
+                    ...props.config.mermaid,
+                    classLayout: settings().classLayout
+                  }
+                }),
+                frame: () => settings().frame,
+                tables: () => settings().tables,
+                get cwd() {
+                  return props.cwd;
+                },
+                discoverConfig: false
+              }));
+              return _el$13;
+            })();
+          },
+          get children() {
+            var _el$9 = _$createElement11("scrollbox"), _el$0 = _$createElement11("text"), _el$10 = _$createElement11("text"), _el$12 = _$createElement11("box");
+            _$insertNode4(_el$9, _el$0);
+            _$insertNode4(_el$9, _el$10);
+            _$insertNode4(_el$9, _el$12);
+            _$setProp11(_el$9, "width", "100%");
+            _$setProp11(_el$9, "flexGrow", 1);
+            _$setProp11(_el$9, "contentOptions", {
+              paddingLeft: 2,
+              paddingTop: 1,
+              paddingBottom: 1
+            });
+            _$insertNode4(_el$0, _$createTextNode3(`Configuration`));
+            _$insertNode4(_el$10, _$createTextNode3(`Up/Down: select Left/Right: change c/Esc: close q: confirm quit`));
+            _$setProp11(_el$12, "height", 1);
+            _$insert9(_el$9, _$createComponent8(For4, {
+              get each() {
+                return settingRows(settings(), props.config.theme?.name);
+              },
+              children: (row, index) => (() => {
+                var _el$14 = _$createElement11("text"), _el$15 = _$createTextNode3(`: `);
+                _$insertNode4(_el$14, _el$15);
+                _$insert9(_el$14, () => selected() === index() ? "\u276F " : "  ", _el$15);
+                _$insert9(_el$14, () => row.label, _el$15);
+                _$insert9(_el$14, () => row.value, null);
+                _$effect9((_$p) => _$setProp11(_el$14, "fg", selected() === index() ? theme().accent : theme().text.base, _$p));
+                return _el$14;
+              })()
+            }), null);
+            _$effect9((_p$) => {
+              var _v$4 = theme().text.base, _v$5 = theme().text.muted;
+              _v$4 !== _p$.e && (_p$.e = _$setProp11(_el$0, "fg", _v$4, _p$.e));
+              _v$5 !== _p$.t && (_p$.t = _$setProp11(_el$10, "fg", _v$5, _p$.t));
+              return _p$;
+            }, {
+              e: undefined,
+              t: undefined
+            });
+            return _el$9;
+          }
+        });
+      },
+      get children() {
+        var _el$2 = _$createElement11("box"), _el$3 = _$createElement11("text"), _el$5 = _$createElement11("text"), _el$7 = _$createElement11("text");
+        _$insertNode4(_el$2, _el$3);
+        _$insertNode4(_el$2, _el$5);
+        _$insertNode4(_el$2, _el$7);
+        _$setProp11(_el$2, "width", "100%");
+        _$setProp11(_el$2, "flexGrow", 1);
+        _$setProp11(_el$2, "flexDirection", "column");
+        _$setProp11(_el$2, "alignItems", "center");
+        _$setProp11(_el$2, "justifyContent", "center");
+        _$insertNode4(_el$3, _$createTextNode3(`Quit viewer?`));
+        _$insertNode4(_el$5, _$createTextNode3(`Configuration changes are not saved.`));
+        _$insertNode4(_el$7, _$createTextNode3(`Enter/y: exit n/Esc: stay`));
+        _$effect9((_p$) => {
+          var _v$ = theme().accent, _v$2 = theme().text.muted, _v$3 = theme().text.base;
+          _v$ !== _p$.e && (_p$.e = _$setProp11(_el$3, "fg", _v$, _p$.e));
+          _v$2 !== _p$.t && (_p$.t = _$setProp11(_el$5, "fg", _v$2, _p$.t));
+          _v$3 !== _p$.a && (_p$.a = _$setProp11(_el$7, "fg", _v$3, _p$.a));
+          return _p$;
+        }, {
+          e: undefined,
+          t: undefined,
+          a: undefined
+        });
+        return _el$2;
+      }
+    }), null);
+    _$insert9(_el$, _$createComponent8(Show4, {
+      get when() {
+        return props.config.statusline?.enabled !== false;
+      },
+      get children() {
+        return _$createComponent8(StatusLine, {
+          get theme() {
+            return theme();
+          },
+          state,
+          get fields() {
+            return props.config.statusline?.fields;
+          },
+          get separator() {
+            return props.config.statusline?.separator;
+          },
+          get border() {
+            return props.config.statusline?.border;
+          },
+          get style() {
+            return props.config.statusline?.style;
+          },
+          get highlight() {
+            return props.config.statusline?.highlight;
+          }
+        });
+      }
+    }), null);
+    _$effect9((_$p) => _$setProp11(_el$, "backgroundColor", theme().background.base, _$p));
+    return _el$;
+  })();
+}
+
 // bin/otmd-main.tsx
 var manifest = await Bun.file(new URL("../package.json", import.meta.url)).json();
 function fail(message) {
@@ -13826,84 +14192,23 @@ var config = loadRendererConfig(command.configPath, process.cwd(), {
   discover: command.discoverConfig
 });
 var renderer = await createCliRenderer({});
-function Otmd() {
-  const graphics = useCanvasGraphics(renderer);
-  const theme = () => resolveRendererTheme(renderer, {
-    config,
-    cwd: process.cwd()
-  });
-  const [position] = createSignal6("1/1");
-  const onKeypress = (key) => {
-    if (key.name === "q" || key.name === "escape") {
-      renderer.destroy();
-      process.exit(0);
-    }
-  };
-  renderer.keyInput.on("keypress", onKeypress);
-  onCleanup5(() => renderer.keyInput.off("keypress", onKeypress));
-  const state = () => ({
-    title: filePath ? path5.basename(filePath) : "stdin",
-    protocol: graphics.protocol(),
-    cell: graphics.cell() ? `${graphics.cell().width}x${graphics.cell().height}` : undefined,
-    position: position()
-  });
-  return (() => {
-    var _el$ = _$createElement11("box"), _el$2 = _$createElement11("scrollbox");
-    _$insertNode4(_el$, _el$2);
-    _$setProp11(_el$, "width", "100%");
-    _$setProp11(_el$, "height", "100%");
-    _$setProp11(_el$, "flexDirection", "column");
-    _$setProp11(_el$2, "width", "100%");
-    _$setProp11(_el$2, "flexGrow", 1);
-    _$setProp11(_el$2, "contentOptions", {
-      paddingLeft: 1,
-      paddingRight: 1,
-      paddingTop: 1,
-      paddingBottom: 1
-    });
-    _$insert9(_el$2, _$createComponent8(MarkdownRenderer, {
-      content: () => content,
-      renderer,
-      assetBase: () => assetBase,
-      config: () => config,
-      get cwd() {
-        return process.cwd();
-      },
-      discoverConfig: false
-    }));
-    _$insert9(_el$, _$createComponent8(Show4, {
-      get when() {
-        return config.statusline?.enabled !== false;
-      },
-      get children() {
-        return _$createComponent8(StatusLine, {
-          get theme() {
-            return theme();
-          },
-          state,
-          get fields() {
-            return config.statusline?.fields;
-          },
-          get separator() {
-            return config.statusline?.separator;
-          },
-          get border() {
-            return config.statusline?.border;
-          },
-          get style() {
-            return config.statusline?.style;
-          },
-          get highlight() {
-            return config.statusline?.highlight;
-          }
-        });
-      }
-    }), null);
-    _$effect9((_$p) => _$setProp11(_el$, "backgroundColor", theme().background.base, _$p));
-    return _el$;
-  })();
-}
-await render(() => _$createComponent8(Otmd, {}), renderer);
+var onExit = () => {
+  renderer.destroy();
+  process.exit(0);
+};
+await render(() => _$createComponent9(StandaloneViewer, {
+  renderer,
+  content,
+  get title() {
+    return filePath ? path5.basename(filePath) : "stdin";
+  },
+  assetBase,
+  get cwd() {
+    return process.cwd();
+  },
+  config,
+  onExit
+}), renderer);
 async function readFile(filePath) {
   const file = Bun.file(filePath);
   if (!await file.exists())

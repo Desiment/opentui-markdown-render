@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import { quitAction } from "../examples/quit-confirmation"
+import { quitAction } from "../src/viewer/quit"
 
-describe("demo exit confirmation", () => {
+describe("viewer exit confirmation", () => {
   test("q asks for confirmation from either screen", () => {
     expect(quitAction({ name: "q", ctrl: false }, false)).toBe("prompt")
     expect(quitAction({ name: "q", ctrl: false }, true)).toBe("none")

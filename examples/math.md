@@ -43,6 +43,14 @@ $$
 T = 2\pi\sqrt{\frac{a^3}{GM}}
 $$
 
+The bracket form may span lines that also have Markdown meaning on their own:
+
+\[
+X
+=
+Y
+\]
+
 Together, these expressions give the review team two independent ways to spot
 a bad radius or a clock offset. If the period is implausible while the energy
 looks reasonable, the first suspect is usually the timestamp alignment.

@@ -63,6 +63,11 @@ Everything happens in-process in the native Rust addon. The renderer does not re
 
 Inline math shares the baseline and row layout of neighbouring text. Display math uses display style, so large operators place limits above and below where appropriate. Formula raster size follows the terminal cell dimensions; there is no user-facing math scale setting.
 
+Display delimiters may span multiple lines. A standalone `\[...\]` or
+`$$...$$` block is claimed before Markdown heading syntax, so a formula line
+containing only `=` is not mistaken for a Setext heading underline. Math-like
+text inside fenced, indented, or inline code remains code and is never typeset.
+
 An inline formula that has text after it on the same row may be scaled down to fit that row. If the formula ends the line, it keeps the standard text size because it does not need to share the row with following text.
 
 The MiTeX scope includes common constructs such as `\sqrt[n]{x}`, `\dfrac`, `\tfrac`, `\text`, `\operatorname`, `\boxed`, matrix environments, cases, aligned/array environments, `\xrightarrow`, `\middle`, `\big`, `\substack`, and `\displaystyle`. Negative spacing commands such as `\!` and `\negthinspace` are supported. `\textcolor` supports the named colors black, white, red, green, blue, cyan, magenta, yellow, and gray. A formula that cannot be converted or typeset is left as its original source.

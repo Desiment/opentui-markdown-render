@@ -10,7 +10,8 @@
 | Configuration and orchestration | `src/config/*`, `src/app.tsx` | Discover/validate config, resolve theme and layout, measure the assigned width, and choose `content` versus ready `document`. |
 | Document view | `src/view/document.tsx`, `src/view/inline-*`, `src/view/document-table.tsx` | Render blocks recursively, lay out text and inline math together, and map document nodes to OpenTUI primitives. |
 | Specialised renderers | `src/math/*`, `native/*`, `src/media.tsx`, `src/merman/*` | Rasterize math, decode local images/GIFs, parse Mermaid, and prepare terminal drawing grids. |
-| Standalone host | `examples/app.tsx` | Own the `CliRenderer`, file loading, scrollbox, demo controls, config panel, and status values. |
+| Standalone viewer | `src/viewer/*` | Own the scrollbox, live status values, runtime configuration panel, and exit confirmation shared by the demo and CLI. |
+| Viewer entrypoints | `examples/app.tsx`, `bin/otmd-main.tsx` | Own the `CliRenderer`, file/config loading, asset root, and process lifecycle. |
 
 The `opentui-markdown-render/core` entry point exports the parser, document model, frame/layout/table helpers, and other renderer-free utilities. The package root exports those pieces plus the OpenTUI/Solid view and host helpers.
 
