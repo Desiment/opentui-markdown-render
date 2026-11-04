@@ -28,7 +28,7 @@ The renderer uses OpenTUI primitives rather than OpenTUI's built-in Markdown par
 
 ### Live themes and configuration
 
-Press `c` in the demo to switch between light, dark, and Solarized themes and to adjust frame, table, and class-diagram layout without restarting the viewer.
+Press `c` in the demo or `otmd` to switch between light, dark, and Solarized themes and to adjust frame, table, and class-diagram layout without restarting the viewer.
 
 ![Switching themes and layout settings from the OpenTUI configuration panel](assets/themes.gif)
 
@@ -95,6 +95,11 @@ cat README.md | otmd -
 Use `otmd --help` for options such as `--config` and `--no-config`. The current
 native math prebuild targets Linux x64 with glibc; other platforms keep readable
 math source when the addon is unavailable.
+
+The installed CLI uses the same interactive viewer as the repository demos.
+Press `c` for runtime theme, frame, table, and Mermaid settings; press `q` for
+exit confirmation, or `Ctrl+C` to exit immediately. Runtime changes are not
+written to the JSON/JSONC configuration file.
 
 ### Install in an OpenTUI application
 

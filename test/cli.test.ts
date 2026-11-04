@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { parseCliArgs } from "../src/cli"
+import { cliUsage, parseCliArgs } from "../src/cli"
 
 const bin = path.resolve(import.meta.dir, "../bin/otmd.ts")
+const main = path.resolve(import.meta.dir, "../bin/otmd-main.js")
 const manifest = JSON.parse(readFileSync(path.resolve(import.meta.dir, "../package.json"), "utf8")) as {
   version: string
   bin: { otmd: string }
@@ -33,6 +34,13 @@ describe("otmd CLI arguments", () => {
     expect(exitCode).toBe(0)
     expect(stdout).toBe(`${manifest.version}\n`)
     expect(stderr).toBe("")
+  })
+
+  test("ships the shared interactive viewer in the compiled CLI", () => {
+    const compiled = readFileSync(main, "utf8")
+    expect(compiled).toContain("Configuration changes are not saved.")
+    expect(compiled).toContain("c:config q:quit")
+    expect(cliUsage).toContain("Open or close runtime configuration")
   })
 
   test("renders a file with automatic config discovery", () => {

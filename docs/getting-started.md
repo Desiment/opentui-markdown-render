@@ -40,7 +40,7 @@ bun run demo:mixed       # prose, table, formula, diagram, and image together
 bun run demo:frame       # frame layout and a wide pannable table
 ```
 
-The demo discovers [`examples/opentui-markdown-render.jsonc`](../examples/opentui-markdown-render.jsonc) by walking upward from the examples directory. Press `c` to change theme, frame, table, and class-diagram layout at runtime. Those changes are deliberately ephemeral.
+The demo discovers [`examples/opentui-markdown-render.jsonc`](../examples/opentui-markdown-render.jsonc) by walking upward from the examples directory. Press `c` to change theme, frame, table, and class-diagram layout at runtime. Those changes are deliberately ephemeral. The installed `otmd` command uses the same viewer shell and controls, while discovering configuration from its current working directory or XDG config directory.
 
 ## Install the package
 

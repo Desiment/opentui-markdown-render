@@ -18,7 +18,11 @@ export type MathDisplayToken = {
   close: "$$" | "\\]"
 }
 
-export type MathToken = MathInlineToken | MathDisplayToken
+export type MathDisplayBlockToken = Omit<MathDisplayToken, "type"> & {
+  type: "mathDisplayBlock"
+}
+
+export type MathToken = MathInlineToken | MathDisplayToken | MathDisplayBlockToken
 
 function isEscaped(src: string, index: number): boolean {
   let backslashes = 0
@@ -165,6 +169,45 @@ export function createMathDisplayExtension(): TokenizerAndRendererExtension {
         }
       }
       return
+    },
+  }
+}
+
+// Display delimiters can span Markdown block syntax. In particular, a line
+// containing only `=` is otherwise consumed as a Setext heading underline
+// before Marked reaches its inline extensions. Claim formulas that begin at a
+// line boundary at block level, while leaving embedded forms such as
+// `before $$x$$ after` to the inline extension below.
+export function createMathDisplayBlockExtension(): TokenizerAndRendererExtension {
+  return {
+    name: "mathDisplayBlock",
+    level: "block",
+    start(src: string) {
+      // Marked calls block start hints with the first source character already
+      // removed. The current position is handled by tokenizer(); this hint must
+      // therefore only report delimiters after an actual line break.
+      const match = /\n(?= {0,3}(?:\$\$|\\\[))/.exec(src)
+      if (!match) return
+      return match.index + 1
+    },
+    tokenizer(src: string) {
+      const match = /^( {0,3})(\$\$|\\\[)/.exec(src)
+      if (!match) return
+      const open = match[2] as "$$" | "\\["
+      const close = open === "$$" ? "$$" : "\\]"
+      const contentStart = match[0].length
+      const end = closing(src, close, contentStart, false)
+      if (end <= contentStart) return
+      const content = src.slice(contentStart, end)
+      const raw = src.slice(0, end + close.length)
+      return {
+        type: "mathDisplayBlock",
+        raw,
+        text: content,
+        content,
+        open,
+        close,
+      }
     },
   }
 }

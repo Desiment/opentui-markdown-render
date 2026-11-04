@@ -1,18 +1,25 @@
 import { Marked, type Token, type Tokens } from "marked"
-import { createMathDisplayExtension, createMathInlineExtension, type MathDisplayToken, type MathInlineToken } from "./math"
+import {
+  createMathDisplayBlockExtension,
+  createMathDisplayExtension,
+  createMathInlineExtension,
+  type MathDisplayBlockToken,
+  type MathDisplayToken,
+  type MathInlineToken,
+} from "./math"
 import type { Block, Document, Inline, SourceRange, TableCell } from "./document"
 
 const parser = new Marked({
   gfm: true,
   breaks: false,
   async: false,
-  extensions: [createMathDisplayExtension(), createMathInlineExtension()],
+  extensions: [createMathDisplayBlockExtension(), createMathDisplayExtension(), createMathInlineExtension()],
 })
 
-type ParserToken = Token | MathDisplayToken | MathInlineToken
+type ParserToken = Token | MathDisplayToken | MathDisplayBlockToken | MathInlineToken
 
-function isDisplay(token: ParserToken): token is MathDisplayToken {
-  return token.type === "mathDisplay"
+function isDisplay(token: ParserToken): token is MathDisplayToken | MathDisplayBlockToken {
+  return token.type === "mathDisplay" || token.type === "mathDisplayBlock"
 }
 
 function isInlineMath(token: ParserToken): token is MathInlineToken {

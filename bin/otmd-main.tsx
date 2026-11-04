@@ -1,16 +1,8 @@
 import { createCliRenderer } from "@opentui/core"
 import { render } from "@opentui/solid"
-import { createSignal, onCleanup, Show } from "solid-js"
 import path from "node:path"
-import {
-  MarkdownRenderer,
-  StatusLine,
-  cliUsage,
-  loadRendererConfig,
-  parseCliArgs,
-  resolveRendererTheme,
-  useCanvasGraphics,
-} from "../src"
+import { cliUsage, loadRendererConfig, parseCliArgs } from "../src"
+import { StandaloneViewer } from "../src/viewer/app"
 
 const manifest = await Bun.file(new URL("../package.json", import.meta.url)).json() as { version: string }
 
@@ -46,46 +38,22 @@ const content = file === "-"
 const assetBase = filePath ? path.dirname(filePath) : process.cwd()
 const config = loadRendererConfig(command.configPath, process.cwd(), { discover: command.discoverConfig })
 const renderer = await createCliRenderer({})
-
-function Otmd() {
-  const graphics = useCanvasGraphics(renderer)
-  const theme = () => resolveRendererTheme(renderer, { config, cwd: process.cwd() })
-  const [position] = createSignal("1/1")
-  const onKeypress = (key: { name?: string }) => {
-    if (key.name === "q" || key.name === "escape") {
-      renderer.destroy()
-      process.exit(0)
-    }
-  }
-  renderer.keyInput.on("keypress", onKeypress)
-  onCleanup(() => renderer.keyInput.off("keypress", onKeypress))
-  const state = () => ({
-    title: filePath ? path.basename(filePath) : "stdin",
-    protocol: graphics.protocol(),
-    cell: graphics.cell() ? `${graphics.cell()!.width}x${graphics.cell()!.height}` : undefined,
-    position: position(),
-  })
-
-  return (
-    <box width="100%" height="100%" flexDirection="column" backgroundColor={theme().background.base}>
-      <scrollbox width="100%" flexGrow={1} contentOptions={{ paddingLeft: 1, paddingRight: 1, paddingTop: 1, paddingBottom: 1 }}>
-        <MarkdownRenderer
-          content={() => content}
-          renderer={renderer}
-          assetBase={() => assetBase}
-          config={() => config}
-          cwd={process.cwd()}
-          discoverConfig={false}
-        />
-      </scrollbox>
-      <Show when={config.statusline?.enabled !== false}>
-        <StatusLine theme={theme()} state={state} fields={config.statusline?.fields} separator={config.statusline?.separator} border={config.statusline?.border} style={config.statusline?.style} highlight={config.statusline?.highlight} />
-      </Show>
-    </box>
-  )
+const onExit = () => {
+  renderer.destroy()
+  process.exit(0)
 }
 
-await render(() => <Otmd />, renderer)
+await render(() => (
+  <StandaloneViewer
+    renderer={renderer}
+    content={content}
+    title={filePath ? path.basename(filePath) : "stdin"}
+    assetBase={assetBase}
+    cwd={process.cwd()}
+    config={config}
+    onExit={onExit}
+  />
+), renderer)
 
 async function readFile(filePath: string) {
   const file = Bun.file(filePath)

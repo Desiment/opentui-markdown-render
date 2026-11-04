@@ -28,14 +28,15 @@ graphics gives the sharpest math and image output; OpenTUI also supports Sixel
 or block-character rendering depending on terminal capabilities. A missing
 native math addon or invalid formula keeps the original LaTeX source readable.
 
-The demo app shows an informational status line at the bottom with the file
+The shared demo/CLI viewer shows an informational status line at the bottom with the file
 name, theme mode, graphics protocol, cell pixel size, and scroll position.
 Press `c` to open the configuration panel: Up/Down selects a setting,
 Left/Right changes it, and `c` or Esc closes the panel. The panel offers
 light/dark and Solarized themes, Mermaid class layout, frame, and table settings. Changes take effect immediately
 and are not saved to JSONC. Press `q` to request exit, then Enter or `y` to confirm
 or `n`/Esc to stay. `Ctrl+C` exits immediately; closing the configuration
-panel does not require confirmation.
+panel does not require confirmation. The installed `otmd` command uses the same
+viewer controls; only file and configuration discovery differ between entrypoints.
 
 `opentui-markdown-render.jsonc` in this directory is picked up automatically by
 the config discovery and configures the status line: the `bar` style paints it
