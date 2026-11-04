@@ -192,7 +192,7 @@ export function LocalImage(props: {
   })
 
   return (
-    <box width="100%" flexDirection="column" flexShrink={0} overflow="hidden" alignItems="center">
+    <box width="100%" flexDirection="column" flexShrink={0} overflow="hidden">
       <Switch>
         <Match when={loaded.loading}>
           <box width="100%" flexDirection="row">
@@ -212,6 +212,7 @@ export function LocalImage(props: {
             source={frame()!}
             fit="fit"
             protocol="auto"
+            alignSelf="center"
             width={media()!.box.columns}
             height={media()!.box.rows}
             onError={(error) => setFailure(error instanceof Error ? error.message : String(error))}

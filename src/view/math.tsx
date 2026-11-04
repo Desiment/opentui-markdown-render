@@ -44,6 +44,10 @@ export function DisplayMath(props: {
     const value = rendered()
     return value && "raster" in value ? value.raster : undefined
   }
+  const error = () => {
+    const value = rendered()
+    return value && "error" in value ? value.error : undefined
+  }
   const source = () => `${props.open}${props.content}${props.close}`
   const box = () => {
     const image = raster()
@@ -63,6 +67,7 @@ export function DisplayMath(props: {
         <Match when={failed() || (rendered() && "error" in rendered()!)}>
           <box flexDirection="column" border={["left"]} borderColor={props.theme().text.feedback.error} paddingLeft={1} alignSelf="center">
             <text fg={props.theme().text.feedback.error}>Could not render TeX; showing source</text>
+            <text fg={props.theme().text.muted} wrapMode="word">{error()}</text>
             <text fg={props.theme().text.base} wrapMode="word">
               {source()}
             </text>

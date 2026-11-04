@@ -1,4 +1,4 @@
-import { loadNativeMath } from "./native"
+import { loadNativeMath, NativeMathUnavailableError } from "./native"
 
 export type RenderedMath = {
   readonly png: Uint8Array
@@ -28,8 +28,9 @@ export type MathRenderRequest = {
 const limit = 128
 const cache = new Map<string, Promise<RenderedMath | undefined>>()
 
-// A rejected render is intentionally a hole: callers keep the exact LaTeX
-// source in the layout instead of replacing it with an approximation.
+// Invalid formulae are intentionally holes so callers retain the exact LaTeX
+// source. A missing addon remains an error because it is an installation fault,
+// not an unsupported formula.
 export function renderMath(request: MathRenderRequest) {
   if (request.enabled === false) return Promise.resolve(undefined)
   const scale = request.scale ?? 2
@@ -73,7 +74,10 @@ export function renderMath(request: MathRenderRequest) {
         clamped: image.clamped,
       }
     })
-    .catch(() => undefined)
+    .catch((error) => {
+      if (error instanceof NativeMathUnavailableError) throw error
+      return undefined
+    })
   cache.set(key, result)
   if (cache.size > limit) cache.delete(cache.keys().next().value!)
   return result

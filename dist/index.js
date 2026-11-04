@@ -132,6 +132,15 @@ import { createHash } from "crypto";
 // src/math/native.ts
 import path from "path";
 import { createRequire } from "module";
+
+class NativeMathUnavailableError extends Error {
+  attempts;
+  constructor(attempts) {
+    super(`Unable to load native math addon. Tried ${attempts.map((attempt) => attempt.file).join(", ")}`);
+    this.attempts = attempts;
+    this.name = "NativeMathUnavailableError";
+  }
+}
 var loaded;
 function loadNativeMath() {
   loaded ??= importNativeMath();
@@ -141,18 +150,26 @@ async function importNativeMath() {
   if (process.platform !== "linux" || process.arch !== "x64")
     return;
   const relative = path.join("prebuilds", "linux-x64-gnu", "opentui_markdown_render.node");
+  const require2 = createRequire(import.meta.url);
   const candidates = [
     path.join(import.meta.dir, "..", "..", relative),
     path.join(import.meta.dir, "..", relative),
     path.join(import.meta.dir, relative),
     path.join(import.meta.dir, "node_modules", "opentui-markdown-render", relative)
   ];
-  for (const file of candidates) {
+  try {
+    const entry = require2.resolve("opentui-markdown-render");
+    candidates.unshift(path.resolve(path.dirname(entry), "..", relative));
+  } catch {}
+  const attempts = [];
+  for (const file of new Set(candidates)) {
     try {
-      return createRequire(import.meta.url)(file);
-    } catch {}
+      return require2(file);
+    } catch (error) {
+      attempts.push({ file, error: error instanceof Error ? error.message : String(error) });
+    }
   }
-  return;
+  throw new NativeMathUnavailableError(attempts);
 }
 
 // src/math/renderer.ts
@@ -202,7 +219,9 @@ function renderMath(request) {
       baseline: image.baseline,
       clamped: image.clamped
     };
-  }).catch(() => {
+  }).catch((error) => {
+    if (error instanceof NativeMathUnavailableError)
+      throw error;
     return;
   });
   cache.set(key, result);
@@ -1935,7 +1954,6 @@ function LocalImage(props) {
     _$setProp2(_el$, "flexDirection", "column");
     _$setProp2(_el$, "flexShrink", 0);
     _$setProp2(_el$, "overflow", "hidden");
-    _$setProp2(_el$, "alignItems", "center");
     _$insert2(_el$, _$createComponent(Switch, {
       get children() {
         return [_$createComponent(Match, {
@@ -1998,6 +2016,7 @@ function LocalImage(props) {
             var _el$0 = _$createElement2("image");
             _$setProp2(_el$0, "fit", "fit");
             _$setProp2(_el$0, "protocol", "auto");
+            _$setProp2(_el$0, "alignSelf", "center");
             _$setProp2(_el$0, "onError", (error) => setFailure(error instanceof Error ? error.message : String(error)));
             _$effect((_p$) => {
               var _v$5 = `opentui-markdown-image-${props.href}`, _v$6 = frame(), _v$7 = media().box.columns, _v$8 = media().box.rows;
@@ -3040,6 +3059,10 @@ function DisplayMath(props) {
     const value = rendered();
     return value && "raster" in value ? value.raster : undefined;
   };
+  const error = () => {
+    const value = rendered();
+    return value && "error" in value ? value.error : undefined;
+  };
   const source = () => `${props.open}${props.content}${props.close}`;
   const box = () => {
     const image = raster();
@@ -3081,26 +3104,31 @@ function DisplayMath(props) {
             return failed() || rendered() && "error" in rendered();
           },
           get children() {
-            var _el$4 = _$createElement6("box"), _el$5 = _$createElement6("text"), _el$7 = _$createElement6("text");
+            var _el$4 = _$createElement6("box"), _el$5 = _$createElement6("text"), _el$7 = _$createElement6("text"), _el$8 = _$createElement6("text");
             _$insertNode2(_el$4, _el$5);
             _$insertNode2(_el$4, _el$7);
+            _$insertNode2(_el$4, _el$8);
             _$setProp6(_el$4, "flexDirection", "column");
             _$setProp6(_el$4, "border", ["left"]);
             _$setProp6(_el$4, "paddingLeft", 1);
             _$setProp6(_el$4, "alignSelf", "center");
             _$insertNode2(_el$5, _$createTextNode2(`Could not render TeX; showing source`));
             _$setProp6(_el$7, "wrapMode", "word");
-            _$insert4(_el$7, source);
+            _$insert4(_el$7, error);
+            _$setProp6(_el$8, "wrapMode", "word");
+            _$insert4(_el$8, source);
             _$effect5((_p$) => {
-              var _v$ = props.theme().text.feedback.error, _v$2 = props.theme().text.feedback.error, _v$3 = props.theme().text.base;
+              var _v$ = props.theme().text.feedback.error, _v$2 = props.theme().text.feedback.error, _v$3 = props.theme().text.muted, _v$4 = props.theme().text.base;
               _v$ !== _p$.e && (_p$.e = _$setProp6(_el$4, "borderColor", _v$, _p$.e));
               _v$2 !== _p$.t && (_p$.t = _$setProp6(_el$5, "fg", _v$2, _p$.t));
               _v$3 !== _p$.a && (_p$.a = _$setProp6(_el$7, "fg", _v$3, _p$.a));
+              _v$4 !== _p$.o && (_p$.o = _$setProp6(_el$8, "fg", _v$4, _p$.o));
               return _p$;
             }, {
               e: undefined,
               t: undefined,
-              a: undefined
+              a: undefined,
+              o: undefined
             });
             return _el$4;
           }
@@ -3109,22 +3137,22 @@ function DisplayMath(props) {
             return raster();
           },
           get children() {
-            var _el$8 = _$createElement6("box"), _el$9 = _$createElement6("image");
-            _$insertNode2(_el$8, _el$9);
-            _$setProp6(_el$8, "width", "100%");
-            _$setProp6(_el$8, "flexShrink", 0);
-            _$setProp6(_el$8, "alignItems", "center");
-            _$setProp6(_el$8, "justifyContent", "center");
-            _$setProp6(_el$9, "fit", "fit");
-            _$setProp6(_el$9, "protocol", "auto");
-            _$setProp6(_el$9, "onError", () => setFailed(true));
+            var _el$9 = _$createElement6("box"), _el$0 = _$createElement6("image");
+            _$insertNode2(_el$9, _el$0);
+            _$setProp6(_el$9, "width", "100%");
+            _$setProp6(_el$9, "flexShrink", 0);
+            _$setProp6(_el$9, "alignItems", "center");
+            _$setProp6(_el$9, "justifyContent", "center");
+            _$setProp6(_el$0, "fit", "fit");
+            _$setProp6(_el$0, "protocol", "auto");
+            _$setProp6(_el$0, "onError", () => setFailed(true));
             _$effect5((_p$) => {
-              var _v$4 = box().rows, _v$5 = `opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell(), props.scale())}-${props.surface()}`, _v$6 = raster().png, _v$7 = box().columns, _v$8 = box().rows;
-              _v$4 !== _p$.e && (_p$.e = _$setProp6(_el$8, "height", _v$4, _p$.e));
-              _v$5 !== _p$.t && (_p$.t = _$setProp6(_el$9, "id", _v$5, _p$.t));
-              _v$6 !== _p$.a && (_p$.a = _$setProp6(_el$9, "source", _v$6, _p$.a));
-              _v$7 !== _p$.o && (_p$.o = _$setProp6(_el$9, "width", _v$7, _p$.o));
-              _v$8 !== _p$.i && (_p$.i = _$setProp6(_el$9, "height", _v$8, _p$.i));
+              var _v$5 = box().rows, _v$6 = `opentui-markdown-math-${mathImageID(props.content, true, color(), props.graphics.cell(), props.scale())}-${props.surface()}`, _v$7 = raster().png, _v$8 = box().columns, _v$9 = box().rows;
+              _v$5 !== _p$.e && (_p$.e = _$setProp6(_el$9, "height", _v$5, _p$.e));
+              _v$6 !== _p$.t && (_p$.t = _$setProp6(_el$0, "id", _v$6, _p$.t));
+              _v$7 !== _p$.a && (_p$.a = _$setProp6(_el$0, "source", _v$7, _p$.a));
+              _v$8 !== _p$.o && (_p$.o = _$setProp6(_el$0, "width", _v$8, _p$.o));
+              _v$9 !== _p$.i && (_p$.i = _$setProp6(_el$0, "height", _v$9, _p$.i));
               return _p$;
             }, {
               e: undefined,
@@ -3133,7 +3161,7 @@ function DisplayMath(props) {
               o: undefined,
               i: undefined
             });
-            return _el$8;
+            return _el$9;
           }
         })];
       }
