@@ -30,6 +30,7 @@ export type DocumentViewProps = {
   imageLimits?: ImagesConfig
   tableOptions: ResolvedTableOptions
   mermaidOptions?: MermaidConfig
+  mathScale?: number
   onDiagnostic?: (diagnostic: { level: "warning" | "error"; message: string }) => void
   renderUnit?: RenderUnit
 }
@@ -88,7 +89,8 @@ export function DocumentView(props: DocumentViewProps) {
           labelColor={() => props.theme.markdown.image} textColor={() => props.theme.markdown.imageText}
           limits={props.imageLimits} />
         case "display-math": return <DisplayMath content={block.content} open={block.open} close={block.close}
-          maxWidth={() => columns} theme={() => props.theme} graphics={props.graphics} surface={props.surface} />
+          maxWidth={() => columns} theme={() => props.theme} graphics={props.graphics} surface={props.surface}
+          scale={() => props.mathScale ?? 1} />
         case "quote": return <box border={columns > 2 ? ["left"] : []} borderColor={props.theme.markdown.blockQuote}
           paddingLeft={columns > 2 ? 1 : 0} width="100%" flexDirection="column">
           <For each={block.blocks}>{(child) => <BlockView block={() => child}

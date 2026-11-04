@@ -43,6 +43,7 @@ Both accessors are reactive. `content` is parsed by the component. `document` is
 | `config` | `MarkdownConfig \| (() => MarkdownConfig)` | Runtime config. Replaces config-file lookup. |
 | `configPath` | `string` | Explicit JSON/JSONC config path. |
 | `themeMode` | `ThemeModeSetting \| (() => ThemeModeSetting \| null \| undefined)` | Runtime preset mode. |
+| `mathScale` | `number \| (() => number)` | Positive host-controlled scale for display math; defaults to `1`. |
 | `cwd` | `string` | Starting directory for config discovery. |
 | `frame` | `FrameConfig \| (() => FrameConfig)` | Runtime frame override. |
 | `tables` | `TablesConfig \| (() => TablesConfig)` | Runtime table override. |
