@@ -1,11 +1,11 @@
 import type { CliRenderer } from "@opentui/core"
-import { createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { createEffect, createMemo, createSignal, onCleanup, type Accessor } from "solid-js"
 import { useCanvasGraphics } from "./graphics"
 import { resolveHeadingStyles } from "./headings"
 import { rgbaToHex } from "./math"
 import { loadRendererConfig, resolveConfiguredTheme, resolveConfiguredLayout } from "./config"
 import type { ImagesConfig, MarkdownConfig, ThemeModeSetting } from "./config"
-import { parseDocument, type Document, type FrameConfig, type TablesConfig } from "./core"
+import { parseDocument, type Document, type FrameConfig, type TablesConfig, type UnitInfo } from "./core"
 import { MarkdownFrame } from "./view/frame"
 import { DocumentView, type RenderUnit } from "./view/document"
 import type { Theme } from "./theme/types"
@@ -49,6 +49,9 @@ export type MarkdownRendererCommonProps = {
   readonly onDiagnostic?: (diagnostic: MarkdownDiagnostic) => void
   // The host may wrap every top-level block and every item of a top-level list.
   readonly renderUnit?: RenderUnit
+  // A host-owned unit state such as a review selection can replace the surface
+  // painted by text rows and rasterized media inside that unit.
+  readonly unitSurface?: (info: Accessor<UnitInfo>) => string | undefined
 }
 
 // The renderer takes either Markdown text or a document the host already parsed.
@@ -190,6 +193,7 @@ export function MarkdownRenderer(props: MarkdownRendererProps) {
               syntaxStyle={syntaxStyle()}
               onDiagnostic={props.onDiagnostic}
               renderUnit={props.renderUnit}
+              unitSurface={props.unitSurface}
             />
           </MarkdownFrame>
         </box>

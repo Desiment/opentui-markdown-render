@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { testRender, useRenderer } from "@opentui/solid"
 import { createSignal } from "solid-js"
-import { TextRenderable, type Renderable } from "@opentui/core"
+import { ImageRenderable, TextRenderable, type Renderable } from "@opentui/core"
 import { MarkdownRenderer } from "../src/app"
 import { parseDocument, type Document, type UnitInfo } from "../src/core"
 import { defaultHeadingStyles } from "../src/headings"
@@ -26,6 +26,10 @@ function definition(url: string): string {
 
 function tables(root: Renderable): MarkdownTableRenderable[] {
   return [...(root instanceof MarkdownTableRenderable ? [root] : []), ...root.getChildren().flatMap(tables)]
+}
+
+function images(root: Renderable): ImageRenderable[] {
+  return [...(root instanceof ImageRenderable ? [root] : []), ...root.getChildren().flatMap(images)]
 }
 
 describe("document units in the real renderer", () => {
@@ -98,6 +102,54 @@ describe("document units in the real renderer", () => {
     { width: 40, height: 12 })
     await wrapped.renderOnce()
     expect(wrapped.captureCharFrame()).toBe(plain.captureCharFrame())
+  })
+
+  test("paints a multi-block unit surface through headings, text, and display math", async () => {
+    const document = parseDocument("# Selected heading\n\nSelected paragraph with $y$\n\n$$\nx^2\n$$\n\n| Name | Value |\n| --- | --- |\n| Cell | 1 |\n\nTail")
+    const first = document.blocks[0]?.source
+    const last = document.blocks[3]?.source
+    if (!first || !last) throw new Error("expected selected source ranges")
+    const selection = "#314159"
+    const comment = "#5b2f40"
+    let saveComment!: () => void
+    const setup = await testRender(() => {
+      const [selected, setSelected] = createSignal(true)
+      const [commented, setCommented] = createSignal(false)
+      saveComment = () => {
+        setSelected(false)
+        setCommented(true)
+      }
+      return <MarkdownRenderer document={() => document} renderer={useRenderer()}
+        theme={defaultTheme("dark")} discoverConfig={false}
+        unitSurface={(info) => {
+          const source = info().source
+          if (!source || source.start < first.start || source.end > last.end) return undefined
+          if (selected()) return selection
+          return commented() ? comment : undefined
+        }} />
+    }, { width: 48, height: 30 })
+    await setup.renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await setup.renderOnce()
+
+    const spans = setup.captureSpans().lines.flatMap((line) => line.spans)
+    expect(spans.find((span) => span.text.includes("Selected heading"))?.bg.toInts()).toEqual([49, 65, 89, 255])
+    expect(spans.find((span) => span.text.includes("Selected paragraph"))?.bg.toInts()).toEqual([49, 65, 89, 255])
+    expect(spans.find((span) => span.text.includes("Cell"))?.bg.toInts()).toEqual([49, 65, 89, 255])
+    expect(spans.find((span) => span.text.includes("Tail"))?.bg.toInts()).toEqual([13, 17, 23, 255])
+    const math = images(setup.renderer.root).filter((image) => image.id.startsWith("opentui-markdown-math-"))
+    expect(math).toHaveLength(2)
+    expect(math.every((image) => image.id.endsWith(selection))).toBe(true)
+
+    saveComment()
+    await setup.renderOnce()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await setup.renderOnce()
+    const commentedSpans = setup.captureSpans().lines.flatMap((line) => line.spans)
+    expect(commentedSpans.find((span) => span.text.includes("Selected heading"))?.bg.toInts()).toEqual([91, 47, 64, 255])
+    expect(commentedSpans.find((span) => span.text.includes("Selected paragraph"))?.bg.toInts()).toEqual([91, 47, 64, 255])
+    expect(commentedSpans.find((span) => span.text.includes("Cell"))?.bg.toInts()).toEqual([91, 47, 64, 255])
+    expect(images(setup.renderer.root).filter((image) => image.id.startsWith("opentui-markdown-math-")).every((image) => image.id.endsWith(comment))).toBe(true)
   })
 
   test("keeps the same units at a narrow width", async () => {
