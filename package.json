@@ -28,7 +28,7 @@
     "native/build.rs",
     "native/src",
     "prebuilds",
-    "themes",
+    "themes/light.json",
     "README.md",
     "LICENSE",
     "NOTICE"

@@ -1259,19 +1259,28 @@ function mergeMarkdownTheme(base, override) {
 }
 
 // src/theme/load.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2, statSync as statSync2 } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, statSync as statSync2 } from "fs";
 import os2 from "os";
 import path3 from "path";
-var bundledThemeNames = ["light", "dark", "solarized-light", "solarized-dark"];
+var bundledThemeNames = ["light"];
 var themeFileNames = [".jsonc", ".json"];
-function loadTheme(name, environment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME }) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name))
-    return;
+function userThemeDirectory(environment) {
   const configured = environment.XDG_CONFIG_HOME;
   const configHome = configured && path3.isAbsolute(configured) ? configured : path3.join(environment.HOME || os2.homedir(), ".config");
+  return path3.join(configHome, "otmd", "themes");
+}
+function bundledThemeDirectories(bundleDirectory) {
+  return [
+    path3.resolve(bundleDirectory, "..", "..", "themes"),
+    path3.resolve(bundleDirectory, "..", "themes")
+  ];
+}
+function loadTheme(name, environment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME }, bundleDirectory = import.meta.dir) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name))
+    return;
   const directories = [
-    path3.join(configHome, "otmd", "themes"),
-    path3.resolve(import.meta.dir, "..", "..", "themes")
+    userThemeDirectory(environment),
+    ...bundledThemeDirectories(bundleDirectory)
   ];
   for (const directory of directories) {
     for (const suffix of themeFileNames) {

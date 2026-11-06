@@ -9,6 +9,7 @@ const main = path.resolve(import.meta.dir, "../bin/otmd-main.js")
 const manifest = JSON.parse(readFileSync(path.resolve(import.meta.dir, "../package.json"), "utf8")) as {
   version: string
   bin: { otmd: string }
+  files: string[]
 }
 
 describe("otmd CLI arguments", () => {
@@ -41,6 +42,10 @@ describe("otmd CLI arguments", () => {
     expect(compiled).toContain("Configuration changes are not saved.")
     expect(compiled).toContain("c:config q:quit")
     expect(cliUsage).toContain("Open or close runtime configuration")
+  })
+
+  test("ships only the light theme file", () => {
+    expect(manifest.files.filter((file) => file.startsWith("themes"))).toEqual(["themes/light.json"])
   })
 
   test("renders a file with automatic config discovery", () => {
