@@ -99,7 +99,10 @@ math source when the addon is unavailable.
 The installed CLI uses the same interactive viewer as the repository demos.
 Press `c` for runtime theme, frame, table, and Mermaid settings; press `q` for
 exit confirmation, or `Ctrl+C` to exit immediately. Runtime changes are not
-written to the JSON/JSONC configuration file.
+written to the JSON/JSONC configuration file. Selecting text with the mouse
+copies it on release when the host or terminal clipboard is available. The
+terminal's `Ctrl+Shift+C` operates on the terminal's own selection, not the
+viewer's; check the status line for clipboard availability.
 
 ### Install in an OpenTUI application
 
@@ -126,8 +129,10 @@ Pass `--config PATH` to `otmd` or `configPath` to `MarkdownRenderer` to select a
 file explicitly. Embedded hosts can pass `discoverConfig={false}` when they own
 configuration themselves.
 
-Themes are complete JSON/JSONC files. Select a bundled theme or a user theme
-from `$XDG_CONFIG_HOME/otmd/themes` with:
+Themes are complete JSON/JSONC files. The CLI ships only `light`; other themes
+remain as JSON files in the repository. Copy one to
+`$XDG_CONFIG_HOME/otmd/themes` (or `~/.config/otmd/themes` when XDG is unset),
+then select it in the `c` panel or with:
 
 ```jsonc
 {
@@ -135,6 +140,7 @@ from `$XDG_CONFIG_HOME/otmd/themes` with:
 }
 ```
 
+For example, copy [`themes/dark.json`](themes/dark.json) before selecting `dark`.
 The repository includes [`themes/example.jsonc`](themes/example.jsonc), a fully
 commented template showing every theme setting. Copy it to
 `~/.config/otmd/themes/my-theme.jsonc` and select it with

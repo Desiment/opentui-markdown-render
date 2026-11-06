@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { changeSetting, settingKeys, settingRows, type ViewerSettings } from "../src/viewer/settings"
 
 const initial: ViewerSettings = {
-  themeMode: "light",
+  themeName: "light",
   classLayout: "builtin",
   frame: { enabled: true, width: 100, style: "rounded", align: "center", paddingX: 1 },
   tables: { widthMode: "content", overflow: "scroll", columnFitter: "balanced", cellPaddingX: 1 },
@@ -16,10 +16,12 @@ describe("viewer configuration panel", () => {
   })
 
   test("cycles the theme and enum settings in either direction", () => {
-    expect(changeSetting(initial, "mode", 1).themeMode).toBe("dark")
-    expect(changeSetting(initial, "mode", -1).themeMode).toBe("solarized-dark")
-    expect(changeSetting({ ...initial, themeMode: "dark" }, "mode", 1).themeMode).toBe("solarized-light")
-    expect(changeSetting({ ...initial, themeMode: "solarized-light" }, "mode", 1).themeMode).toBe("solarized-dark")
+    const themes = ["light", "dark", "mission-control"]
+    expect(changeSetting(initial, "mode", 1).themeName).toBe("light")
+    expect(changeSetting(initial, "mode", 1, themes).themeName).toBe("dark")
+    expect(changeSetting(initial, "mode", -1, themes).themeName).toBe("mission-control")
+    expect(changeSetting({ ...initial, themeName: "dark" }, "mode", 1, themes).themeName).toBe("mission-control")
+    expect(changeSetting({ ...initial, themeName: "mission-control" }, "mode", 1, themes).themeName).toBe("light")
     expect(changeSetting(initial, "classLayout", 1).classLayout).toBe("dagre")
     expect(changeSetting(initial, "classLayout", -1).classLayout).toBe("dagre")
     expect(changeSetting({ ...initial, classLayout: "dagre" }, "classLayout", 1).classLayout).toBe("builtin")
@@ -31,9 +33,9 @@ describe("viewer configuration panel", () => {
   })
 
   test("keeps a configured custom theme until the user changes it", () => {
-    const configured = { ...initial, themeMode: undefined }
-    expect(settingRows(configured, "mission-control")[0]?.value).toBe("mission-control")
-    expect(changeSetting(configured, "mode", 1, "mission-control").themeMode).toBe("dark")
+    const configured = { ...initial, themeName: "mission-control" }
+    expect(settingRows(configured)[0]?.value).toBe("mission-control")
+    expect(changeSetting(configured, "mode", 1, ["light", "mission-control"]).themeName).toBe("light")
   })
 
   test("toggles the frame and bounds numeric settings without changing the file configuration", () => {

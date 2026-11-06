@@ -1,8 +1,7 @@
 import type { FrameConfig, TablesConfig } from "../core"
-import type { ThemeModeSetting } from "../config"
 
 export type ViewerSettings = {
-  readonly themeMode?: ThemeModeSetting
+  readonly themeName: string
   readonly classLayout: "builtin" | "dagre"
   readonly frame: FrameConfig
   readonly tables: TablesConfig
@@ -15,11 +14,9 @@ export const settingKeys = [
 
 type SettingKey = (typeof settingKeys)[number]
 
-const themeModes = ["light", "dark", "solarized-light", "solarized-dark"] as const
-
-export function settingRows(settings: ViewerSettings, configuredTheme?: string): { key: SettingKey; label: string; value: string }[] {
+export function settingRows(settings: ViewerSettings): { key: SettingKey; label: string; value: string }[] {
   return [
-    { key: "mode", label: "Theme", value: settings.themeMode ?? configuredTheme ?? "light" },
+    { key: "mode", label: "Theme", value: settings.themeName },
     { key: "classLayout", label: "Class layout", value: settings.classLayout },
     { key: "frameEnabled", label: "Frame", value: settings.frame.enabled ? "on" : "off" },
     { key: "frameStyle", label: "Frame style", value: settings.frame.style ?? "box" },
@@ -42,15 +39,11 @@ function step(value: number, direction: number, min: number, max: number): numbe
   return Math.min(max, Math.max(min, value + direction))
 }
 
-function configuredMode(name?: string): ThemeModeSetting {
-  return themeModes.includes(name as ThemeModeSetting) ? name as ThemeModeSetting : "light"
-}
-
-export function changeSetting(settings: ViewerSettings, key: SettingKey, direction: number, configuredTheme?: string): ViewerSettings {
+export function changeSetting(settings: ViewerSettings, key: SettingKey, direction: number, themes: readonly string[] = ["light"]): ViewerSettings {
   const { frame, tables } = settings
   switch (key) {
     case "mode":
-      return { ...settings, themeMode: cycle(themeModes, settings.themeMode ?? configuredMode(configuredTheme), direction) }
+      return { ...settings, themeName: cycle(themes, settings.themeName, direction) }
     case "classLayout":
       return { ...settings, classLayout: cycle(["builtin", "dagre"] as const, settings.classLayout, direction) }
     case "frameEnabled":

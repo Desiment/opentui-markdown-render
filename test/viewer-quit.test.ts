@@ -20,6 +20,7 @@ describe("viewer exit confirmation", () => {
   test("Ctrl+C always exits while panel keys do not confirm", () => {
     expect(quitAction({ name: "c", ctrl: true }, false)).toBe("exit")
     expect(quitAction({ name: "c", ctrl: true }, true)).toBe("exit")
+    expect(quitAction({ name: "c", ctrl: true, shift: true }, false)).toBe("none")
     expect(quitAction({ name: "c", ctrl: false }, true)).toBe("none")
     expect(quitAction({ name: "escape", ctrl: false }, false)).toBe("none")
   })

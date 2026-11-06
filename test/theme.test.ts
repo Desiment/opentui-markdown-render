@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test"
 import { RGBA } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { defaultTheme, generateSyntax, loadTheme, mergeTheme, resolveTheme } from "../src/theme"
+import { bundledThemeNames, listViewerThemes } from "../src/theme/load"
 import { defaultHeadingStyles } from "../src/headings"
 import type { Theme } from "../src/theme"
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
@@ -20,7 +21,8 @@ async function inspectSyntax(theme: Theme, inspect: (syntax: ReturnType<typeof g
 }
 
 describe("theme resolution", () => {
-  test("loads complete bundled themes from the package themes directory", () => {
+  test("loads complete repository themes from the themes directory", () => {
+    expect(bundledThemeNames).toEqual(["light"])
     for (const name of ["light", "dark", "solarized-light", "solarized-dark"] as const) {
       expect(loadTheme(name)).toBeDefined()
     }
@@ -42,6 +44,39 @@ describe("theme resolution", () => {
     mkdirSync(directory, { recursive: true })
     writeFileSync(path.join(directory, "dark.jsonc"), `{ "mode": "dark", "accent": "#123456" }`)
     expect(loadTheme("dark", { XDG_CONFIG_HOME: xdg, HOME: xdg })).toMatchObject({ mode: "dark", accent: "#123456" })
+  })
+
+  test("finds the shipped light theme relative to a bundled CLI or library entrypoint", () => {
+    const root = path.resolve(import.meta.dir, "..")
+    const environment = { XDG_CONFIG_HOME: path.join(root, "missing-theme-home") }
+    for (const entry of ["bin", "dist"]) {
+      expect(loadTheme("light", environment, path.join(root, entry))?.accent).toBe("#0969da")
+    }
+  })
+
+  test("offers only light and installed valid user themes in the viewer", () => {
+    const home = mkdtempSync(path.join(tmpdir(), "otmd-viewer-themes-"))
+    const environment = { XDG_CONFIG_HOME: home, HOME: home }
+    const packageBin = path.join(home, "package", "bin")
+    const bundledThemes = path.join(home, "package", "themes")
+    mkdirSync(packageBin, { recursive: true })
+    mkdirSync(bundledThemes, { recursive: true })
+    writeFileSync(path.join(bundledThemes, "light.json"), readFileSync(path.resolve(import.meta.dir, "../themes/light.json")))
+    expect(listViewerThemes(environment, packageBin)).toEqual(["light"])
+    const directory = path.join(home, "otmd", "themes")
+    mkdirSync(directory, { recursive: true })
+    writeFileSync(path.join(directory, "custom.jsonc"), `{ "mode": "dark", "accent": "#123456" }`)
+    writeFileSync(path.join(directory, "broken.json"), "{")
+    writeFileSync(path.join(directory, "notes.txt"), "not a theme")
+    expect(listViewerThemes(environment, packageBin)).toEqual(["light", "custom"])
+    expect(loadTheme("custom", environment)?.accent).toBe("#123456")
+  })
+
+  test("source demos offer the optional repository themes", () => {
+    const home = mkdtempSync(path.join(tmpdir(), "otmd-demo-themes-"))
+    expect(listViewerThemes({ XDG_CONFIG_HOME: home, HOME: home })).toEqual([
+      "light", "dark", "example", "solarized-dark", "solarized-light",
+    ])
   })
 
   test("merges a partial override over the bundled default for the mode", () => {

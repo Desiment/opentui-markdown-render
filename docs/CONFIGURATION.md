@@ -85,6 +85,9 @@ File loading and validation are not the same as a ready TypeScript `config` prop
 }
 ```
 
+To use this example with the published CLI, first copy
+`themes/solarized-dark.json` from the repository into the XDG theme directory.
+
 Unknown sections, invalid theme names, unknown status fields, and many invalid enum values produce diagnostics and are ignored. Not every section reports every unknown or mistyped field; see [Validation and diagnostics](#validation-and-diagnostics). A file that is not valid JSON/JSONC falls back to bundled defaults *when loaded by the component adapter*. Use `onDiagnostic` to collect these messages in an embedding application's own UI.
 
 ## `theme`
@@ -95,9 +98,11 @@ type ThemeConfig = {
 }
 ```
 
-Bundled themes are `light`, `dark`, `solarized-light`, and `solarized-dark`. A
-user theme with the same name in the XDG theme directory takes precedence over
-the bundled file.
+The published CLI ships only `light`. The repository keeps `dark`,
+`solarized-light`, and `solarized-dark` as optional JSON files; copy a desired
+file into the XDG theme directory to use it in `otmd`. Library hosts can still
+select their built-in colour presets directly. A user theme with the same name
+as a bundled file takes precedence over it.
 
 User themes live next to the main config:
 
@@ -133,6 +138,9 @@ Available fields are `title`, `mode`, `protocol`, `cell`, `mathScale`, `position
 - `plain` keeps the row in the page's normal colours.
 - `highlight` defaults to `title`; the separator immediately after the highlighted field uses the border colour.
 - `enabled` defaults to true in the standalone viewer unless the host omits the component entirely.
+- The standalone `otmd` viewer defaults to `border: "top"`; an explicit `none`
+  or `bottom` overrides it. The standalone `StatusLine` component still defaults
+  to no border.
 
 The status line does not read the document parser or calculate scroll position. The host supplies all values.
 

@@ -138,6 +138,8 @@ const PAGE_MARGIN_PT: f64 = FONT_SIZE_PT * 6.0;
 // latex/standard.typ`, Apache-2.0), reduced to the handlers Typst 0.15 does not
 // provide on its own.
 const MITEX_SCOPE: &str = r##"
+// MiTeX emits `sect` for LaTeX \cap, but Typst calls the symbol `inter`.
+#let sect = sym.inter
 #let negthinspace = h(-(3/18) * 1em)
 #let negthinmedspace = h(-(3/18) * 1em)
 #let negmedspace = h(-(4/18) * 1em)
@@ -712,6 +714,17 @@ mod tests {
             rendered.height,
             rendered.width
         );
+    }
+
+    #[test]
+    fn renders_intersection_in_inline_and_display_math() {
+        for formula in [r"A\cap B", r"C\cap\{\tau>t\}=D\cap\{\tau>t\}.", r"(F\cap H)\cap\{\tau>t\}"] {
+            for display in [false, true] {
+                let rendered = render_math_png(formula.into(), 16.0 / 12.0, "000000".into(), "ffffff".into(), display, 8.0, 16.0, false, false)
+                    .unwrap_or_else(|error| panic!("{formula} (display={display}): {error}"));
+                assert!(rendered.png.starts_with(b"\x89PNG\r\n\x1a\n"));
+            }
+        }
     }
 
     #[test]

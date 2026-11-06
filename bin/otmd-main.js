@@ -1263,18 +1263,48 @@ function mergeMarkdownTheme(base, override) {
 }
 
 // src/theme/load.ts
-import { existsSync as existsSync2, readFileSync as readFileSync2, statSync as statSync2 } from "fs";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync, statSync as statSync2 } from "fs";
 import os2 from "os";
 import path3 from "path";
+var bundledThemeNames = ["light"];
 var themeFileNames = [".jsonc", ".json"];
-function loadTheme(name, environment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME }) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name))
-    return;
+function userThemeDirectory(environment) {
   const configured = environment.XDG_CONFIG_HOME;
   const configHome = configured && path3.isAbsolute(configured) ? configured : path3.join(environment.HOME || os2.homedir(), ".config");
+  return path3.join(configHome, "otmd", "themes");
+}
+function bundledThemeDirectories(bundleDirectory) {
+  return [
+    path3.resolve(bundleDirectory, "..", "..", "themes"),
+    path3.resolve(bundleDirectory, "..", "themes")
+  ];
+}
+function listViewerThemes(environment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME }, bundleDirectory = import.meta.dir) {
+  const names = new Set(bundledThemeNames);
+  for (const directory of [userThemeDirectory(environment), ...bundledThemeDirectories(bundleDirectory)]) {
+    if (!existsSync2(directory))
+      continue;
+    for (const file of readdirSync(directory)) {
+      const suffix = themeFileNames.find((extension) => file.endsWith(extension));
+      if (!suffix)
+        continue;
+      const name = file.slice(0, -suffix.length);
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name))
+        continue;
+      try {
+        if (statSync2(path3.join(directory, file)).isFile() && loadTheme(name, environment, bundleDirectory))
+          names.add(name);
+      } catch {}
+    }
+  }
+  return ["light", ...[...names].filter((name) => name !== "light").sort()];
+}
+function loadTheme(name, environment = { XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME, HOME: process.env.HOME }, bundleDirectory = import.meta.dir) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(name))
+    return;
   const directories = [
-    path3.join(configHome, "otmd", "themes"),
-    path3.resolve(import.meta.dir, "..", "..", "themes")
+    userThemeDirectory(environment),
+    ...bundledThemeDirectories(bundleDirectory)
   ];
   for (const directory of directories) {
     for (const suffix of themeFileNames) {
@@ -13830,9 +13860,9 @@ function StatusLine(props) {
   })();
 }
 // src/viewer/app.tsx
-import { memo as _$memo6 } from "@opentui/solid";
 import { use as _$use3 } from "@opentui/solid";
 import { insert as _$insert9 } from "@opentui/solid";
+import { memo as _$memo6 } from "@opentui/solid";
 import { createComponent as _$createComponent8 } from "@opentui/solid";
 import { effect as _$effect9 } from "@opentui/solid";
 import { createTextNode as _$createTextNode3 } from "@opentui/solid";
@@ -13841,9 +13871,51 @@ import { setProp as _$setProp11 } from "@opentui/solid";
 import { createElement as _$createElement11 } from "@opentui/solid";
 import { createSignal as createSignal6, For as For4, onCleanup as onCleanup5, Show as Show4 } from "solid-js";
 
+// src/viewer/clipboard.ts
+import { createClipboard, createHostClipboard, createRendererClipboardAdapter } from "@opentui/core";
+function enableSelectionCopy(renderer, report, clipboard) {
+  const owned = clipboard ? undefined : createClipboard({
+    host: createHostClipboard(),
+    terminal: createRendererClipboardAdapter(renderer)
+  });
+  const service = clipboard ?? owned;
+  let active = true;
+  let clear;
+  const status = (message) => {
+    if (!active)
+      return;
+    report(message);
+    if (clear)
+      clearTimeout(clear);
+    clear = setTimeout(() => report(undefined), 2500);
+  };
+  const onSelection = (selection) => {
+    const text = selection.getSelectedText();
+    if (!text)
+      return;
+    service.writeText(text, { destination: "best-available", allowRemoteHost: false }).then((result) => {
+      if (result.host.status === "written")
+        status("Copied selection");
+      else if (result.terminal.status === "attempted")
+        status("Copy sent via terminal");
+      else
+        status("Clipboard unavailable");
+    }).catch(() => status("Clipboard unavailable"));
+  };
+  renderer.on("selection", onSelection);
+  return () => {
+    active = false;
+    if (clear)
+      clearTimeout(clear);
+    renderer.off("selection", onSelection);
+    if (owned)
+      owned.dispose();
+  };
+}
+
 // src/viewer/quit.ts
 function quitAction(key, confirming) {
-  if (key.ctrl && key.name === "c")
+  if (key.ctrl && !key.shift && key.name === "c")
     return "exit";
   if (confirming) {
     if (!key.ctrl && (key.name === "y" || key.name === "return" || key.name === "enter"))
@@ -13869,10 +13941,9 @@ var settingKeys = [
   "tableFitter",
   "tablePadding"
 ];
-var themeModes = ["light", "dark", "solarized-light", "solarized-dark"];
-function settingRows(settings, configuredTheme) {
+function settingRows(settings) {
   return [
-    { key: "mode", label: "Theme", value: settings.themeMode ?? configuredTheme ?? "light" },
+    { key: "mode", label: "Theme", value: settings.themeName },
     { key: "classLayout", label: "Class layout", value: settings.classLayout },
     { key: "frameEnabled", label: "Frame", value: settings.frame.enabled ? "on" : "off" },
     { key: "frameStyle", label: "Frame style", value: settings.frame.style ?? "box" },
@@ -13892,14 +13963,11 @@ function cycle(options, value, direction) {
 function step(value, direction, min, max) {
   return Math.min(max, Math.max(min, value + direction));
 }
-function configuredMode(name) {
-  return themeModes.includes(name) ? name : "light";
-}
-function changeSetting(settings, key, direction, configuredTheme) {
+function changeSetting(settings, key, direction, themes = ["light"]) {
   const { frame, tables } = settings;
   switch (key) {
     case "mode":
-      return { ...settings, themeMode: cycle(themeModes, settings.themeMode ?? configuredMode(configuredTheme), direction) };
+      return { ...settings, themeName: cycle(themes, settings.themeName, direction) };
     case "classLayout":
       return { ...settings, classLayout: cycle(["builtin", "dagre"], settings.classLayout, direction) };
     case "frameEnabled":
@@ -13925,7 +13993,10 @@ function changeSetting(settings, key, direction, configuredTheme) {
 
 // src/viewer/app.tsx
 function StandaloneViewer(props) {
+  const themes = listViewerThemes();
+  const initialTheme = props.config.theme?.name;
   const [settings, setSettings] = createSignal6({
+    themeName: initialTheme && themes.includes(initialTheme) ? initialTheme : "light",
     classLayout: props.config.mermaid?.classLayout ?? "builtin",
     frame: props.frame ?? props.config.frame ?? {},
     tables: props.config.tables ?? {}
@@ -13934,9 +14005,17 @@ function StandaloneViewer(props) {
   const [confirmExit, setConfirmExit] = createSignal6(false);
   const [selected, setSelected] = createSignal6(0);
   const [position, setPosition] = createSignal6("1/1");
+  const [copyStatus, setCopyStatus] = createSignal6();
+  const stopCopying = enableSelectionCopy(props.renderer, setCopyStatus);
+  onCleanup5(stopCopying);
+  const viewerConfig = () => ({
+    ...props.config,
+    theme: {
+      name: settings().themeName
+    }
+  });
   const theme = () => resolveRendererTheme(props.renderer, {
-    themeMode: settings().themeMode,
-    config: props.config,
+    config: viewerConfig(),
     cwd: props.cwd
   });
   const graphics = useCanvasGraphics(props.renderer);
@@ -13951,6 +14030,10 @@ function StandaloneViewer(props) {
   }, 200);
   onCleanup5(() => clearInterval(timer));
   const onKeypress = (key) => {
+    if (key.ctrl && key.shift && key.name === "c") {
+      key.preventDefault();
+      return;
+    }
     const action = quitAction(key, confirmExit());
     if (action === "exit") {
       props.onExit();
@@ -13987,9 +14070,9 @@ function StandaloneViewer(props) {
     } else if (key.name === "down" || key.name === "j") {
       setSelected((index) => (index + 1) % settingKeys.length);
     } else if (key.name === "left" || key.name === "h") {
-      setSettings((current) => changeSetting(current, settingKeys[selected()], -1, props.config.theme?.name));
+      setSettings((current) => changeSetting(current, settingKeys[selected()], -1, themes));
     } else if (key.name === "right" || key.name === "l" || key.name === "return") {
-      setSettings((current) => changeSetting(current, settingKeys[selected()], 1, props.config.theme?.name));
+      setSettings((current) => changeSetting(current, settingKeys[selected()], 1, themes));
     } else {
       return;
     }
@@ -13999,11 +14082,11 @@ function StandaloneViewer(props) {
   onCleanup5(() => props.renderer.keyInput.off("keypress", onKeypress));
   const state = () => ({
     title: props.title,
-    mode: `theme:${settings().themeMode ?? props.config.theme?.name ?? theme().mode}`,
+    mode: `theme:${settings().themeName}`,
     protocol: graphics.protocol(),
     cell: graphics.cell() ? `${graphics.cell().width}x${graphics.cell().height}` : undefined,
     position: position(),
-    hint: "c:config q:quit"
+    hint: copyStatus() ?? "c:config q:quit"
   });
   return (() => {
     var _el$ = _$createElement11("box");
@@ -14042,9 +14125,8 @@ function StandaloneViewer(props) {
                   return props.renderer;
                 },
                 assetBase: () => props.assetBase,
-                themeMode: () => settings().themeMode,
                 config: () => ({
-                  ...props.config,
+                  ...viewerConfig(),
                   mermaid: {
                     ...props.config.mermaid,
                     classLayout: settings().classLayout
@@ -14077,7 +14159,7 @@ function StandaloneViewer(props) {
             _$setProp11(_el$12, "height", 1);
             _$insert9(_el$9, _$createComponent8(For4, {
               get each() {
-                return settingRows(settings(), props.config.theme?.name);
+                return settingRows(settings());
               },
               children: (row, index) => (() => {
                 var _el$14 = _$createElement11("text"), _el$15 = _$createTextNode3(`: `);
@@ -14146,7 +14228,7 @@ function StandaloneViewer(props) {
             return props.config.statusline?.separator;
           },
           get border() {
-            return props.config.statusline?.border;
+            return props.config.statusline?.border ?? "top";
           },
           get style() {
             return props.config.statusline?.style;
