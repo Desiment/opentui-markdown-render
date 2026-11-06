@@ -140,6 +140,9 @@ const PAGE_MARGIN_PT: f64 = FONT_SIZE_PT * 6.0;
 const MITEX_SCOPE: &str = r##"
 // MiTeX emits `sect` for LaTeX \cap, but Typst calls the symbol `inter`.
 #let sect = sym.inter
+// The converter uses these names for partial derivatives and angle brackets.
+#let diff = sym.partial
+#let angle = (l: "⟨", r: "⟩")
 #let negthinspace = h(-(3/18) * 1em)
 #let negthinmedspace = h(-(3/18) * 1em)
 #let negmedspace = h(-(4/18) * 1em)
@@ -728,6 +731,22 @@ mod tests {
     }
 
     #[test]
+    fn renders_partial_derivatives_and_angle_brackets() {
+        for formula in [
+            r"\frac{\partial f}{\partial t}",
+            r"\left\langle x,y\right\rangle=\sum_{i=1}^n x_i y_i",
+        ] {
+            for display in [false, true] {
+                let rendered = render_math_png(formula.into(), 16.0 / 12.0, "000000".into(), "ffffff".into(), display, 8.0, 16.0, false, false)
+                    .unwrap_or_else(|error| panic!("{formula} (display={display}): {error}"));
+                let raster = tiny_skia::Pixmap::decode_png(&rendered.png).expect("valid PNG");
+                assert!(raster.data().chunks_exact(4).any(|pixel| pixel[..3].iter().all(|channel| *channel < 220)),
+                    "{formula} must produce visible ink");
+            }
+        }
+    }
+
+    #[test]
     fn a_lone_formula_keeps_the_standard_text_size() {
         // A formula that shares its row with prose is scaled down to fit that
         // row. One that stands alone keeps the standard size, so it is wider and
@@ -952,6 +971,45 @@ mod tests {
             }
         }
         assert!(failures.is_empty(), "math compatibility failures:\n{}", failures.join("\n"));
+    }
+
+    #[test]
+    fn diverse_math_corpus_compiles_in_both_styles() {
+        // Sets, probability, calculus, limits, matrices, and multiline proofs.
+        // Several expressions come from a real Cox-model proof that previously
+        // exposed the missing intersection symbol.
+        let cases: &[&str] = &[
+            r"A\cap B\cup C",
+            r"C\cap\{\tau>t\}=D\cap\{\tau>t\}.",
+            r"(F\cap H)\cap\{\tau>t\}",
+            r"A\subseteq B,\quad x\in A\setminus C",
+            r"\forall x\in A,\ \exists y\in B:\ x\le y",
+            r"\mathcal G_t=\mathcal F_t\vee\mathcal H_t",
+            r"\mathbf1_{\{\tau>t\}}E[Y\mid\mathcal G_t]",
+            r"P(\tau>t\mid\mathcal F_t)=e^{-\Lambda_t}",
+            r"\int_{t\wedge\tau}^{s\wedge\tau}\lambda_u\,du",
+            r"\int_{(t,T]}Y_u\,dN_u",
+            r"\lim_{n\to\infty}\sum_{k=1}^{n}\frac{1}{k^2}",
+            r"\frac{d}{dx}\sin(x)+\frac{\partial f}{\partial t}",
+            r"\sqrt{a^2+b^2}+\binom{n}{k}",
+            r"\left\langle x,y\right\rangle=\sum_{i=1}^n x_i y_i",
+            r"\begin{bmatrix} a & b \\ c & d \end{bmatrix}",
+            r"\begin{cases} x^2 & x>0 \\ -x & x\leq0 \end{cases}",
+            r"\begin{aligned} C\cap A &=D\cap A \\ P(A\mid B)&=\frac{P(B\mid A)P(A)}{P(B)} \end{aligned}",
+            r"\begin{aligned} E[I\mid\mathcal F_\infty] &=\int_t^T q_u e^{-\Lambda_u}\,du \\ I&=\int_t^T q_u\mathbf1_{\{u<\tau\}}\,du \end{aligned}",
+        ];
+        let mut failures = Vec::new();
+        for formula in cases {
+            match mitex::convert_math(formula, None) {
+                Ok(math) => for display in [false, true] {
+                    if let Err(error) = super::compile_page(math_source(&math, "000000", "ffffff", SENTINEL_HEX, display)) {
+                        failures.push(format!("{formula} (display={display}), converted={math}: {error}"));
+                    }
+                },
+                Err(error) => failures.push(format!("{formula}: conversion failed: {error}")),
+            }
+        }
+        assert!(failures.is_empty(), "diverse math failures:\n{}", failures.join("\n"));
     }
 
     #[test]
