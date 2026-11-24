@@ -62,7 +62,7 @@ The same resolved content width is passed to paragraphs, tables, formulas, image
 
 - paragraphs and headings use the shared inline layout;
 - quotes and lists recurse through blocks;
-- code uses OpenTUI's code primitive;
+- code uses OpenTUI's code primitive inside a rounded Unicode border;
 - tables use a custom `TextTableRenderable` and horizontal scroller;
 - Mermaid sources are prepared by `src/merman/diagram.ts` and displayed by the Mermaid view;
 - display math uses the native math pipeline;

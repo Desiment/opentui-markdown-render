@@ -13,7 +13,7 @@ The parser produces an AST-lite document containing these block kinds:
 | Quote | Nested blocks render recursively with quote styling. |
 | List | Ordered, unordered, nested, loose, and task-list items are supported. |
 | Table | Cells use inline layout; tables use the configured sizing and overflow policy. |
-| Fenced code | Rendered with OpenTUI's code primitive. Language is retained for highlighting and diagnostics. |
+| Fenced code | Rendered inside a rounded Unicode frame with OpenTUI's code primitive. Language is retained for highlighting and diagnostics. |
 | Mermaid fence | A detected supported family becomes a terminal diagram; otherwise the original fence is shown. |
 | Horizontal rule | Rendered as a themed terminal rule. |
 | Display math | `$$...$$` and `\[...\]` are rendered as display-style math images when possible. |
@@ -21,6 +21,8 @@ The parser produces an AST-lite document containing these block kinds:
 | Literal | Source-oriented text retained for constructs that the terminal renderer cannot represent. |
 
 The parser keeps raw source on every block and preserves the original document source. It does not rewrite the canonical Markdown.
+
+Fenced code fills the document width with a rounded border, one column of horizontal padding, and the theme's frame/border colour. Inline code has no frame. An unsupported Mermaid fence falls back to the same framed code view; a supported Mermaid fence becomes a terminal diagram without the code frame. LaTeX source inside a fence stays code and is therefore framed rather than typeset.
 
 ## Inline content
 
