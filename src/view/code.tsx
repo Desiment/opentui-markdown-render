@@ -4,6 +4,7 @@ import { onCleanup } from "solid-js"
 import { generateSyntax } from "../theme/syntax"
 import type { Theme } from "../theme/types"
 import type { HeadingStyles } from "../headings"
+import { frameBorderColor } from "./frame"
 
 export type CodeBlockProps = {
   content: string
@@ -26,16 +27,27 @@ export function CodeBlock(props: CodeBlockProps) {
     if (owned) void renderer.idle().then(() => owned.destroy())
   })
   return (
-    <code
-      content={props.content}
-      filetype={resolveCodeFiletype(props.language)}
-      syntaxStyle={props.syntaxStyle ?? owned!}
-      fg={props.theme.markdown.codeBlock}
-      bg={props.theme.background.base}
-      conceal={false}
-      drawUnstyledText={true}
-      streaming={false}
+    <box
       width="100%"
-    />
+      flexDirection="column"
+      flexShrink={0}
+      border
+      borderStyle="rounded"
+      borderColor={frameBorderColor(props.theme)}
+      paddingLeft={1}
+      paddingRight={1}
+    >
+      <code
+        content={props.content}
+        filetype={resolveCodeFiletype(props.language)}
+        syntaxStyle={props.syntaxStyle ?? owned!}
+        fg={props.theme.markdown.codeBlock}
+        bg={props.theme.background.base}
+        conceal={false}
+        drawUnstyledText={true}
+        streaming={false}
+        width="100%"
+      />
+    </box>
   )
 }

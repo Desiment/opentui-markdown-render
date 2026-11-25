@@ -186,7 +186,7 @@ The component measures the area assigned by its parent. Put it inside an OpenTUI
 | Input | Terminal output |
 | --- | --- |
 | Markdown headings and emphasis | Styled text with per-level colour, attributes, and spacing |
-| Fenced code | OpenTUI code blocks with language-aware highlighting where supported |
+| Fenced code | Rounded Unicode-framed code blocks with language-aware highlighting where supported |
 | Tables | Content-sized terminal tables; wide tables can pan horizontally |
 | `$inline$`, `$$display$$`, `\(inline\)`, `\[display\]` | In-process math images; quality depends on the terminal image protocol |
 | Mermaid fences | Native terminal diagrams for the supported diagram families |
